@@ -24,6 +24,7 @@ import { StudentPortalView } from './features/student-portal';
 // Feature Module: Đăng nhập
 import { LoginView } from './features/auth';
 import { ChangePasswordModal } from './features/auth/ChangePasswordModal';
+import { ResetPasswordView } from './features/auth/ResetPasswordView';
 
 // Custom Hooks (State & REST API Integration Layer)
 import { useAuth, useEcosystemData, useToast } from './hooks';
@@ -141,6 +142,11 @@ export default function App() {
     submitted_at: s.submitted_at?.split('T')[0],
   }));
 
+  // Trang đặt lại mật khẩu từ link trong email (không cần đăng nhập)
+  if (window.location.pathname === '/reset-password') {
+    return <ResetPasswordView />;
+  }
+
   // Chưa đăng nhập: chỉ hiển thị màn hình đăng nhập
   if (!currentUser) {
     return (
@@ -150,6 +156,11 @@ export default function App() {
         onDevQuickLogin={import.meta.env.DEV ? (r) => switchRole(r) : undefined}
       />
     );
+  }
+
+  // Mật khẩu do admin đặt: bắt buộc đổi trước khi dùng hệ thống
+  if (currentUser.must_change_password) {
+    return <ChangePasswordModal required onClose={logout} onDone={() => window.location.reload()} />;
   }
 
   const unpaidTuitionCount = tuitionRecords.filter((t) => t.status === 'unpaid').length;
@@ -272,6 +283,7 @@ export default function App() {
                 assignments={formattedAssignments}
                 submissions={formattedSubmissions}
                 initialClassId={preselectedClassId}
+                isAdmin={currentUser?.role === 'admin'}
                 onCreateStudent={(st) => handleCreateStudent({ ...st, student_code: st.phone })}
                 onUpdateStudent={(st) => handleUpdateStudent(st.id, st)}
                 onDeleteStudent={handleDeleteStudent}

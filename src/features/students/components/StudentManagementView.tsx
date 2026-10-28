@@ -18,6 +18,7 @@ import {
   JlptLevel 
 } from '../../../shared/types';
 import { Student } from '../types';
+import { StudentAccountPanel } from './StudentAccountPanel';
 
 interface StudentManagementViewProps {
   students: Student[];
@@ -31,6 +32,8 @@ interface StudentManagementViewProps {
   onUpdateStudent: (student: Student) => void;
   onDeleteStudent: (studentId: string) => void;
   onTransferClass: (studentId: string, newClassId: string) => void;
+  /** Admin mới thấy khối quản lý tài khoản đăng nhập */
+  isAdmin?: boolean;
 }
 
 export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
@@ -45,6 +48,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   onUpdateStudent,
   onDeleteStudent,
   onTransferClass,
+  isAdmin = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>(initialClassId || 'all');
@@ -657,6 +661,8 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>
+
+              {editingStudent && isAdmin && <StudentAccountPanel studentId={editingStudent.id} />}
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button

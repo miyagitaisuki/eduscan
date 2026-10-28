@@ -48,6 +48,19 @@ export function randomPassword(): string {
   return crypto.randomBytes(5).toString('base64url');
 }
 
+// Độ dài tối thiểu cho mật khẩu mới (đổi mật khẩu, đặt lại, admin đặt)
+export const MIN_PASSWORD_LENGTH = 8;
+
+// Mật khẩu tự sinh dài 12 ký tự, đủ mạnh và đạt độ dài tối thiểu
+export function generatePassword(): string {
+  return crypto.randomBytes(9).toString('base64url');
+}
+
+// Băm token đặt lại mật khẩu: chỉ lưu băm, không lưu token gốc
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 export function newSessionCode(): string {
   return `ES-${crypto.randomInt(1000, 10000)}`;
 }

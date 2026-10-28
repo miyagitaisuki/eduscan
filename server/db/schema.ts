@@ -34,6 +34,10 @@ export const users = pgTable('users', {
   avatar: text('avatar'),
   phone: varchar('phone', { length: 30 }),
   status: userStatus('status').notNull().default('active'),
+  // Buộc đổi mật khẩu ở lần đăng nhập kế tiếp (mật khẩu do admin đặt)
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
+  // Tăng mỗi khi đổi/đặt lại mật khẩu: token có tv cũ sẽ bị từ chối
+  tokenVersion: integer('token_version').notNull().default(0),
   createdAt: createdAt(),
 });
 
@@ -197,4 +201,34 @@ export const notifications = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('idx_notifications_user').on(t.userId)]
+);
+
+// ---- Đặt lại mật khẩu qua email & nhật ký thao tác ----
+export const passwordResets = pgTable(
+  'password_resets',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // Chỉ lưu băm SHA-256 của token, không lưu token gốc
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('idx_password_resets_user').on(t.userId)]
+);
+
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
+    id: text('id').primaryKey(),
+    actorId: text('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    action: varchar('action', { length: 100 }).notNull(),
+    targetId: text('target_id'),
+    meta: jsonb('meta'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('idx_audit_target').on(t.targetId)]
 );

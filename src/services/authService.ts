@@ -10,12 +10,24 @@ export const authService = {
     }
     return res;
   },
+  // Đổi mật khẩu: server trả token mới (token cũ đã vô hiệu) và user đã cập nhật cờ bắt buộc đổi
   async changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ ok: boolean; message?: string }> {
-    return apiClient.post('/auth/change-password', {
+    const res = await apiClient.post<{ ok: boolean; message?: string; token?: string; user?: any }>('/auth/change-password', {
       current_password: currentPassword,
       new_password: newPassword,
       confirm_password: confirmPassword,
     });
+    if (res.token) apiClient.setToken(res.token);
+    if (res.user) apiClient.setCurrentUser(res.user);
+    return res;
+  },
+
+  async forgotPassword(email: string): Promise<{ ok: boolean; message: string }> {
+    return apiClient.post('/auth/forgot-password', { email });
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<{ ok: boolean; message: string }> {
+    return apiClient.post('/auth/reset-password', { token, new_password: newPassword });
   },
   async register(data: {
     email: string;

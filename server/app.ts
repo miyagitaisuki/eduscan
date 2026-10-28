@@ -15,7 +15,13 @@ import { notificationRoutes } from './routes/notifications';
 import { aiRoutes } from './routes/ai';
 import { adminRoutes } from './routes/admin';
 
-export const PUBLIC_API_PATHS = new Set(['/api/health', '/api/auth/login', '/api/auth/register']);
+export const PUBLIC_API_PATHS = new Set([
+  '/api/health',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+]);
 
 export interface CreateAppOptions {
   db: AppDb;

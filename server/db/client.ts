@@ -19,7 +19,11 @@ export function sslConfig(env: NodeJS.ProcessEnv = process.env) {
 
   if (env.DATABASE_CA_CERT) {
     const value = env.DATABASE_CA_CERT.trim();
-    const ca = value.includes('BEGIN CERTIFICATE') ? value.replace(/\\n/g, '\n') : fs.readFileSync(value, 'utf8');
+    // Nội dung PEM (có header), đường dẫn file có thật, hoặc nội dung thô với \\n được đổi thành xuống dòng
+    let ca: string;
+    if (value.includes('BEGIN CERTIFICATE')) ca = value.replace(/\\n/g, '\n');
+    else if (fs.existsSync(value)) ca = fs.readFileSync(value, 'utf8');
+    else ca = value.replace(/\\n/g, '\n');
     return {
       ca,
       rejectUnauthorized: true,

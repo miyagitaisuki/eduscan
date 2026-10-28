@@ -12,6 +12,7 @@ export function userDto(u: any) {
     avatar: u.avatar ?? '',
     phone: u.phone ?? '',
     status: u.status,
+    must_change_password: !!u.mustChangePassword,
     created_at: iso(u.createdAt),
   };
 }

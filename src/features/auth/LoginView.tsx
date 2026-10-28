@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn } from 'lucide-react';
+import { authService } from '../../services/authService';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<unknown>;
@@ -12,6 +13,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMsg, setForgotMsg] = useState('');
+  const [forgotBusy, setForgotBusy] = useState(false);
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotBusy(true);
+    try {
+      const res = await authService.forgotPassword(forgotEmail.trim());
+      setForgotMsg(res.message);
+    } catch (err: any) {
+      setForgotMsg(err?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setForgotBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +78,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
 
           {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
 
+          <button type="button" onClick={() => setShowForgot((v) => !v)} className="w-full text-xs font-semibold text-blue-600 hover:underline cursor-pointer">
+            Quên mật khẩu?
+          </button>
+
           <button
             type="submit"
             disabled={isLoading}
@@ -68,6 +90,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
             {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
         </form>
+
+        {showForgot && (
+          <form onSubmit={handleForgot} className="border-t border-slate-200 pt-4 space-y-2">
+            <p className="text-xs text-slate-600">Nhập email đăng nhập. Nếu email tồn tại, hệ thống sẽ gửi liên kết đặt lại mật khẩu (hiệu lực 30 phút).</p>
+            <input
+              type="email"
+              required
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:border-blue-500"
+            />
+            {forgotMsg && <p className="text-xs text-emerald-700 font-medium">{forgotMsg}</p>}
+            <button type="submit" disabled={forgotBusy} className="w-full py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 cursor-pointer">
+              {forgotBusy ? 'Đang gửi...' : 'Gửi liên kết đặt lại'}
+            </button>
+          </form>
+        )}
 
         {onDevQuickLogin && (
           <div className="border-t border-slate-200 pt-4 space-y-2">

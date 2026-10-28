@@ -3,9 +3,11 @@ import { and, eq, inArray, ne } from 'drizzle-orm';
 import { classes, enrollments, tuitionRecords, users } from '../db/schema';
 import { userDto, classDto } from '../lib/dto';
 import { ah, AuthedRequest, todayStr } from '../lib/http';
-import { newId } from '../lib/security';
+import { newId, generatePassword, hashPassword, MIN_PASSWORD_LENGTH } from '../lib/security';
 import { newTempPassword } from './auth';
-import { canManageClass, canManageStudent, manageableClassIds } from '../lib/access';
+import { audit } from '../lib/audit';
+import { sendPasswordReset } from '../lib/reset';
+import { canManageClass, canManageStudent, isAdmin, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
 
@@ -182,6 +184,9 @@ export function studentRoutes({ db, auth }: Deps) {
       if (b.class_id && !(await canManageClass(db, req.user, b.class_id))) {
         return res.status(403).json({ error: 'Bạn chỉ được xếp học viên vào lớp mình phụ trách.' });
       }
+      if (b.email !== undefined && !isAdmin(req.user)) {
+        return res.status(403).json({ error: 'Chỉ admin mới được đổi email đăng nhập của học viên.' });
+      }
 
       // Không cho đổi vai trò, id, mật khẩu hay ngày tạo qua route này
       const set: Partial<Record<(typeof EDITABLE_FIELDS)[number] | 'email', string>> = {};
@@ -197,6 +202,7 @@ export function studentRoutes({ db, auth }: Deps) {
           .limit(1);
         if (dup) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
         set.email = email;
+        if (email !== target.email) await audit(db, req.user.id, 'student.email_changed', target.id);
       }
       if (Object.keys(set).length > 0) {
         await db.update(users).set(set as any).where(eq(users.id, target.id));
@@ -207,6 +213,57 @@ export function studentRoutes({ db, auth }: Deps) {
 
       const [u] = await db.select().from(users).where(eq(users.id, target.id)).limit(1);
       return res.json(userDto(u));
+    })
+  );
+
+  // Admin đặt mật khẩu cho học viên: tự sinh hoặc nhập tay. Học viên buộc đổi ở lần đăng nhập kế tiếp.
+  // Tăng token_version nên phiên cũ của học viên bị đăng xuất ngay.
+  r.put(
+    '/:id/password',
+    auth.requireAdmin,
+    ah(async (req: AuthedRequest, res) => {
+      const [target] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, req.params.id), eq(users.role, 'student')))
+        .limit(1);
+      if (!target) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
+
+      const b = req.body ?? {};
+      const generate = b.generate === true;
+      const plain = generate ? generatePassword() : String(b.new_password ?? '');
+      if (!generate && plain.length < MIN_PASSWORD_LENGTH) {
+        return res.status(400).json({ error: `Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` });
+      }
+
+      await db
+        .update(users)
+        .set({ passwordHash: hashPassword(plain), mustChangePassword: true, tokenVersion: target.tokenVersion + 1 })
+        .where(eq(users.id, target.id));
+      await audit(db, req.user.id, 'student.password_set', target.id, { generated: generate });
+      // Mật khẩu chỉ trả về một lần trong phản hồi này khi admin chọn tự sinh
+      return res.json({ ok: true, ...(generate ? { temporary_password: plain } : {}) });
+    })
+  );
+
+  // Admin gửi email đặt lại mật khẩu tới địa chỉ đăng nhập của học viên (link hiệu lực 30 phút)
+  r.post(
+    '/:id/send-reset',
+    auth.requireAdmin,
+    ah(async (req: AuthedRequest, res) => {
+      const [target] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, req.params.id), eq(users.role, 'student')))
+        .limit(1);
+      if (!target) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
+
+      const sent = await sendPasswordReset(db, { id: target.id, email: target.email, fullName: target.fullName });
+      await audit(db, req.user.id, 'student.reset_email_sent', target.id, { sent });
+      if (!sent) {
+        return res.status(503).json({ error: 'Chưa gửi được email. Kiểm tra cấu hình RESEND_API_KEY và MAIL_FROM.' });
+      }
+      return res.json({ ok: true, message: `Đã gửi email đặt lại mật khẩu tới ${target.email}.` });
     })
   );
 

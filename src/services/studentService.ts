@@ -27,4 +27,14 @@ export const studentService = {
   async updateStudent(id: string, data: Partial<User> & { class_id?: string }): Promise<User> {
     return apiClient.put<User>(`/students/${id}`, data);
   },
+
+  // Chỉ admin: đặt mật khẩu (nhập tay hoặc tự sinh)
+  async setStudentPassword(id: string, body: { new_password?: string; generate?: boolean }): Promise<{ ok: boolean; temporary_password?: string }> {
+    return apiClient.put<{ ok: boolean; temporary_password?: string }>(`/students/${id}/password`, body);
+  },
+
+  // Chỉ admin: gửi email đặt lại mật khẩu tới địa chỉ đăng nhập của học viên
+  async sendPasswordReset(id: string): Promise<{ ok: boolean; message: string }> {
+    return apiClient.post<{ ok: boolean; message: string }>(`/students/${id}/send-reset`);
+  },
 };

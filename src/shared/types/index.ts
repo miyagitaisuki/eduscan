@@ -14,6 +14,7 @@ export interface User {
   phone?: string;
   student_code?: string;
   status: UserStatus;
+  must_change_password?: boolean;
   created_at?: string;
   updated_at?: string;
 }

@@ -9,10 +9,14 @@ export interface AuthUser {
   role: 'admin' | 'teacher' | 'student';
   email: string;
   full_name: string;
+  tokenVersion?: number;
 }
 
+// Khi cần đổi mật khẩu bắt buộc, chỉ hai endpoint này được dùng
+const MUST_CHANGE_ALLOWED = new Set(['/api/auth/change-password', '/api/auth/profile']);
+
 // Xác thực bằng JWT, nhưng kiểm tra lại người dùng trong DB ở mỗi request:
-// tài khoản bị xóa hoặc khóa sẽ mất quyền ngay, không chờ token hết hạn.
+// tài khoản bị xóa/khóa mất quyền ngay; token cũ (tv khác token_version) bị từ chối sau khi đổi mật khẩu.
 export function createAuth(db: AppDb, jwtSecret: string) {
   async function requireAuth(req: Request, res: Response, next: NextFunction) {
     // Đã xác thực ở cổng toàn cục: không kiểm tra DB lần thứ hai
@@ -27,14 +31,34 @@ export function createAuth(db: AppDb, jwtSecret: string) {
         return res.status(401).json({ error: 'Phiên đăng nhập đã hết hạn hoặc token không hợp lệ.' });
       }
       const [u] = await db
-        .select({ id: users.id, role: users.role, email: users.email, fullName: users.fullName, status: users.status })
+        .select({
+          id: users.id,
+          role: users.role,
+          email: users.email,
+          fullName: users.fullName,
+          status: users.status,
+          tokenVersion: users.tokenVersion,
+          mustChangePassword: users.mustChangePassword,
+        })
         .from(users)
         .where(eq(users.id, payload.id))
         .limit(1);
       if (!u || u.status !== 'active') {
         return res.status(401).json({ error: 'Tài khoản không còn hoạt động.' });
       }
-      (req as any).user = { id: u.id, role: u.role, email: u.email, full_name: u.fullName } satisfies AuthUser;
+      if (payload.tv !== u.tokenVersion) {
+        return res.status(401).json({ error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' });
+      }
+      if (u.mustChangePassword && !MUST_CHANGE_ALLOWED.has(req.originalUrl.split('?')[0])) {
+        return res.status(403).json({ error: 'Bạn cần đổi mật khẩu trước khi tiếp tục.', code: 'MUST_CHANGE_PASSWORD' });
+      }
+      (req as any).user = {
+        id: u.id,
+        role: u.role,
+        email: u.email,
+        full_name: u.fullName,
+        tokenVersion: u.tokenVersion,
+      } satisfies AuthUser;
       next();
     } catch (err) {
       next(err);
