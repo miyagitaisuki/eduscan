@@ -11,6 +11,7 @@ import {
   Upload,
   Smartphone,
   Laptop,
+  LogOut,
   QrCode,
   ShieldCheck,
   UserCheck
@@ -136,17 +137,20 @@ export const Header: React.FC<HeaderProps> = ({
                   Đổi mật khẩu
                 </button>
               )}
-              {onLogout && (
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="ml-2 text-[11px] font-semibold text-slate-300 hover:text-white underline cursor-pointer"
-                >
-                  Đăng xuất
-                </button>
-              )}
             </div>
           </div>
+
+          {/* Đăng xuất: hiển thị cho mọi vai trò, không phụ thuộc chế độ dev */}
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Đăng xuất</span>
+            </button>
+          )}
 
         </div>
       </div>
