@@ -6,7 +6,8 @@ export type ActiveTab =
   | 'classes' 
   | 'students' 
   | 'tuition' 
-  | 'homework' 
+  | 'homework'
+  | 'documents'
   | 'stats';
 
 export interface ToastNotification {

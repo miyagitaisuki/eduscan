@@ -10,6 +10,8 @@ export interface AppConfig {
   trustProxy: boolean | number;
   geminiApiKey?: string;
   geminiModel: string;
+  /** Thư viện tài liệu (Drive + Sheet). Thiếu biến nào thì tắt tính năng, API trả 503. */
+  documents?: { folderId: string; sheetId: string; serviceAccountRaw: string };
 }
 
 // Đọc và kiểm tra cấu hình. Production thiếu biến bắt buộc thì dừng ngay thay vì chạy với giá trị mặc định.
@@ -36,5 +38,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     trustProxy: env.TRUST_PROXY ? (env.TRUST_PROXY === 'true' ? true : Number(env.TRUST_PROXY)) : isProd ? 1 : false,
     geminiApiKey: env.GEMINI_API_KEY || undefined,
     geminiModel: env.GEMINI_MODEL || 'gemini-3.8-flash',
+    documents:
+      env.DOCS_DRIVE_FOLDER_ID && env.DOCS_SHEET_ID && env.GOOGLE_SERVICE_ACCOUNT_JSON
+        ? {
+            folderId: env.DOCS_DRIVE_FOLDER_ID,
+            sheetId: env.DOCS_SHEET_ID,
+            serviceAccountRaw: env.GOOGLE_SERVICE_ACCOUNT_JSON,
+          }
+        : undefined,
   };
 }

@@ -42,6 +42,17 @@ docker run -p 3000:3000 --env-file .env eduscan
 
 Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc** để quét QR bằng camera trên điện thoại hoạt động, vì trình duyệt chỉ cho phép camera trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
 
+## Thư viện tài liệu (Google Drive + Sheet)
+
+Đề thi, đáp án và học liệu (PDF, DOCX, ảnh) nằm trong một thư mục Drive; Google Sheet làm chỉ mục. Tab "Thư viện" dành cho giáo viên/admin và đồng bộ chỉ mục bằng nút "Đồng bộ từ Drive".
+
+1. Tạo service account trên Google Cloud, bật Drive API và Sheets API, tải JSON key.
+2. Chia sẻ thư mục Drive cho `client_email` (quyền Viewer) và Google Sheet cho cùng email (quyền Editor).
+3. Tạo Sheet với tab tên `documents`. Dòng đầu được server ghi tự động khi đồng bộ.
+4. Đặt `DOCS_DRIVE_FOLDER_ID`, `DOCS_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON` (xem `.env.example`). Thiếu biến nào thì API thư viện trả 503.
+
+Quy ước thư mục: `<Môn>/<Năm>/<file>`. Môn, năm và loại (đề / đáp án / học liệu) được suy ra từ đường dẫn và tên file; giáo viên có thể sửa tay trên Sheet, lần đồng bộ sau sẽ giữ lại. File đã xóa khỏi Drive được đánh dấu `missing` và không hiển thị.
+
 ## Sao lưu
 
 - **Lớp chính:** sao lưu tự động của Supabase (gói có sao lưu hằng ngày/PITR). Kiểm tra gói đang dùng có bật tính năng này.

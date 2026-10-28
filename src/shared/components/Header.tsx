@@ -18,7 +18,7 @@ import {
 import { User, UserRole } from '../types';
 
 export type EcosystemViewMode = 'teacher' | 'student';
-export type EcosystemTeacherTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats';
+export type EcosystemTeacherTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'documents' | 'stats';
 
 interface HeaderProps {
   onChangePassword?: () => void;
@@ -60,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'students', label: 'Học viên', icon: Users },
     { id: 'tuition', label: 'Học phí', icon: CreditCard },
     { id: 'homework', label: 'Bài tập & AI', icon: FileText },
+    { id: 'documents', label: 'Thư viện', icon: FileText },
     { id: 'stats', label: 'Báo cáo', icon: GraduationCap },
   ];
 

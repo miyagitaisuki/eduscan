@@ -14,6 +14,8 @@ import { tuitionRoutes } from './routes/tuition';
 import { notificationRoutes } from './routes/notifications';
 import { aiRoutes } from './routes/ai';
 import { adminRoutes } from './routes/admin';
+import { documentRoutes } from './routes/documents';
+import type { DocumentStore } from './lib/documents';
 
 export const PUBLIC_API_PATHS = new Set([
   '/api/health',
@@ -27,10 +29,11 @@ export interface CreateAppOptions {
   db: AppDb;
   config: AppConfig;
   ai?: GoogleGenAI | null;
+  documents?: DocumentStore | null;
 }
 
 // Tạo app Express (không listen). Dùng chung cho server thật và kiểm thử.
-export function createApp({ db, config, ai = null }: CreateAppOptions) {
+export function createApp({ db, config, ai = null, documents = null }: CreateAppOptions) {
   const app = express();
   app.set('trust proxy', config.trustProxy);
   app.disable('x-powered-by');
@@ -68,7 +71,7 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   });
 
   const auth = createAuth(db, config.jwtSecret);
-  const deps = { db, config, auth, ai };
+  const deps = { db, config, auth, ai, documents };
 
   // Cổng toàn cục: mọi /api đều cần token, trừ các route công khai
   app.use('/api', (req, res, next) => {
@@ -85,6 +88,7 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   app.use('/api/notifications', notificationRoutes(deps));
   app.use('/api/ai', aiRoutes(deps));
   app.use('/api/admin', adminRoutes(deps));
+  app.use('/api/documents', documentRoutes(deps));
 
   app.use('/api', (_req: Request, res: Response) => {
     res.status(404).json({ error: 'Không tìm thấy API này.' });

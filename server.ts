@@ -9,6 +9,7 @@ import { createPgDb } from './server/db/client';
 import { runMigrations } from './server/db/migrate';
 import { seedDatabase } from './server/seed';
 import { createApp } from './server/app';
+import { createGoogleDocumentStore, parseServiceAccount } from './server/lib/documents';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,7 +35,14 @@ async function main() {
   }
 
   const ai = config.geminiApiKey ? new GoogleGenAI({ apiKey: config.geminiApiKey }) : null;
-  const app = createApp({ db, config, ai });
+  const documents = config.documents
+    ? createGoogleDocumentStore({
+        credentials: parseServiceAccount(config.documents.serviceAccountRaw),
+        folderId: config.documents.folderId,
+        sheetId: config.documents.sheetId,
+      })
+    : null;
+  const app = createApp({ db, config, ai, documents });
 
   if (!config.isProd) {
     // Import động: vite là devDependency, không có trong image production

@@ -17,6 +17,7 @@ import { StudentManagementView } from './features/students';
 import { TuitionManagementView } from './features/tuition';
 import { HomeworkManagementView } from './features/homework';
 import { StudentStatsView } from './features/stats';
+import { DocumentsView } from './features/documents';
 
 // Feature Modules: Student App (Android / Web)
 import { StudentPortalView } from './features/student-portal';
@@ -300,6 +301,10 @@ export default function App() {
                 onUpdatePayment={(id, updates) => handleUpdateTuition(id, updates)}
                 onCreatePaymentRecord={handleRecordPayment}
               />
+            )}
+
+            {activeTab === 'documents' && (
+              <DocumentsView canSync={currentUser?.role === 'teacher' || currentUser?.role === 'admin'} onNotify={showToast} />
             )}
 
             {activeTab === 'homework' && (
