@@ -6,7 +6,9 @@ export type AppDb = NodePgDatabase<typeof schema>;
 
 // Kết nối Postgres (Supabase). Supabase yêu cầu SSL.
 // Chứng chỉ pooler của Supabase do CA riêng của Supabase ký (Node không tin mặc định):
-// đặt DATABASE_CA_CERT (nội dung file .crt tải từ Dashboard) để xác thực đầy đủ.
+// đặt DATABASE_CA_CERT để xác thực đầy đủ. Chấp nhận hai dạng:
+//  - nội dung PEM của file .crt (dán vào biến môi trường, dùng được khi deploy; "\n" được đổi thành xuống dòng)
+//  - đường dẫn tới file .crt (dùng khi chạy local)
 // Thiếu CA thì vẫn mã hóa nhưng không xác thực máy chủ.
 // Đặt DATABASE_SSL=false chỉ khi chạy Postgres cục bộ không có SSL.
 
@@ -16,8 +18,10 @@ export function sslConfig(env: NodeJS.ProcessEnv = process.env) {
   }
 
   if (env.DATABASE_CA_CERT) {
+    const value = env.DATABASE_CA_CERT.trim();
+    const ca = value.includes('BEGIN CERTIFICATE') ? value.replace(/\\n/g, '\n') : fs.readFileSync(value, 'utf8');
     return {
-      ca: fs.readFileSync(env.DATABASE_CA_CERT, 'utf8'),
+      ca,
       rejectUnauthorized: true,
     };
   }
