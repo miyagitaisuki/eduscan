@@ -1,0 +1,27 @@
+name: Sao lưu cơ sở dữ liệu
+
+# Sao lưu logic hằng ngày bằng pg_dump. Đây là lớp bổ sung: nền tảng Supabase có sao lưu tự động
+# (gói trả phí) là lớp chính. Cấu hình secret SUPABASE_DB_URL (chuỗi kết nối session pooler).
+on:
+  schedule:
+    - cron: '0 17 * * *' # 00:00 giờ Việt Nam
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cài pg_dump
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Xuất dữ liệu (nén, không lưu ra log)
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges --format=custom --file=eduscan.dump
+          ls -lh eduscan.dump
+      - name: Lưu bản sao lưu (giữ 30 ngày)
+        uses: actions/upload-artifact@v4
+        with:
+          name: eduscan-backup-${{ github.run_id }}
+          path: eduscan.dump
+          retention-days: 30
