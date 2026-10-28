@@ -38,6 +38,13 @@ export function currentMonthLabel() {
   const d = new Date();
   return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
 }
+// Học phí riêng của học viên: null/chuỗi rỗng = dùng học phí lớp. Trả về 'invalid' nếu không hợp lệ.
+export function parseTuitionFee(v: unknown): number | null | 'invalid' {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : 'invalid';
+}
+
 export function currentDueDate() {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-15`;
@@ -123,6 +130,8 @@ export function studentRoutes({ db, auth }: Deps) {
       if (b.class_id && !(await canManageClass(db, req.user, b.class_id))) {
         return res.status(403).json({ error: 'Bạn chỉ được xếp học viên vào lớp mình phụ trách.' });
       }
+      const tuitionFee = parseTuitionFee(b.tuition_fee);
+      if (tuitionFee === 'invalid') return res.status(400).json({ error: 'Học phí riêng phải là số nguyên không âm.' });
 
       const email = String(b.email || `student.${Date.now()}@eduscan.edu.vn`).trim().toLowerCase();
       const [dup] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
@@ -141,6 +150,7 @@ export function studentRoutes({ db, auth }: Deps) {
           studentCode: b.student_code || `STU${Math.floor(1000 + Math.random() * 9000)}`,
           avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
           phone: b.phone || '',
+          tuitionFee,
           status: 'active',
         })
         .returning();
@@ -154,7 +164,7 @@ export function studentRoutes({ db, auth }: Deps) {
           studentId: id,
           classId: cls.id,
           month: currentMonthLabel(),
-          amount: cls.monthlyFee,
+          amount: tuitionFee ?? cls.monthlyFee,
           paidAmount: 0,
           dueDate: currentDueDate(),
           status: 'unpaid',
@@ -189,9 +199,14 @@ export function studentRoutes({ db, auth }: Deps) {
       }
 
       // Không cho đổi vai trò, id, mật khẩu hay ngày tạo qua route này
-      const set: Partial<Record<(typeof EDITABLE_FIELDS)[number] | 'email', string>> = {};
+      const set: Partial<Record<(typeof EDITABLE_FIELDS)[number] | 'email' | 'tuitionFee', string | number | null>> = {};
       for (const [apiKey, col] of Object.entries(API_TO_COL)) {
         if (b[apiKey] !== undefined) set[col] = String(b[apiKey]);
+      }
+      if (b.tuition_fee !== undefined) {
+        const fee = parseTuitionFee(b.tuition_fee);
+        if (fee === 'invalid') return res.status(400).json({ error: 'Học phí riêng phải là số nguyên không âm.' });
+        set.tuitionFee = fee;
       }
       if (b.email !== undefined) {
         const email = String(b.email).trim().toLowerCase();

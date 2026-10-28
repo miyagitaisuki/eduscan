@@ -29,6 +29,13 @@
       "when": 1793211881999,
       "tag": "0003_account_admin_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793214739274,
+      "tag": "0004_student_tuition_fee",
+      "breakpoints": true
     }
   ]
 }

@@ -90,7 +90,7 @@ export default function App() {
     schedule: c.schedule || 'Thứ 2 - 4 - 6',
     start_date: c.created_at?.split('T')[0] || '2026-09-01',
     notes: c.description || '',
-    room: 'Phòng Lab 304',
+    room: '',
   }));
 
   const formattedStudents = students.map((s) => ({
@@ -101,6 +101,7 @@ export default function App() {
     level: (s as any).level || 'N5',
     join_date: s.created_at?.split('T')[0] || '2026-09-01',
     notes: `MSSV: ${s.student_code || '225101001'}`,
+    tuition_fee: s.tuition_fee ?? null,
   }));
 
   const formattedAttendance = attendanceRecords.map((r) => ({
@@ -200,7 +201,7 @@ export default function App() {
             currentUser={
               currentUser || {
                 id: 'usr-student-1',
-                email: 'student@qnu.edu.vn',
+                email: 'student@eduscan.edu.vn',
                 full_name: 'Nguyễn Văn An',
                 role: 'student',
                 status: 'active',
@@ -357,7 +358,7 @@ export default function App() {
       {/* Footer */}
       <footer className="hidden md:block border-t border-slate-200 bg-white/70 py-4 text-center text-xs text-slate-500">
         <p>
-          EduScan AI Ecosystem © 2026 • Teacher Web & Student Android Platform • Trường Đại học Quy Nhơn
+          EduScan AI Ecosystem © 2026 • Teacher Web & Student Android Platform
         </p>
       </footer>
     </div>

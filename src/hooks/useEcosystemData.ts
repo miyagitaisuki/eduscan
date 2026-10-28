@@ -111,7 +111,14 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   };
 
   // 2. Students Handlers
-  const handleCreateStudent = async (data: { full_name: string; email?: string; phone?: string; student_code?: string; class_id?: string }) => {
+  const handleCreateStudent = async (data: {
+    full_name: string;
+    email?: string;
+    phone?: string;
+    student_code?: string;
+    class_id?: string;
+    tuition_fee?: number | null;
+  }) => {
     try {
       const created = await studentService.createStudent(data);
       setStudents((prev) => [...prev, created]);

@@ -12,7 +12,7 @@ cp .env.example .env        # điền DATABASE_URL (và GEMINI_API_KEY nếu c�
 npm run dev                 # chạy ở http://localhost:3000, tự migrate và nạp dữ liệu demo
 ```
 
-Tài khoản demo (chỉ dev): `teacher@eduscan.edu.vn`, `student@qnu.edu.vn`, `admin@eduscan.edu.vn`, mật khẩu `123456`.
+Tài khoản demo (chỉ dev): `teacher@eduscan.edu.vn`, `student@eduscan.edu.vn`, `admin@eduscan.edu.vn`, mật khẩu `123456`.
 
 ## Kiểm thử
 

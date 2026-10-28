@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "tuition_fee" integer;

@@ -72,6 +72,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   const [classId, setClassId] = useState<string>(classes[0]?.id || '');
   const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
+  const [tuitionFee, setTuitionFee] = useState('');
 
   const openCreateModal = () => {
     setEditingStudent(null);
@@ -81,6 +82,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     setClassId(classes[0]?.id || '');
     setJoinDate(new Date().toISOString().split('T')[0]);
     setNotes('');
+    setTuitionFee('');
     setIsModalOpen(true);
   };
 
@@ -92,12 +94,15 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     setClassId(st.class_id);
     setJoinDate(st.join_date);
     setNotes(st.notes);
+    setTuitionFee(st.tuition_fee != null ? String(st.tuition_fee) : '');
     setIsModalOpen(true);
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) return;
+    // Để trống = dùng học phí của lớp
+    const tuition_fee = tuitionFee.trim() === '' ? null : Math.round(Number(tuitionFee));
 
     if (editingStudent) {
       onUpdateStudent({
@@ -108,6 +113,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
         class_id: classId,
         join_date: joinDate,
         notes: notes.trim(),
+        tuition_fee,
       });
     } else {
       onCreateStudent({
@@ -117,6 +123,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
         class_id: classId,
         join_date: joinDate,
         notes: notes.trim(),
+        tuition_fee,
       });
     }
 
@@ -420,7 +427,8 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     {metrics.isPaidOctober ? '✅ Đã hoàn thành' : '❌ Chưa đóng'}
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    {cls?.monthly_fee.toLocaleString('vi-VN')} đ/tháng
+                    {(activeProfileStudent.tuition_fee ?? cls?.monthly_fee ?? 0).toLocaleString('vi-VN')} đ/tháng
+                    {activeProfileStudent.tuition_fee != null && ' (học phí riêng)'}
                   </p>
                 </div>
 
@@ -605,6 +613,19 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   placeholder="VD: 0912345678"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Học phí riêng (VNĐ/tháng)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="Để trống = theo học phí lớp"
+                  value={tuitionFee}
+                  onChange={(e) => setTuitionFee(e.target.value)}
                   className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>

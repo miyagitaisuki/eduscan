@@ -42,7 +42,7 @@ const GRADING_SCHEMA = {
   required: ['score', 'gradeClassification', 'rubricBreakdown', 'strengths', 'weaknesses', 'detailedFeedback', 'suggestions'],
 };
 
-const GRADING_SYSTEM_PROMPT = `Bạn là chuyên gia giáo dục và giám khảo chấm thi đại học công tâm, tỉ mỉ và ân cần.
+const GRADING_SYSTEM_PROMPT = `Bạn là chuyên gia giáo dục và giám khảo chấm bài công tâm, tỉ mỉ và ân cần.
 Chấm điểm bài nộp dựa trên đề bài, đáp án mẫu và barem điểm trên thang 10.
 Chỉ ra điểm mạnh, điểm yếu và lời khuyên sư phạm mang tính động viên giúp học viên cải thiện. Ngôn ngữ: Tiếng Việt chuẩn mực.`;
 

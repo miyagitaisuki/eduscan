@@ -8,4 +8,6 @@ export interface Student {
   class_id: string;
   join_date: string; // YYYY-MM-DD
   notes: string;
+  // Học phí riêng (VNĐ/tháng); null = theo học phí của lớp
+  tuition_fee?: number | null;
 }

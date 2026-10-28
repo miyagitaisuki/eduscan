@@ -13,6 +13,7 @@ export function userDto(u: any) {
     phone: u.phone ?? '',
     status: u.status,
     must_change_password: !!u.mustChangePassword,
+    tuition_fee: num(u.tuitionFee),
     created_at: iso(u.createdAt),
   };
 }

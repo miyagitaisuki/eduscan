@@ -43,7 +43,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   const rows = students.map((st) => {
     const cls = classes.find((c) => c.id === st.class_id);
     const existingPayment = payments.find((p) => p.student_id === st.id && p.month === selectedMonth);
-    const amount = existingPayment ? existingPayment.amount : (cls?.monthly_fee || 800000);
+    const amount = existingPayment ? existingPayment.amount : (st.tuition_fee ?? cls?.monthly_fee ?? 800000);
     const status = existingPayment ? existingPayment.status : 'unpaid';
     const paidDate = existingPayment ? existingPayment.paid_date : null;
     const notes = existingPayment ? existingPayment.notes : '';

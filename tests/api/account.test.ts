@@ -77,9 +77,9 @@ describe('quản lý tài khoản học viên', () => {
     const ok = await ctx.api
       .put(`/api/students/${STUDENT_ID}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ email: 'an.nguyen@qnu.edu.vn' });
+      .send({ email: 'an.nguyen@eduscan.edu.vn' });
     expect(ok.status).toBe(200);
-    expect(ok.body.email).toBe('an.nguyen@qnu.edu.vn');
+    expect(ok.body.email).toBe('an.nguyen@eduscan.edu.vn');
   });
 
   it('quên mật khẩu luôn trả về cùng thông báo, link sai bị từ chối', async () => {

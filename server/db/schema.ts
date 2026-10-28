@@ -36,6 +36,8 @@ export const users = pgTable('users', {
   status: userStatus('status').notNull().default('active'),
   // Buộc đổi mật khẩu ở lần đăng nhập kế tiếp (mật khẩu do admin đặt)
   mustChangePassword: boolean('must_change_password').notNull().default(false),
+  // Học phí riêng theo tháng của học viên; null = dùng học phí của lớp
+  tuitionFee: integer('tuition_fee'),
   // Tăng mỗi khi đổi/đặt lại mật khẩu: token có tv cũ sẽ bị từ chối
   tokenVersion: integer('token_version').notNull().default(0),
   createdAt: createdAt(),

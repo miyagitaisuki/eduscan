@@ -16,6 +16,7 @@ export const studentService = {
     phone?: string;
     student_code?: string;
     class_id?: string;
+    tuition_fee?: number | null;
   }): Promise<User> {
     return apiClient.post<User>('/students', data);
   },

@@ -26,9 +26,9 @@ export async function seedDatabase(db: AppDb, opts: SeedOptions): Promise<boolea
     if (!opts.demo) return;
 
     await tx.insert(s.users).values([
-      { id: 'usr-student-1', email: 'student@qnu.edu.vn', passwordHash: pw, fullName: 'Nguyễn Văn An', role: 'student', studentCode: '225101001', phone: '0905.111.222' },
-      { id: 'usr-student-2', email: 'mai.le@qnu.edu.vn', passwordHash: pw, fullName: 'Lê Thị Mai', role: 'student', studentCode: '225101002', phone: '0905.222.333' },
-      { id: 'usr-student-3', email: 'dung.tran@qnu.edu.vn', passwordHash: pw, fullName: 'Trần Tiến Dũng', role: 'student', studentCode: '225101003', phone: '0905.333.444' },
+      { id: 'usr-student-1', email: 'student@eduscan.edu.vn', passwordHash: pw, fullName: 'Nguyễn Văn An', role: 'student', studentCode: '225101001', phone: '0905.111.222' },
+      { id: 'usr-student-2', email: 'mai.le@eduscan.edu.vn', passwordHash: pw, fullName: 'Lê Thị Mai', role: 'student', studentCode: '225101002', phone: '0905.222.333' },
+      { id: 'usr-student-3', email: 'dung.tran@eduscan.edu.vn', passwordHash: pw, fullName: 'Trần Tiến Dũng', role: 'student', studentCode: '225101003', phone: '0905.333.444' },
     ]);
     await tx.insert(s.classes).values([
       { id: 'cls-n5-01', name: 'N5 Sơ cấp 1 (Minna no Nihongo)', code: 'JPN-N501', teacherId, description: 'Lớp nhập môn tiếng Nhật: Bảng chữ cái Hiragana/Katakana, 25 bài Minna no Nihongo sơ cấp.', schedule: 'Thứ 2 - 4 - 6 (18:00 - 19:30)', level: 'N5', monthlyFee: 800000 },

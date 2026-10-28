@@ -36,9 +36,9 @@ export async function createTestContext(configOverrides: Partial<AppConfig> = {}
 }
 
 export const TEACHER = 'teacher@eduscan.edu.vn';
-export const STUDENT_AN = 'student@qnu.edu.vn';
-export const STUDENT_MAI = 'mai.le@qnu.edu.vn';
-export const STUDENT_DUNG = 'dung.tran@qnu.edu.vn';
+export const STUDENT_AN = 'student@eduscan.edu.vn';
+export const STUDENT_MAI = 'mai.le@eduscan.edu.vn';
+export const STUDENT_DUNG = 'dung.tran@eduscan.edu.vn';
 export const ADMIN = 'admin@eduscan.edu.vn';
 
 // Mã QR hợp lệ ở chu kỳ hiện tại, đúng định dạng giáo viên hiển thị

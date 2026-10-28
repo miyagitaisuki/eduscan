@@ -15,6 +15,7 @@ export interface User {
   student_code?: string;
   status: UserStatus;
   must_change_password?: boolean;
+  tuition_fee?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -27,6 +28,8 @@ export interface Student {
   level: string | JlptLevel;
   join_date: string;
   notes?: string;
+  // Học phí riêng (VNĐ/tháng); null = theo học phí của lớp
+  tuition_fee?: number | null;
 }
 
 export interface ClassItem {

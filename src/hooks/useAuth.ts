@@ -46,7 +46,7 @@ export function useAuth() {
     setIsLoading(true);
     try {
       const email =
-        targetRole === 'student' ? 'student@qnu.edu.vn' : targetRole === 'admin' ? 'admin@eduscan.edu.vn' : 'teacher@eduscan.edu.vn';
+        targetRole === 'student' ? 'student@eduscan.edu.vn' : targetRole === 'admin' ? 'admin@eduscan.edu.vn' : 'teacher@eduscan.edu.vn';
       const res = await authService.login(email, '123456');
       setCurrentUser(res.user);
     } catch {
