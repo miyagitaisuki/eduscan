@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { errorDetail } from '../shared/utils/errorMessage';
 import {
   ClassItem,
   User,
@@ -86,7 +87,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       notify?.('success', 'Đã tạo lớp học mới', created.name);
       return created;
     } catch (err: any) {
-      notify?.('warning', 'Lỗi tạo lớp học', err.message);
+      notify?.('warning', 'Lỗi tạo lớp học', errorDetail(err));
     }
   };
 
@@ -96,7 +97,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       setClasses((prev) => prev.map((c) => (c.id === id ? updated : c)));
       notify?.('success', 'Đã cập nhật lớp học', updated.name);
     } catch (err: any) {
-      notify?.('warning', 'Lỗi cập nhật lớp', err.message);
+      notify?.('warning', 'Lỗi cập nhật lớp', errorDetail(err));
     }
   };
 
@@ -106,7 +107,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       setClasses((prev) => prev.filter((c) => c.id !== id));
       notify?.('info', 'Đã xóa lớp học thành công');
     } catch (err: any) {
-      notify?.('warning', 'Lỗi xóa lớp', err.message);
+      notify?.('warning', 'Lỗi xóa lớp', errorDetail(err));
     }
   };
 
@@ -125,7 +126,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       await refreshData();
       return created;
     } catch (err: any) {
-      notify?.('warning', 'Lỗi thêm học viên', err.message);
+      notify?.('warning', 'Lỗi thêm học viên', errorDetail(err));
     }
   };
 
@@ -136,7 +137,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       notify?.('success', 'Đã cập nhật học viên', updated.full_name);
       await refreshData();
     } catch (err: any) {
-      notify?.('warning', 'Lỗi cập nhật học viên', err.message);
+      notify?.('warning', 'Lỗi cập nhật học viên', errorDetail(err));
     }
   };
 
@@ -148,7 +149,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       notify?.('success', 'Đã phát sinh mã QR điểm danh động!', `Phiên học: ${session.session_code}`);
       return session;
     } catch (err: any) {
-      notify?.('warning', 'Lỗi tạo phiên điểm danh', err.message);
+      notify?.('warning', 'Lỗi tạo phiên điểm danh', errorDetail(err));
     }
   };
 
@@ -168,7 +169,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       }
       return res;
     } catch (err: any) {
-      notify?.('warning', 'Điểm danh không thành công', err.message);
+      notify?.('warning', 'Điểm danh không thành công', errorDetail(err));
       throw err;
     }
   };
@@ -179,7 +180,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       notify?.('success', 'Đã lưu điểm danh nhanh thành công!', `${presentIds.length} học viên có mặt.`);
       await refreshData();
     } catch (err: any) {
-      notify?.('warning', 'Lỗi lưu điểm danh', err.message);
+      notify?.('warning', 'Lỗi lưu điểm danh', errorDetail(err));
     }
   };
 
@@ -191,7 +192,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       notify?.('success', 'Đã giao bài tập mới', asg.title);
       return asg;
     } catch (err: any) {
-      notify?.('warning', 'Lỗi tạo bài tập', err.message);
+      notify?.('warning', 'Lỗi tạo bài tập', errorDetail(err));
     }
   };
 
@@ -202,7 +203,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       setSubmissions((prev) => prev.filter((s) => s.assignment_id !== id));
       notify?.('info', 'Đã xóa bài tập');
     } catch (err: any) {
-      notify?.('warning', 'Lỗi xóa bài tập', err.message);
+      notify?.('warning', 'Lỗi xóa bài tập', errorDetail(err));
     }
   };
 
@@ -223,7 +224,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       notify?.('success', 'Nộp bài tập thành công!', 'Bài làm đã được gửi đến giáo viên & hệ thống chấm AI.');
       return sub;
     } catch (err: any) {
-      notify?.('warning', 'Lỗi nộp bài', err.message);
+      notify?.('warning', 'Lỗi nộp bài', errorDetail(err));
       throw err;
     }
   };
@@ -246,7 +247,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       notify?.('success', 'Đã lưu kết quả chấm điểm', `Điểm: ${gradeData.score}/10`);
       return updated;
     } catch (err: any) {
-      notify?.('warning', 'Lỗi lưu điểm', err.message);
+      notify?.('warning', 'Lỗi lưu điểm', errorDetail(err));
     }
   };
 
@@ -257,7 +258,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       setSubmissions((prev) => prev.map((s) => (s.id === submissionId ? updated : s)));
       notify?.('success', 'AI đã tạo bản nháp', 'Hãy xem lại và duyệt trước khi chấm điểm.');
     } catch (err: any) {
-      notify?.('warning', 'Không chấm được bằng AI', err.message);
+      notify?.('warning', 'Không chấm được bằng AI', errorDetail(err));
     }
   };
 
@@ -266,7 +267,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       const updated = await aiService.discardSubmissionDraft(submissionId);
       setSubmissions((prev) => prev.map((s) => (s.id === submissionId ? updated : s)));
     } catch (err: any) {
-      notify?.('warning', 'Lỗi bỏ bản nháp', err.message);
+      notify?.('warning', 'Lỗi bỏ bản nháp', errorDetail(err));
     }
   };
 
@@ -277,7 +278,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       setTuitionRecords((prev) => prev.map((t) => (t.id === id ? updated : t)));
       notify?.('success', 'Đã cập nhật học phí');
     } catch (err: any) {
-      notify?.('warning', 'Lỗi cập nhật học phí', err.message);
+      notify?.('warning', 'Lỗi cập nhật học phí', errorDetail(err));
     }
   };
 
@@ -295,7 +296,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       }
       notify?.('success', 'Đã cập nhật học phí', `Tháng ${month}: ${amount.toLocaleString('vi-VN')} đ`);
     } catch (err: any) {
-      notify?.('warning', 'Lỗi cập nhật học phí', err.message);
+      notify?.('warning', 'Lỗi cập nhật học phí', errorDetail(err));
     }
   };
 
@@ -319,7 +320,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       setSubmissions((prev) => prev.filter((s) => s.student_id !== studentId));
       notify?.('info', 'Đã xóa học viên khỏi hệ thống', target?.full_name);
     } catch (err: any) {
-      notify?.('warning', 'Lỗi xóa học viên', err.message);
+      notify?.('warning', 'Lỗi xóa học viên', errorDetail(err));
     }
   };
 
@@ -331,7 +332,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       );
       notify?.('success', 'Đã ghi nhận thu học phí thành công!');
     } catch (err: any) {
-      notify?.('warning', 'Lỗi ghi nhận học phí', err.message);
+      notify?.('warning', 'Lỗi ghi nhận học phí', errorDetail(err));
     }
   };
 
@@ -354,7 +355,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
         prev.some((s) => s.id === rec.id) ? prev.map((s) => (s.id === rec.id ? { ...s, ...rec } : s)) : [...prev, rec]
       );
     } catch (err: any) {
-      notify?.('warning', 'Lỗi lưu bài nộp', err.message);
+      notify?.('warning', 'Lỗi lưu bài nộp', errorDetail(err));
     }
   };
 
@@ -371,7 +372,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       URL.revokeObjectURL(url);
       notify?.('success', 'Đã xuất file sao lưu!', 'File có chứa băm mật khẩu, hãy cất giữ an toàn.');
     } catch (err: any) {
-      notify?.('warning', 'Không thể sao lưu', err.message);
+      notify?.('warning', 'Không thể sao lưu', errorDetail(err));
     }
   };
 
@@ -387,7 +388,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       await refreshData();
       notify?.('success', 'Khôi phục dữ liệu thành công!');
     } catch (err: any) {
-      notify?.('warning', 'Không thể khôi phục', err.message);
+      notify?.('warning', 'Không thể khôi phục', errorDetail(err));
     }
   };
 

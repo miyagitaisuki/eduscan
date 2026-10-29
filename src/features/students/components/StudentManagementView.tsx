@@ -7,7 +7,8 @@ import {
   Trash2, 
   Phone, 
   ArrowRightLeft, 
-  X
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { 
   ClassItem, 
@@ -276,7 +277,15 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
             return (
               <div
                 key={st.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setActiveProfileStudent(st)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setActiveProfileStudent(st);
+                  }
+                }}
                 className="bg-white rounded-3xl p-4 sm:p-5 border border-blue-100 hover:border-blue-300 transition-all shadow-xs flex flex-col justify-between cursor-pointer group active:scale-99"
               >
                 <div>
@@ -287,6 +296,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     <span className="text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
                       {cls?.name || 'Chưa xếp lớp'}
                     </span>
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 shrink-0" aria-hidden />
                   </div>
 
                   <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors">
