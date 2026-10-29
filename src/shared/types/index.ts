@@ -5,11 +5,14 @@ export type TuitionStatus = 'paid' | 'unpaid' | 'partial';
 export type SubmissionStatus = 'unsubmitted' | 'submitted' | 'graded';
 export type JlptLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 
+export type Gender = 'male' | 'female';
+
 export interface User {
   id: string;
   email: string;
   full_name: string;
   role: UserRole;
+  gender?: Gender | null;
   avatar?: string;
   phone?: string;
   student_code?: string;
@@ -23,6 +26,7 @@ export interface Student {
   id: string;
   full_name: string;
   phone: string;
+  gender?: Gender | null;
   class_id: string;
   level: string | JlptLevel;
   join_date: string;

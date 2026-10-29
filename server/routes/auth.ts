@@ -11,7 +11,7 @@ import {
   hashToken,
   MIN_PASSWORD_LENGTH,
 } from '../lib/security';
-import { userDto } from '../lib/dto';
+import { parseGender, userDto } from '../lib/dto';
 import { ah, AuthedRequest } from '../lib/http';
 import { audit } from '../lib/audit';
 import { sendPasswordReset } from '../lib/reset';
@@ -157,13 +157,18 @@ export function authRoutes({ db, auth, config }: Deps) {
     auth.requireAuth,
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
-      const set: Partial<{ fullName: string; phone: string }> = {};
+      const set: Partial<{ fullName: string; phone: string; gender: 'male' | 'female' | null }> = {};
       if (b.full_name !== undefined) {
         const name = String(b.full_name).trim();
         if (!name) return res.status(400).json({ error: 'Họ tên không được để trống.' });
         set.fullName = name;
       }
       if (b.phone !== undefined) set.phone = String(b.phone).trim();
+      if (b.gender !== undefined) {
+        const gender = parseGender(b.gender);
+        if (gender === undefined) return res.status(400).json({ error: 'Giới tính phải là nam hoặc nữ.' });
+        set.gender = gender;
+      }
       if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Không có trường nào để cập nhật.' });
 
       const [u] = await db.update(users).set(set).where(eq(users.id, req.user.id)).returning();

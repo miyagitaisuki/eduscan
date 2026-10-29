@@ -15,6 +15,7 @@ import {
 
 // ---- Enums ----
 export const userRole = pgEnum('user_role', ['admin', 'teacher', 'student']);
+export const userGender = pgEnum('user_gender', ['male', 'female']);
 export const userStatus = pgEnum('user_status', ['active', 'suspended', 'inactive']);
 export const enrollmentStatus = pgEnum('enrollment_status', ['active', 'dropped', 'completed']);
 export const submissionStatus = pgEnum('submission_status', ['unsubmitted', 'submitted', 'graded']);
@@ -31,6 +32,8 @@ export const users = pgTable('users', {
   fullName: varchar('full_name', { length: 150 }).notNull(),
   role: userRole('role').notNull().default('student'),
   studentCode: varchar('student_code', { length: 50 }),
+  // Dùng để xưng hô (Thầy/Cô, anh/chị) trên màn hình chào; null = chưa khai báo
+  gender: userGender('gender'),
   avatar: text('avatar'),
   phone: varchar('phone', { length: 30 }),
   status: userStatus('status').notNull().default('active'),

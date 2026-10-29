@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { User, AuthResponse } from '../shared/types';
+import { Gender, User, AuthResponse } from '../shared/types';
 
 export const authService = {
   async login(email: string, password = 'password123'): Promise<AuthResponse> {
@@ -23,7 +23,7 @@ export const authService = {
   },
 
   // Tự cập nhật họ tên và SĐT. Tên đăng nhập và vai trò do admin quản lý.
-  async updateProfile(data: { full_name?: string; phone?: string }): Promise<User> {
+  async updateProfile(data: { full_name?: string; phone?: string; gender?: Gender | null }): Promise<User> {
     const user = await apiClient.put<User>('/auth/profile', data);
     apiClient.setCurrentUser(user);
     return user;

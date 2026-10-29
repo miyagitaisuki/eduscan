@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import { classes, enrollments, tuitionRecords, users } from '../db/schema';
-import { userDto, classDto } from '../lib/dto';
+import { classDto, parseGender, userDto } from '../lib/dto';
 import { ah, AuthedRequest, todayStr } from '../lib/http';
 import { newId, generatePassword, hashPassword, MIN_PASSWORD_LENGTH } from '../lib/security';
 import { newTempPassword } from './auth';
@@ -141,6 +141,7 @@ export function studentRoutes({ db, auth }: Deps) {
           studentCode: b.student_code || `STU${Math.floor(1000 + Math.random() * 9000)}`,
           avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
           phone: b.phone || '',
+          gender: parseGender(b.gender) ?? null,
           status: 'active',
         })
         .returning();
@@ -189,9 +190,14 @@ export function studentRoutes({ db, auth }: Deps) {
       }
 
       // Không cho đổi vai trò, id, mật khẩu hay ngày tạo qua route này
-      const set: Partial<Record<(typeof EDITABLE_FIELDS)[number] | 'email', string>> = {};
+      const set: Partial<Record<(typeof EDITABLE_FIELDS)[number] | 'email' | 'gender', string | null>> = {};
       for (const [apiKey, col] of Object.entries(API_TO_COL)) {
         if (b[apiKey] !== undefined) set[col] = String(b[apiKey]);
+      }
+      if (b.gender !== undefined) {
+        const gender = parseGender(b.gender);
+        if (gender === undefined) return res.status(400).json({ error: 'Giới tính phải là nam hoặc nữ.' });
+        set.gender = gender;
       }
       if (b.email !== undefined) {
         const email = String(b.email).trim().toLowerCase();

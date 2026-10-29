@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { and, count, eq, ne } from 'drizzle-orm';
 import { classes, users } from '../db/schema';
-import { userDto } from '../lib/dto';
+import { parseGender, userDto } from '../lib/dto';
 import { ah, AuthedRequest } from '../lib/http';
 import { newId, hashPassword, generatePassword, MIN_PASSWORD_LENGTH } from '../lib/security';
 import { audit } from '../lib/audit';
@@ -74,6 +74,7 @@ export function teacherRoutes({ db, auth }: Deps) {
           role: 'teacher',
           avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
           phone: String(b.phone ?? '').trim(),
+          gender: parseGender(b.gender) ?? null,
           status: 'active',
           mustChangePassword: true,
         })
@@ -103,6 +104,12 @@ export function teacherRoutes({ db, auth }: Deps) {
       if (b.phone !== undefined) {
         set.phone = String(b.phone).trim();
         changed.push('phone');
+      }
+      if (b.gender !== undefined) {
+        const gender = parseGender(b.gender);
+        if (gender === undefined) return res.status(400).json({ error: 'Giới tính phải là nam hoặc nữ.' });
+        set.gender = gender;
+        changed.push('gender');
       }
       if (b.email !== undefined) {
         const email = String(b.email).trim().toLowerCase();

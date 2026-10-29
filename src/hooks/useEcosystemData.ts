@@ -1,3 +1,4 @@
+import type { Gender } from '../shared/types';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { errorDetail } from '../shared/utils/errorMessage';
 import {
@@ -121,7 +122,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   };
 
   // 2. Students Handlers
-  const handleCreateStudent = async (data: { full_name: string; email?: string; phone?: string; student_code?: string; class_id?: string }) => {
+  const handleCreateStudent = async (data: { full_name: string; email?: string; phone?: string; gender?: Gender | null; student_code?: string; class_id?: string }) => {
     try {
       const created = await studentService.createStudent(data);
       setStudents((prev) => [...prev, created]);

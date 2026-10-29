@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { User } from '../shared/types';
+import { Gender, User } from '../shared/types';
 
 export const studentService = {
   async getStudents(): Promise<User[]> {
@@ -14,6 +14,7 @@ export const studentService = {
     full_name: string;
     email?: string;
     phone?: string;
+    gender?: Gender | null;
     student_code?: string;
     class_id?: string;
   }): Promise<User> {

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { GraduationCap, Plus, Pencil, KeyRound, Lock, Unlock, Copy, Check, X } from 'lucide-react';
 import { TeacherAccount } from '../../../services';
+import { Gender } from '../../../shared/types';
+import { GenderSelect } from '../../../shared/components/GenderSelect';
 
 interface TeacherManagementViewProps {
   teachers: TeacherAccount[];
   currentUserId: string;
-  onCreate: (data: { email: string; full_name: string; phone?: string; generate?: boolean; password?: string }) => Promise<
+  onCreate: (data: { email: string; full_name: string; phone?: string; gender?: Gender | null; generate?: boolean; password?: string }) => Promise<
     { temporary_password?: string } | undefined
   >;
-  onUpdate: (id: string, data: { full_name?: string; phone?: string; email?: string }) => Promise<unknown>;
+  onUpdate: (id: string, data: { full_name?: string; phone?: string; gender?: Gender | null; email?: string }) => Promise<unknown>;
   onSetStatus: (id: string, status: 'active' | 'inactive') => Promise<unknown>;
   onSetPassword: (
     id: string,
@@ -43,6 +45,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<Gender | null>(null);
   const [email, setEmail] = useState('');
   const [generate, setGenerate] = useState(true);
   const [password, setPassword] = useState('');
@@ -52,6 +55,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
   const openCreate = () => {
     setFullName('');
     setPhone('');
+    setGender(null);
     setEmail('');
     setGenerate(true);
     setPassword('');
@@ -61,6 +65,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
   const openEdit = (t: TeacherAccount) => {
     setFullName(t.full_name);
     setPhone(t.phone ?? '');
+    setGender(t.gender ?? null);
     setEmail(t.email);
     setForm({ mode: 'edit', teacher: t });
   };
@@ -79,6 +84,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
         email: email.trim(),
         full_name: fullName.trim(),
         phone: phone.trim(),
+        gender,
         generate: generate || !password,
         password: generate ? undefined : password,
       });
@@ -90,6 +96,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
       await onUpdate(form.teacher.id, {
         full_name: fullName.trim(),
         phone: phone.trim(),
+        gender,
         email: email.trim(),
       });
       setForm(null);
@@ -225,6 +232,10 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Số điện thoại</label>
               <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
+              <GenderSelect value={gender} onChange={setGender} className={inputClass} />
             </div>
 
             {form.mode === 'create' && (
