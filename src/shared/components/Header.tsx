@@ -211,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Desktop Navigation Tabs */}
-          <div className="border-t border-slate-100 bg-slate-50/70">
+          <div className="hidden md:block border-t border-slate-100 bg-slate-50/70">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
               <nav className="flex items-center space-x-1 py-1.5 overflow-x-auto scrollbar-none">
                 {teacherNavItems.map((item) => {

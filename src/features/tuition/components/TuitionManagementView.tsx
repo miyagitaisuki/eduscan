@@ -7,7 +7,8 @@ import {
   Copy, 
   Check, 
   TrendingUp, 
-  AlertCircle 
+  AlertCircle,
+  Pencil
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Student, ClassItem } from '../../../shared/types';
@@ -20,6 +21,7 @@ interface TuitionManagementViewProps {
   initialClassId?: string;
   onUpdatePayment: (paymentId: string, updates: Partial<Payment>) => void;
   onCreatePaymentRecord: (studentId: string, month: string, amount: number) => void;
+  onSetAmount: (studentId: string, month: string, amount: number) => void;
 }
 
 export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
@@ -29,12 +31,16 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   initialClassId,
   onUpdatePayment,
   onCreatePaymentRecord,
+  onSetAmount,
 }) => {
   const [selectedMonth, setSelectedMonth] = useState('10/2026');
   const [selectedClassFilter, setSelectedClassFilter] = useState(initialClassId || 'all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid'>('unpaid');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  // Ô nhập số tiền đang mở: thu tiền ('pay') hoặc đổi học phí ('fee') cho một học viên
+  const [editor, setEditor] = useState<{ studentId: string; mode: 'pay' | 'fee' } | null>(null);
+  const [editorValue, setEditorValue] = useState('');
 
   // Month options
   const monthOptions = ['08/2026', '09/2026', '10/2026', '11/2026', '12/2026'];
@@ -77,28 +83,50 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   const totalDebtAmount = unpaidRows.reduce((sum, r) => sum + r.amount, 0);
   const completionRate = totalStudentsInMonth > 0 ? Math.round((paidRows.length / totalStudentsInMonth) * 100) : 0;
 
-  // 1-tap Mark Paid
-  const handleMarkPaid = (row: typeof rows[0]) => {
+  const openEditor = (row: typeof rows[0], mode: 'pay' | 'fee') => {
+    setEditor({ studentId: row.student.id, mode });
+    setEditorValue(String(row.amount));
+  };
+
+  // Xác nhận ô nhập: kiểm tra số tiền rồi thu tiền hoặc đổi học phí
+  const handleConfirmEditor = (row: typeof rows[0]) => {
+    if (!editor) return;
+    const value = Number(editorValue);
+    if (!Number.isInteger(value) || value <= 0) {
+      alert('Số tiền phải là số nguyên dương.');
+      return;
+    }
+    if (editor.mode === 'pay') {
+      handleMarkPaid(row, value);
+    } else {
+      onSetAmount(row.student.id, selectedMonth, value);
+    }
+    setEditor(null);
+  };
+
+  // Đã thu: ghi nhận số tiền thực thu (mặc định bằng học phí)
+  const handleMarkPaid = (row: typeof rows[0], paidAmount: number) => {
     const todayStr = new Date().toISOString().split('T')[0];
     if (row.payment) {
       onUpdatePayment(row.payment.id, {
         status: 'paid',
         paid_date: todayStr,
+        paid_amount: paidAmount,
       });
     } else {
-      onCreatePaymentRecord(row.student.id, selectedMonth, row.amount);
+      onCreatePaymentRecord(row.student.id, selectedMonth, paidAmount);
     }
     confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
   };
 
-  // Undo (Mark Unpaid)
+  // Hoàn tác trạng thái đã thu, có xác nhận để tránh bấm nhầm
   const handleUndoPaid = (row: typeof rows[0]) => {
-    if (row.payment) {
-      onUpdatePayment(row.payment.id, {
-        status: 'unpaid',
-        paid_date: null,
-      });
-    }
+    if (!row.payment) return;
+    if (!window.confirm(`Hoàn tác trạng thái đã thu học phí tháng ${selectedMonth} của ${row.student.full_name}?`)) return;
+    onUpdatePayment(row.payment.id, {
+      status: 'unpaid',
+      paid_date: null,
+    });
   };
 
   // Copy polite reminder message for Zalo / SMS
@@ -269,8 +297,8 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
             const isCopied = copiedMessageId === row.student.id;
 
             return (
+              <React.Fragment key={row.student.id}>
               <div
-                key={row.student.id}
                 className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                   isPaid
                     ? 'bg-white border-slate-200/80 shadow-xs'
@@ -316,13 +344,18 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
                     <span className={`inline-block text-[10px] font-bold ${isPaid ? 'text-emerald-700' : 'text-rose-600 font-extrabold'}`}>
                       {isPaid ? `Đã đóng (${row.paidDate || 'Hôm nay'})` : 'Chưa đóng'}
                     </span>
+                    {isPaid && row.payment?.paid_amount !== undefined && row.payment.paid_amount !== row.amount && (
+                      <p className="text-[10px] text-slate-500 font-semibold">
+                        Đã thu: {row.payment.paid_amount.toLocaleString('vi-VN')} đ
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5">
                     {/* Mark Paid Button */}
                     {!isPaid ? (
                       <button
-                        onClick={() => handleMarkPaid(row)}
+                        onClick={() => openEditor(row, 'pay')}
                         className="flex items-center gap-1 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -338,6 +371,16 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
                         Hoàn tác
                       </button>
                     )}
+
+                    {/* Đổi học phí tháng này */}
+                    <button
+                      onClick={() => openEditor(row, 'fee')}
+                      title="Đổi học phí tháng này"
+                      aria-label={`Đổi học phí tháng ${selectedMonth} của ${row.student.full_name}`}
+                      className="flex items-center gap-1 px-2.5 py-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
 
                     {/* Copy Reminder Message */}
                     {!isPaid && (
@@ -358,6 +401,47 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
                 </div>
 
               </div>
+
+              {editor?.studentId === row.student.id && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleConfirmEditor(row);
+                  }}
+                  className="flex flex-wrap items-center gap-2 p-3 bg-white rounded-2xl border border-blue-200 shadow-xs"
+                >
+                  <span className="text-xs font-bold text-slate-700">
+                    {editor.mode === 'pay'
+                      ? `Số tiền thu tháng ${selectedMonth}:`
+                      : `Học phí tháng ${selectedMonth}:`}
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    step={1000}
+                    value={editorValue}
+                    onChange={(e) => setEditorValue(e.target.value)}
+                    autoFocus
+                    className="w-36 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-xs text-slate-500">đ</span>
+                  <button
+                    type="submit"
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Xác nhận
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditor(null)}
+                    className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                </form>
+              )}
+              </React.Fragment>
             );
           })
         )}
