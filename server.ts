@@ -9,6 +9,7 @@ import { createPgDb } from './server/db/client';
 import { runMigrations } from './server/db/migrate';
 import { seedDatabase } from './server/seed';
 import { createApp } from './server/app';
+import { startAttachmentCleanup } from './server/lib/attachmentCleanup';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,6 +36,7 @@ async function main() {
 
   const ai = config.geminiApiKey ? new GoogleGenAI({ apiKey: config.geminiApiKey }) : null;
   const app = createApp({ db, config, ai });
+  startAttachmentCleanup(db);
 
   if (!config.isProd) {
     // Import động: vite là devDependency, không có trong image production
