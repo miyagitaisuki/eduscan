@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+@layer base {
+  /* Grid cells default to min-width: auto, so a wide select or native date input can push past the modal edge. */
+  .grid > * {
+    min-width: 0;
+  }
+
+  /* Native date inputs keep a fixed intrinsic width on iOS Safari; let them shrink with their container. */
+  input[type="date"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
