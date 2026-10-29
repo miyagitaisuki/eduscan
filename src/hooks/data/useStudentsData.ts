@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Student, StudentInput } from '../../shared/types';
 import { studentService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
+import { useIssuedPassword } from '../../shared/components/ui';
 import type { Loader, Notify } from './types';
 
 interface Options {
@@ -12,6 +13,7 @@ interface Options {
 
 export function useStudentsData({ notify, onChanged }: Options) {
   const [students, setStudents] = useState<Student[]>([]);
+  const showIssuedPassword = useIssuedPassword();
 
   const load = useCallback<Loader>(async () => {
     try {
@@ -26,13 +28,11 @@ export function useStudentsData({ notify, onChanged }: Options) {
     try {
       const created = await studentService.createStudent(data);
       setStudents((prev) => [...prev, created]);
-      // Server trả mật khẩu tạm một lần; giáo viên cần ghi lại để gửi cho học viên
-      const tempPassword = created.temporary_password;
-      notify?.(
-        'success',
-        'Đã thêm học viên mới',
-        tempPassword ? `${created.full_name} — mật khẩu tạm: ${tempPassword}` : created.full_name
-      );
+      notify?.('success', 'Đã thêm học viên mới', created.full_name);
+      // Server trả mật khẩu tạm đúng một lần: hiện trong hộp thoại không tự tắt để giáo viên kịp ghi lại và gửi cho học viên
+      if (created.temporary_password) {
+        showIssuedPassword({ role: 'student', name: created.full_name, email: created.email, password: created.temporary_password });
+      }
       await onChanged?.();
       return created;
     } catch (err: any) {
@@ -46,6 +46,7 @@ export function useStudentsData({ notify, onChanged }: Options) {
       setStudents((prev) => prev.map((s) => (s.id === id ? updated : s)));
       notify?.('success', 'Đã cập nhật học viên', updated.full_name);
       await onChanged?.();
+      return updated;
     } catch (err: any) {
       notify?.('warning', 'Lỗi cập nhật học viên', errorDetail(err));
     }

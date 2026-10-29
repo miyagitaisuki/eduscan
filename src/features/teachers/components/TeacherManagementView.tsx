@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, Plus, Pencil, KeyRound, Lock, Unlock, Copy, Check } from 'lucide-react';
+import { GraduationCap, Plus, Pencil, KeyRound, Lock, Unlock } from 'lucide-react';
 import { TeacherAccount } from '../../../services';
 import { Gender } from '../../../shared/types';
 import { GenderSelect } from '../../../shared/components/GenderSelect';
@@ -19,13 +19,6 @@ interface TeacherManagementViewProps {
   ) => Promise<{ ok: boolean; temporary_password?: string } | undefined>;
 }
 
-// Mật khẩu vừa được cấp, chỉ hiện một lần để admin gửi cho giáo viên
-interface IssuedPassword {
-  name: string;
-  email: string;
-  password: string;
-}
-
 type FormState = { mode: 'create' } | { mode: 'edit'; teacher: TeacherAccount } | null;
 type PasswordState = { teacher: TeacherAccount } | null;
 
@@ -42,8 +35,6 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
   const confirm = useConfirm();
   const [form, setForm] = useState<FormState>(null);
   const [passwordFor, setPasswordFor] = useState<PasswordState>(null);
-  const [issued, setIssued] = useState<IssuedPassword | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -90,18 +81,16 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
         generate: generate || !password,
         password: generate ? undefined : password,
       });
-      setForm(null);
-      if (created?.temporary_password) {
-        setIssued({ name: fullName.trim(), email: email.trim(), password: created.temporary_password });
-      }
+      // Chỉ đóng form khi tạo thành công; lỗi thì giữ nguyên dữ liệu đã nhập
+      if (created) setForm(null);
     } else {
-      await onUpdate(form.teacher.id, {
+      const updated = await onUpdate(form.teacher.id, {
         full_name: fullName.trim(),
         phone: phone.trim(),
         gender,
         email: email.trim(),
       });
-      setForm(null);
+      if (updated) setForm(null);
     }
   };
 
@@ -112,21 +101,8 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
       passwordFor.teacher.id,
       newPasswordMode === 'generate' ? { generate: true } : { new_password: newPassword }
     );
-    setPasswordFor(null);
-    if (res?.temporary_password) {
-      setIssued({ name: passwordFor.teacher.full_name, email: passwordFor.teacher.email, password: res.temporary_password });
-    }
-  };
-
-  const copyIssued = async () => {
-    if (!issued) return;
-    try {
-      await navigator.clipboard.writeText(`Tên đăng nhập: ${issued.email}\nMật khẩu tạm: ${issued.password}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Trình duyệt chặn clipboard: admin vẫn đọc được mật khẩu trên màn hình
-    }
+    // Mật khẩu tự sinh được hiện trong hộp thoại dùng chung (useIssuedPassword) ở cấp ứng dụng
+    if (res) setPasswordFor(null);
   };
 
   return (
@@ -297,29 +273,6 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
               </button>
             </div>
           </form>
-        </Modal>
-      )}
-
-      {/* Hiển thị mật khẩu tạm một lần */}
-      {issued && (
-        // Mật khẩu chỉ hiện một lần nên không cho đóng bằng Esc/bấm nền; phải bấm "Đã ghi nhận"
-        <Modal title={<>Mật khẩu tạm cho {issued.name}</>} onClose={() => setIssued(null)} size="md" dismissible={false}>
-          <div className="space-y-3.5">
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 text-xs">
-              <p>Tên đăng nhập: <strong className="select-all">{issued.email}</strong></p>
-              <p>Mật khẩu tạm: <strong className="select-all font-mono">{issued.password}</strong></p>
-            </div>
-            <p className="text-xs text-danger-600 font-semibold">Mật khẩu này chỉ hiện một lần. Hãy gửi cho giáo viên và không lưu lại ở nơi công khai.</p>
-            <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
-              <button onClick={copyIssued} className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
-                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? 'Đã sao chép' : 'Sao chép'}
-              </button>
-              <button onClick={() => setIssued(null)} className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold cursor-pointer">
-                Đã ghi nhận
-              </button>
-            </div>
-          </div>
         </Modal>
       )}
     </div>

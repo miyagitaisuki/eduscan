@@ -35,8 +35,9 @@ interface StudentManagementViewProps {
   assignments: Assignment[];
   submissions: Submission[];
   initialClassId?: string;
-  onCreateStudent: (student: StudentInput) => void;
-  onUpdateStudent: (studentId: string, student: Partial<StudentInput>) => void;
+  /** Trả về kết quả khi thành công, undefined khi lỗi (form giữ nguyên để không mất dữ liệu đã nhập) */
+  onCreateStudent: (student: StudentInput) => Promise<unknown>;
+  onUpdateStudent: (studentId: string, student: Partial<StudentInput>) => Promise<unknown>;
   onDeleteStudent: (studentId: string) => void;
   onTransferClass: (studentId: string, newClassId: string) => void;
   /** Đổi học phí tháng hiện tại của học viên (chỉ admin) */
@@ -124,7 +125,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) return;
 
@@ -136,13 +137,9 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       class_id: classId,
       join_date: joinDate,
     };
-    if (editingStudent) {
-      onUpdateStudent(editingStudent.id, input);
-    } else {
-      onCreateStudent(input);
-    }
-
-    setIsModalOpen(false);
+    const ok = editingStudent ? await onUpdateStudent(editingStudent.id, input) : await onCreateStudent(input);
+    // Lỗi (email trùng, mạng...) thì giữ form mở để không mất dữ liệu đã nhập
+    if (ok) setIsModalOpen(false);
   };
 
   const handleConfirmTransfer = () => {

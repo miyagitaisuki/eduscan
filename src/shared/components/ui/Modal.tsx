@@ -92,7 +92,11 @@ export const Modal: React.FC<ModalProps> = ({
         const first = items[0];
         const last = items[items.length - 1];
         const active = document.activeElement;
-        if (e.shiftKey && (active === first || active === panel)) {
+        if (!panel.contains(active)) {
+          // Focus lạc ra ngoài modal: kéo về lại bên trong
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        } else if (e.shiftKey && (active === first || active === panel)) {
           e.preventDefault();
           last.focus();
         } else if (!e.shiftKey && active === last) {
@@ -107,8 +111,8 @@ export const Modal: React.FC<ModalProps> = ({
       document.removeEventListener('keydown', onKeyDown);
       openModals.splice(openModals.indexOf(id), 1);
       if (--scrollLocks === 0) document.body.style.overflow = '';
-      // Trả focus về nút đã mở modal
-      if (previouslyFocused && document.contains(previouslyFocused)) previouslyFocused.focus();
+      // Trả focus về nút đã mở modal, trừ khi đã có modal khác mở ra (VD form đóng đúng lúc hộp thoại mới hiện)
+      if (openModals.length === 0 && previouslyFocused && document.contains(previouslyFocused)) previouslyFocused.focus();
     };
   }, [dismissible]);
 
