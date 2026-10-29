@@ -15,14 +15,13 @@ import QRCode from 'qrcode';
 import { Modal } from '../../../shared/components/ui';
 import { attendanceService } from '../../../services/attendanceService';
 import { errorDetail } from '../../../shared/utils/errorMessage';
-import { AttendanceSession, ClassItem, Student } from '../../../shared/types';
-import { Attendance } from '../types';
+import { AttendanceRecord, AttendanceSession, ClassItem, Student } from '../../../shared/types';
 import { todayLocal } from '../../../shared/utils/date';
 
 interface QuickAttendanceViewProps {
   classes: ClassItem[];
   students: Student[];
-  attendance: Attendance[];
+  attendance: AttendanceRecord[];
   initialClassId?: string;
   onOpenSession: (classId: string) => Promise<AttendanceSession | undefined>;
   /** Gọi khi đóng màn hình QR Live để tải lại điểm danh (các lượt học viên đã quét) */

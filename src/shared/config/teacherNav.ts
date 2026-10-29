@@ -9,7 +9,7 @@ import {
   GraduationCap,
   UserCog,
 } from 'lucide-react';
-import type { ActiveTab } from '../types/common';
+import type { ActiveTab } from '../types';
 
 export interface TeacherNavItem {
   id: ActiveTab;

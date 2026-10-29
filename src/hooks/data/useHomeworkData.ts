@@ -1,18 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Assignment, Submission } from '../../shared/types';
+import { Assignment, AssignmentInput, GradeInput, Submission } from '../../shared/types';
 import { aiService, homeworkService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
 import type { Loader, Notify } from './types';
-
-export type GradeData = {
-  score: number;
-  feedback?: string;
-  rubric_breakdown?: any[];
-  strengths?: string[];
-  weaknesses?: string[];
-  suggestions?: string[];
-  graded_by_ai?: boolean;
-};
 
 export function useHomeworkData(notify?: Notify) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -31,7 +21,7 @@ export function useHomeworkData(notify?: Notify) {
   const replaceSubmission = (updated: Submission) =>
     setSubmissions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
 
-  const createAssignment = async (data: Partial<Assignment>) => {
+  const createAssignment = async (data: AssignmentInput) => {
     try {
       const asg = await homeworkService.createAssignment(data);
       setAssignments((prev) => [asg, ...prev]);
@@ -73,7 +63,7 @@ export function useHomeworkData(notify?: Notify) {
     }
   };
 
-  const grade = async (submissionId: string, gradeData: GradeData) => {
+  const grade = async (submissionId: string, gradeData: GradeInput) => {
     try {
       const updated = await homeworkService.gradeSubmission(submissionId, gradeData);
       replaceSubmission(updated);
@@ -108,7 +98,7 @@ export function useHomeworkData(notify?: Notify) {
     studentId: string,
     status: 'submitted' | 'unsubmitted',
     score: number | null,
-    comment: string
+    feedback: string
   ) => {
     try {
       const rec = await homeworkService.recordSubmission({
@@ -116,7 +106,7 @@ export function useHomeworkData(notify?: Notify) {
         student_id: studentId,
         status,
         score,
-        comment,
+        feedback,
       });
       setSubmissions((prev) =>
         prev.some((s) => s.id === rec.id) ? prev.map((s) => (s.id === rec.id ? { ...s, ...rec } : s)) : [...prev, rec]

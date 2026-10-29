@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { Modal } from './ui';
-import { ActiveTab } from '../types/common';
+import { ActiveTab } from '../types';
 import { getTeacherNavItems, TeacherNavItem } from '../config/teacherNav';
 
 interface BottomNavProps {

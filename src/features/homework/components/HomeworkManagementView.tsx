@@ -11,9 +11,9 @@ import {
   Loader2,
   Paperclip
 } from 'lucide-react';
-import { Student, ClassItem, AiDraft } from '../../../shared/types';
-import { Assignment, Submission } from '../types';
-import { todayLocal, addDaysLocal } from '../../../shared/utils/date';
+import { Student, ClassItem, AiDraft, Assignment, AssignmentInput, GradeInput, Submission } from '../../../shared/types';
+import { isSubmitted as hasSubmitted } from '../../../shared/utils/submission';
+import { addDaysLocal, localDateOf } from '../../../shared/utils/date';
 import { Modal, useConfirm } from '../../../shared/components/ui';
 import { aiService } from '../../../services/aiService';
 import { SubmissionAttachmentsModal } from './SubmissionAttachmentsModal';
@@ -24,10 +24,11 @@ interface HomeworkManagementViewProps {
   students: Student[];
   classes: ClassItem[];
   initialClassId?: string;
-  onCreateAssignment: (asg: Omit<Assignment, 'id' | 'created_at'>) => void;
+  onCreateAssignment: (asg: AssignmentInput) => void;
   onDeleteAssignment: (assignmentId: string) => void;
-  onUpdateSubmission: (submissionId: string, updates: Partial<Submission>) => void;
-  onCreateSubmissionRecord: (assignmentId: string, studentId: string, status: 'submitted' | 'unsubmitted', score: number | null, comment: string) => void;
+  onUpdateSubmission: (submissionId: string, updates: GradeInput) => void;
+  /** Ghi nhận thủ công (tạo hoặc ghi đè) trạng thái nộp, điểm và nhận xét của một học viên */
+  onCreateSubmissionRecord: (assignmentId: string, studentId: string, status: 'submitted' | 'unsubmitted', score: number | null, feedback: string) => void;
   onRequestAiDraft: (submissionId: string) => void;
   onDiscardAiDraft: (submissionId: string) => void;
   // Giáo viên duyệt bản nháp: điểm và nhận xét lấy từ ô đang nhập, nếu trống thì dùng bản nháp
@@ -97,14 +98,16 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
   const handleToggleSubmission = (studentId: string) => {
     if (!activeAssignment) return;
     const existing = submissions.find((s) => s.assignment_id === activeAssignment.id && s.student_id === studentId);
-    if (existing) {
-      onUpdateSubmission(existing.id, {
-        status: existing.status === 'submitted' ? 'unsubmitted' : 'submitted',
-        submitted_at: existing.status === 'unsubmitted' ? todayLocal() : undefined,
-      });
-    } else {
-      onCreateSubmissionRecord(activeAssignment.id, studentId, 'submitted', null, '');
-    }
+    // Đổi trạng thái nộp phải đi qua ghi nhận thủ công: API chấm điểm không đổi trạng thái.
+    // Bỏ đánh dấu đã nộp thì cũng bỏ điểm.
+    const nowSubmitted = existing ? !hasSubmitted(existing) : true;
+    onCreateSubmissionRecord(
+      activeAssignment.id,
+      studentId,
+      nowSubmitted ? 'submitted' : 'unsubmitted',
+      nowSubmitted ? existing?.score ?? null : null,
+      existing?.feedback ?? ''
+    );
   };
 
   // Update Score
@@ -112,10 +115,11 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
     if (!activeAssignment) return;
     const numScore = scoreVal === '' ? null : Math.max(0, Math.min(10, Number(scoreVal)));
     const existing = submissions.find((s) => s.assignment_id === activeAssignment.id && s.student_id === studentId);
-    if (existing) {
+    if (existing && numScore !== null) {
       onUpdateSubmission(existing.id, { score: numScore });
     } else {
-      onCreateSubmissionRecord(activeAssignment.id, studentId, 'submitted', numScore, '');
+      // Tạo mới hoặc xóa điểm: API chấm điểm không xóa được điểm nên dùng ghi nhận thủ công
+      onCreateSubmissionRecord(activeAssignment.id, studentId, 'submitted', numScore, existing?.feedback ?? '');
     }
   };
 
@@ -138,7 +142,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
     if (!activeAssignment) return;
     const existing = submissions.find((s) => s.assignment_id === activeAssignment.id && s.student_id === studentId);
     if (existing) {
-      onUpdateSubmission(existing.id, { comment: commentVal });
+      onUpdateSubmission(existing.id, { feedback: commentVal });
     } else {
       onCreateSubmissionRecord(activeAssignment.id, studentId, 'submitted', null, commentVal);
     }
@@ -248,7 +252,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
               const isSelected = activeAssignment?.id === asg.id;
               const cls = classes.find((c) => c.id === asg.class_id);
               const asgStudents = students.filter((s) => s.class_id === asg.class_id);
-              const submittedCount = submissions.filter((s) => s.assignment_id === asg.id && s.status === 'submitted').length;
+              const submittedCount = submissions.filter((s) => s.assignment_id === asg.id && hasSubmitted(s)).length;
 
               return (
                 <div
@@ -266,7 +270,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      Hạn: {asg.deadline}
+                      Hạn: {localDateOf(asg.deadline)}
                     </span>
                   </div>
 
@@ -298,7 +302,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                       {activeClass?.name} ({activeClass?.level})
                     </span>
                     <span className="text-xs text-rose-600 font-bold">
-                      Hạn nộp: {activeAssignment.deadline}
+                      Hạn nộp: {localDateOf(activeAssignment.deadline)}
                     </span>
                   </div>
                   <h3 className="text-base font-extrabold text-slate-900">
@@ -356,9 +360,9 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
                 {classStudents.map((st) => {
                   const sub = submissions.find((s) => s.assignment_id === activeAssignment.id && s.student_id === st.id);
-                  const isSubmitted = sub?.status === 'submitted';
+                  const isSubmitted = !!sub && hasSubmitted(sub);
                   const currentScore = sub?.score !== null && sub?.score !== undefined ? sub.score : '';
-                  const currentComment = sub?.comment || '';
+                  const currentComment = sub?.feedback || '';
 
                   return (
                     <div

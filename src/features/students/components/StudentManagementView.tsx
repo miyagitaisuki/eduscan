@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GenderSelect } from '../../../shared/components/GenderSelect';
 import { Gender } from '../../../shared/types';
+import { isSubmitted } from '../../../shared/utils/submission';
 import { 
   Users, 
   Plus, 
@@ -13,13 +14,13 @@ import {
 } from 'lucide-react';
 import { 
   ClassItem, 
-  Attendance, 
-  Payment, 
+  AttendanceRecord, 
+  TuitionRecord, 
   Assignment, 
   Submission, 
-  JlptLevel 
+  Student,
+  StudentInput
 } from '../../../shared/types';
-import { Student } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { averageScore as averageScoreOf, formatScore } from '../../../shared/utils/score';
 import { todayLocal } from '../../../shared/utils/date';
@@ -29,13 +30,13 @@ import { StudentAccountPanel } from './StudentAccountPanel';
 interface StudentManagementViewProps {
   students: Student[];
   classes: ClassItem[];
-  attendance: Attendance[];
-  payments: Payment[];
+  attendance: AttendanceRecord[];
+  payments: TuitionRecord[];
   assignments: Assignment[];
   submissions: Submission[];
   initialClassId?: string;
-  onCreateStudent: (student: Omit<Student, 'id'>) => void;
-  onUpdateStudent: (student: Student) => void;
+  onCreateStudent: (student: StudentInput) => void;
+  onUpdateStudent: (studentId: string, student: Partial<StudentInput>) => void;
   onDeleteStudent: (studentId: string) => void;
   onTransferClass: (studentId: string, newClassId: string) => void;
   /** Đổi học phí tháng hiện tại của học viên (chỉ admin) */
@@ -100,20 +101,16 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
-  const [level, setLevel] = useState<JlptLevel>('N5');
   const [classId, setClassId] = useState<string>(classes[0]?.id || '');
   const [joinDate, setJoinDate] = useState(todayLocal());
-  const [notes, setNotes] = useState('');
 
   const openCreateModal = () => {
     setEditingStudent(null);
     setFullName('');
     setPhone('');
     setGender(null);
-    setLevel('N5');
     setClassId(classes[0]?.id || '');
     setJoinDate(todayLocal());
-    setNotes('');
     setIsModalOpen(true);
   };
 
@@ -122,10 +119,8 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     setFullName(st.full_name);
     setPhone(st.phone);
     setGender(st.gender ?? null);
-    setLevel(st.level);
     setClassId(st.class_id);
     setJoinDate(st.join_date);
-    setNotes(st.notes);
     setIsModalOpen(true);
   };
 
@@ -133,27 +128,18 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     e.preventDefault();
     if (!fullName.trim()) return;
 
+    // Cấp độ của học viên lấy từ lớp đang học nên không nhập riêng
+    const input: StudentInput = {
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      gender,
+      class_id: classId,
+      join_date: joinDate,
+    };
     if (editingStudent) {
-      onUpdateStudent({
-        ...editingStudent,
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        gender,
-        level,
-        class_id: classId,
-        join_date: joinDate,
-        notes: notes.trim(),
-      });
+      onUpdateStudent(editingStudent.id, input);
     } else {
-      onCreateStudent({
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        gender,
-        level,
-        class_id: classId,
-        join_date: joinDate,
-        notes: notes.trim(),
-      });
+      onCreateStudent(input);
     }
 
     setIsModalOpen(false);
@@ -189,7 +175,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
 
     // Assignments
     const studentSubmissions = submissions.filter((s) => s.student_id === st.id);
-    const submittedCount = studentSubmissions.filter((s) => s.status === 'submitted').length;
+    const submittedCount = studentSubmissions.filter(isSubmitted).length;
     const scoredSubmissions = studentSubmissions.filter((s) => s.score !== null);
     const averageScore = averageScoreOf(scoredSubmissions.map((s) => s.score));
 
@@ -453,7 +439,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     {metrics.isPaidOctober ? '✅ Đã hoàn thành' : '❌ Chưa đóng'}
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    {cls?.monthly_fee.toLocaleString('vi-VN')} đ/tháng
+                    {(cls?.monthly_fee ?? 0).toLocaleString('vi-VN')} đ/tháng
                   </p>
                 </div>
                 )}
@@ -474,7 +460,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     {activeProfileStudent.join_date}
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    Ghi chú: {activeProfileStudent.notes || 'Không có'}
+                    MSSV: {activeProfileStudent.student_code || 'Chưa có'}
                   </p>
                 </div>
               </div>
@@ -575,13 +561,13 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                       <div key={asg.id} className="p-2.5 bg-slate-50 rounded-xl text-xs">
                         <div className="flex items-center justify-between">
                           <strong className="text-slate-800">{asg.title}</strong>
-                          <span className={`font-bold ${sub?.status === 'submitted' ? 'text-emerald-700' : 'text-slate-400'}`}>
-                            {sub?.status === 'submitted' ? (sub.score !== null ? formatScore(sub.score) : 'Đã nộp') : 'Chưa nộp'}
+                          <span className={`font-bold ${sub && isSubmitted(sub) ? 'text-emerald-700' : 'text-slate-400'}`}>
+                            {sub && isSubmitted(sub) ? (sub.score !== null ? formatScore(sub.score) : 'Đã nộp') : 'Chưa nộp'}
                           </span>
                         </div>
-                        {sub?.comment && (
+                        {sub?.feedback && (
                           <p className="text-[11px] text-blue-700 mt-1 italic">
-                            💬 Nhận xét: "{sub.comment}"
+                            💬 Nhận xét: "{sub.feedback}"
                           </p>
                         )}
                       </div>
@@ -690,7 +676,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
               <GenderSelect value={gender} onChange={setGender} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-white" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Lớp học</label>
                 <select
@@ -706,20 +692,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Trình độ</label>
-                <select
-                  value={level}
-                  onChange={(e) => setLevel(e.target.value as JlptLevel)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
-                >
-                  <option value="N5">N5</option>
-                  <option value="N4">N4</option>
-                  <option value="N3">N3</option>
-                  <option value="N2">N2</option>
-                  <option value="N1">N1</option>
-                </select>
-              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Cấp độ của học viên là cấp độ của lớp đang học.</p>
             </div>
 
             <div>
@@ -728,17 +701,6 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                 type="date"
                 value={joinDate}
                 onChange={(e) => setJoinDate(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú</label>
-              <textarea
-                rows={2}
-                placeholder="Mục tiêu thi JLPT, công việc, đặc điểm học viên..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
                 className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
               />
             </div>

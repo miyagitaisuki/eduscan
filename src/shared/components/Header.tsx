@@ -6,11 +6,10 @@ import {
   Laptop,
   LogOut,
 } from 'lucide-react';
-import { User, UserRole } from '../types';
+import { ActiveTab, User, UserRole } from '../types';
 import { getTeacherNavItems } from '../config/teacherNav';
 
 export type EcosystemViewMode = 'teacher' | 'student';
-export type EcosystemTeacherTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats' | 'teachers';
 
 interface HeaderProps {
   onChangePassword?: () => void;
@@ -21,8 +20,8 @@ interface HeaderProps {
   onViewModeChange: (mode: EcosystemViewMode) => void;
   currentUser: User | null;
   onSwitchRole: (role: UserRole) => void;
-  activeTab: EcosystemTeacherTab;
-  onTabChange: (tab: EcosystemTeacherTab) => void;
+  activeTab: ActiveTab;
+  onTabChange: (tab: ActiveTab) => void;
   onExportData: () => void;
   onImportData: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** Sao lưu/khôi phục chỉ dành cho admin */

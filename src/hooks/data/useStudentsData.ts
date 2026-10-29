@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Gender, User } from '../../shared/types';
+import { Student, StudentInput } from '../../shared/types';
 import { studentService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
 import type { Loader, Notify } from './types';
@@ -11,7 +11,7 @@ interface Options {
 }
 
 export function useStudentsData({ notify, onChanged }: Options) {
-  const [students, setStudents] = useState<User[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
 
   const load = useCallback<Loader>(async () => {
     try {
@@ -22,12 +22,12 @@ export function useStudentsData({ notify, onChanged }: Options) {
     }
   }, []);
 
-  const create = async (data: { full_name: string; email?: string; phone?: string; gender?: Gender | null; student_code?: string; class_id?: string }) => {
+  const create = async (data: StudentInput) => {
     try {
       const created = await studentService.createStudent(data);
       setStudents((prev) => [...prev, created]);
       // Server trả mật khẩu tạm một lần; giáo viên cần ghi lại để gửi cho học viên
-      const tempPassword = (created as any).temporary_password;
+      const tempPassword = created.temporary_password;
       notify?.(
         'success',
         'Đã thêm học viên mới',
@@ -40,7 +40,7 @@ export function useStudentsData({ notify, onChanged }: Options) {
     }
   };
 
-  const update = async (id: string, data: Partial<User> & { class_id?: string }) => {
+  const update = async (id: string, data: Partial<StudentInput>) => {
     try {
       const updated = await studentService.updateStudent(id, data);
       setStudents((prev) => prev.map((s) => (s.id === id ? updated : s)));

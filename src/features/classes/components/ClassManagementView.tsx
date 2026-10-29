@@ -10,8 +10,7 @@ import {
   CheckSquare, 
   Search
 } from 'lucide-react';
-import { Student, Attendance, Payment, JlptLevel, ActiveTab } from '../../../shared/types';
-import { ClassItem } from '../types';
+import { Student, AttendanceRecord, TuitionRecord, ClassInput, ClassItem, JlptLevel, ActiveTab } from '../../../shared/types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
 import { Modal, useConfirm } from '../../../shared/components/ui';
@@ -23,10 +22,10 @@ interface ClassManagementViewProps {
   teachers?: { id: string; full_name: string }[];
   classes: ClassItem[];
   students: Student[];
-  attendance: Attendance[];
-  payments: Payment[];
-  onCreateClass: (cls: Omit<ClassItem, 'id'>) => void;
-  onUpdateClass: (cls: ClassItem) => void;
+  attendance: AttendanceRecord[];
+  payments: TuitionRecord[];
+  onCreateClass: (cls: ClassInput) => void;
+  onUpdateClass: (classId: string, cls: Partial<ClassInput>) => void;
   onDeleteClass: (classId: string) => void;
   onNavigateTab: (tab: ActiveTab, preselectedClassId?: string) => void;
 }
@@ -58,8 +57,8 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   const [monthlyFee, setMonthlyFee] = useState<number>(800000);
   const [teacherId, setTeacherId] = useState<string>('');
   const [startDate, setStartDate] = useState(todayLocal());
-  const [notes, setNotes] = useState('');
-  const [room, setRoom] = useState('Phòng 201 - Nhà Ngoại ngữ');
+  const [description, setDescription] = useState('');
+  const [room, setRoom] = useState('');
 
   const openCreateModal = () => {
     setEditingClass(null);
@@ -68,8 +67,8 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     setSchedule('Thứ 2 - 4 - 6 (18:00 - 19:30)');
     setMonthlyFee(800000);
     setStartDate(todayLocal());
-    setNotes('');
-    setRoom('Phòng 201 - Nhà Ngoại ngữ');
+    setDescription('');
+    setRoom('');
     setTeacherId(teachers[0]?.id ?? '');
     setIsModalOpen(true);
   };
@@ -79,10 +78,10 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     setName(cls.name);
     setLevel(cls.level);
     setSchedule(cls.schedule);
-    setMonthlyFee(cls.monthly_fee);
+    setMonthlyFee(cls.monthly_fee ?? 800000);
     setStartDate(cls.start_date);
-    setNotes(cls.notes);
-    setRoom(cls.room || '');
+    setDescription(cls.description);
+    setRoom(cls.room);
     setTeacherId(cls.teacher_id ?? '');
     setIsModalOpen(true);
   };
@@ -91,29 +90,21 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     e.preventDefault();
     if (!name.trim()) return;
 
+    const input: ClassInput = {
+      name: name.trim(),
+      level,
+      schedule: schedule.trim(),
+      start_date: startDate,
+      description: description.trim(),
+      room: room.trim(),
+      // Học phí và giáo viên phụ trách chỉ admin được đặt
+      ...(isAdmin ? { monthly_fee: Number(monthlyFee) || 0 } : {}),
+      ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
+    };
     if (editingClass) {
-      onUpdateClass({
-        ...editingClass,
-        name: name.trim(),
-        level,
-        schedule: schedule.trim(),
-        monthly_fee: Number(monthlyFee) || 0,
-        start_date: startDate,
-        notes: notes.trim(),
-        room: room.trim(),
-        ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
-      });
+      onUpdateClass(editingClass.id, input);
     } else {
-      onCreateClass({
-        name: name.trim(),
-        level,
-        schedule: schedule.trim(),
-        monthly_fee: Number(monthlyFee) || 0,
-        start_date: startDate,
-        notes: notes.trim(),
-        room: room.trim(),
-        ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
-      });
+      onCreateClass(input);
     }
 
     setIsModalOpen(false);
@@ -244,7 +235,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span className="font-bold text-emerald-700">
-                      {cls.monthly_fee.toLocaleString('vi-VN')} VNĐ/tháng
+                      {(cls.monthly_fee ?? 0).toLocaleString('vi-VN')} VNĐ/tháng
                     </span>
                   </div>
                   )}
@@ -256,9 +247,9 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                     </div>
                   )}
 
-                  {cls.notes && (
+                  {cls.description && (
                     <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-xl mt-2 line-clamp-2">
-                      {cls.notes}
+                      {cls.description}
                     </p>
                   )}
                 </div>
@@ -417,8 +408,8 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
               <textarea
                 rows={2}
                 placeholder="Minna no Nihongo, Kanji, chuẩn bị thi tháng 12..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
               />
             </div>

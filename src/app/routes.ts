@@ -1,4 +1,4 @@
-import type { ActiveTab } from '../shared/types/common';
+import type { ActiveTab } from '../shared/types';
 import type { StudentTab } from '../shared/types';
 
 // Địa chỉ trang: mỗi tab là một đường dẫn riêng để F5 giữ nguyên tab, gửi được link,

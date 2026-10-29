@@ -1,7 +1,9 @@
 import React from 'react';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { teacherGreeting, teacherTitle } from '../../../shared/utils/greeting';
-import { todayLocal } from '../../../shared/utils/date';
+import { localDateOf, todayLocal } from '../../../shared/utils/date';
+import { parseScheduleDays } from '../../../shared/utils/schedule';
+import { isSubmitted, needsGrading } from '../../../shared/utils/submission';
 import type { Gender } from '../../../shared/types';
 import { 
   BookOpen, 
@@ -19,8 +21,8 @@ import {
 import { 
   ClassItem, 
   Student, 
-  Attendance, 
-  Payment, 
+  AttendanceRecord, 
+  TuitionRecord, 
   Assignment, 
   Submission, 
   ActiveTab 
@@ -31,8 +33,8 @@ interface DashboardViewProps {
   isAdmin?: boolean;
   classes: ClassItem[];
   students: Student[];
-  attendance: Attendance[];
-  payments: Payment[];
+  attendance: AttendanceRecord[];
+  payments: TuitionRecord[];
   assignments: Assignment[];
   submissions: Submission[];
   onNavigateTab: (tab: ActiveTab, preselectedClassId?: string) => void;
@@ -71,7 +73,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const unpaidAmount = unpaidPayments.reduce((sum, p) => sum + p.amount, 0);
 
   // 4. Ungraded assignments / Submissions needing review
-  const ungradedSubmissionsCount = submissions.filter((s) => s.status === 'submitted' && s.score === null).length;
+  const ungradedSubmissionsCount = submissions.filter(needsGrading).length;
   const totalAssignmentsCount = assignments.length;
 
   // Today schedule check (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
@@ -80,7 +82,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const todayName = dayNames[todayDayIndex];
 
   // Classes that have schedule on today
-  const todayClasses = classes.filter((c) => (c.scheduleDays as number[] | undefined)?.includes(todayDayIndex));
+  const todayClasses = classes.filter((c) => parseScheduleDays(c.schedule).includes(todayDayIndex));
 
   // Today's date YYYY-MM-DD
   const todayDateStr = todayLocal();
@@ -434,7 +436,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {assignments.slice(0, 3).map((asg) => {
                 const cls = classes.find((c) => c.id === asg.class_id);
                 const classStudentCount = students.filter((s) => s.class_id === asg.class_id).length;
-                const submittedCount = submissions.filter((s) => s.assignment_id === asg.id && s.status === 'submitted').length;
+                const submittedCount = submissions.filter((s) => s.assignment_id === asg.id && isSubmitted(s)).length;
 
                 return (
                   <div 
@@ -446,7 +448,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         {cls?.name}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        Hạn: {asg.deadline}
+                        Hạn: {localDateOf(asg.deadline)}
                       </span>
                     </div>
                     <h4 className="text-xs font-bold text-slate-900 mt-1 line-clamp-1">{asg.title}</h4>

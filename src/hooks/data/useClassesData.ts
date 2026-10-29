@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ClassItem } from '../../shared/types';
+import { ClassInput, ClassItem } from '../../shared/types';
 import { classService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
 import type { Loader, Notify } from './types';
@@ -16,7 +16,7 @@ export function useClassesData(notify?: Notify) {
     }
   }, []);
 
-  const create = async (data: Partial<ClassItem>) => {
+  const create = async (data: ClassInput) => {
     try {
       const created = await classService.createClass(data);
       setClasses((prev) => [...prev, created]);
@@ -27,7 +27,7 @@ export function useClassesData(notify?: Notify) {
     }
   };
 
-  const update = async (id: string, data: Partial<ClassItem>) => {
+  const update = async (id: string, data: Partial<ClassInput>) => {
     try {
       const updated = await classService.updateClass(id, data);
       setClasses((prev) => prev.map((c) => (c.id === id ? updated : c)));

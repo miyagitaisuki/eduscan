@@ -251,7 +251,9 @@ export function homeworkRoutes({ db, auth }: Deps) {
     '/submissions/manual',
     auth.requireTeacher,
     ah(async (req: AuthedRequest, res) => {
-      const { assignment_id, student_id, status, score, comment } = req.body ?? {};
+      const { assignment_id, student_id, status, score } = req.body ?? {};
+      // `comment` là tên cũ của trường nhận xét, vẫn nhận để bản giao diện cũ trong bộ nhớ đệm không hỏng
+      const feedback = String(req.body?.feedback ?? req.body?.comment ?? '');
       if (!assignment_id || !student_id) return res.status(400).json({ error: 'Thiếu assignment_id hoặc student_id' });
       const [target] = await db.select().from(assignments).where(eq(assignments.id, assignment_id)).limit(1);
       if (!target) return res.status(404).json({ error: 'Không tìm thấy bài tập.' });
@@ -272,12 +274,12 @@ export function homeworkRoutes({ db, auth }: Deps) {
           studentId: student_id,
           status: st,
           score: scoreNum === null ? null : String(scoreNum),
-          feedback: comment || '',
+          feedback,
           submittedAt: new Date(),
         })
         .onConflictDoUpdate({
           target: [submissions.assignmentId, submissions.studentId],
-          set: { status: st, score: scoreNum === null ? null : String(scoreNum), feedback: comment || '' },
+          set: { status: st, score: scoreNum === null ? null : String(scoreNum), feedback },
         })
         .returning();
       return res.status(201).json(submissionDto(row));

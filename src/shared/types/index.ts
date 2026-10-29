@@ -22,41 +22,81 @@ export interface User {
   updated_at?: string;
 }
 
-export interface Student {
-  id: string;
-  full_name: string;
+// Học viên trong danh sách của giáo viên (GET /students): tài khoản + lớp đang học
+export interface Student extends User {
   phone: string;
-  gender?: Gender | null;
+  student_code: string;
   class_id: string;
-  level: string | JlptLevel;
+  class_name: string;
+  /** Cấp độ của lớp đang học; rỗng nếu chưa xếp lớp */
+  level: JlptLevel | '';
+  /** Ngày vào lớp hiện tại (YYYY-MM-DD) */
   join_date: string;
-  notes?: string;
 }
 
 export interface ClassItem {
   id: string;
   name: string;
-  code?: string;
-  teacher_id?: string;
-  teacher_name?: string;
-  description?: string;
-  schedule?: string;
-  scheduleDays?: number[];
-  monthly_fee: number;
-  level?: string | JlptLevel;
+  code: string;
+  teacher_id: string;
+  teacher_name: string;
+  /** Ghi chú giáo trình / mục tiêu của lớp */
+  description: string;
+  /** Lịch học tự do, VD "Thứ 2 - 4 - 6 (18:00 - 19:30)"; ngày học suy ra bằng parseScheduleDays */
+  schedule: string;
+  level: JlptLevel;
+  /** Chỉ admin nhận được học phí lớp */
+  monthly_fee?: number;
+  /** Phòng học / địa điểm */
+  room: string;
+  /** Ngày bắt đầu khóa (YYYY-MM-DD); rỗng nếu chưa đặt */
+  start_date: string;
+  created_at: string;
   student_count?: number;
-  start_date?: string;
-  room?: string;
-  notes?: string;
-  created_at?: string;
 }
 
-export interface Enrollment {
-  id: string;
-  student_id: string;
+// Dữ liệu các biểu mẫu gửi lên server (khớp với trường server đọc trong server/routes)
+export interface ClassInput {
+  name: string;
+  level: JlptLevel;
+  schedule: string;
+  description: string;
+  room: string;
+  /** YYYY-MM-DD; chuỗi rỗng để xóa */
+  start_date: string;
+  /** Chỉ admin được đặt học phí và giáo viên phụ trách */
+  monthly_fee?: number;
+  teacher_id?: string;
+}
+
+export interface StudentInput {
+  full_name: string;
+  email?: string;
+  phone?: string;
+  gender?: Gender | null;
+  student_code?: string;
+  class_id?: string;
+  /** YYYY-MM-DD */
+  join_date?: string;
+}
+
+export interface AssignmentInput {
   class_id: string;
-  join_date: string;
-  status: 'active' | 'dropped' | 'completed';
+  title: string;
+  description: string;
+  /** YYYY-MM-DD */
+  deadline: string;
+}
+
+/** Chấm điểm / nhận xét một bài nộp; không có score thì chỉ lưu nhận xét */
+export interface GradeInput {
+  score?: number;
+  feedback?: string;
+  rubric_breakdown?: RubricItem[];
+  strengths?: string[];
+  weaknesses?: string[];
+  suggestions?: string[];
+  graded_by_ai?: boolean;
 }
 
 export interface Assignment {
@@ -70,6 +110,8 @@ export interface Assignment {
   deadline: string;
   created_by?: string;
   created_at: string;
+  /** Số bài đã nộp (có trong danh sách bài tập) */
+  submitted_count?: number;
 }
 
 export interface RubricItem {
@@ -104,25 +146,17 @@ export interface Submission {
   attachment_url?: string;
   status: SubmissionStatus;
   score: number | null;
-  comment?: string;
-  feedback?: string;
+  feedback: string;
   grade_classification?: string;
-  rubric_breakdown?: RubricItem[];
-  strengths?: string[];
-  weaknesses?: string[];
-  suggestions?: string[];
+  rubric_breakdown?: RubricItem[] | null;
+  strengths?: string[] | null;
+  weaknesses?: string[] | null;
+  suggestions?: string[] | null;
   graded_by_ai?: boolean;
-  submitted_at?: string;
-  graded_at?: string;
-}
-
-export interface Attendance {
-  id: string;
-  class_id: string;
-  student_id: string;
-  date: string;
-  status: 'present' | 'absent';
-  notes?: string;
+  submitted_at?: string | null;
+  graded_at?: string | null;
+  /** Hạn nộp của bài tập (có trong danh sách bài nộp của học viên) */
+  deadline?: string;
 }
 
 export interface AttendanceSession {
@@ -131,8 +165,9 @@ export interface AttendanceSession {
   class_name?: string;
   qr_code: string;
   session_code?: string;
+  session_date?: string;
   start_time: string;
-  end_time?: string;
+  end_time?: string | null;
   is_active?: boolean;
   created_at: string;
   total_present?: number;
@@ -144,20 +179,12 @@ export interface AttendanceRecord {
   student_id: string;
   student_name?: string;
   student_code?: string;
-  class_id?: string;
-  date?: string;
+  class_id: string;
+  class_name?: string;
+  /** Ngày của buổi học (YYYY-MM-DD) */
+  date: string;
   status: AttendanceStatus;
   check_in_time: string;
-  notes?: string;
-}
-
-export interface Payment {
-  id: string;
-  student_id: string;
-  month: string;
-  amount: number;
-  paid_date: string | null;
-  status: 'paid' | 'unpaid';
   notes?: string;
 }
 
@@ -165,12 +192,13 @@ export interface TuitionRecord {
   id: string;
   student_id: string;
   student_name?: string;
-  class_id?: string;
+  student_code?: string;
+  class_id?: string | null;
   class_name?: string;
   month: string;
   amount: number;
   paid_amount: number;
-  due_date?: string;
+  due_date?: string | null;
   paid_date?: string | null;
   status: TuitionStatus;
   notes?: string;
@@ -197,6 +225,5 @@ export interface ToastNotification {
   subtitle?: string;
 }
 
-export type ActiveTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats';
-export type TeacherTab = ActiveTab;
+export type ActiveTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats' | 'teachers';
 export type StudentTab = 'home' | 'assignments' | 'attendance' | 'tuition' | 'notifications';

@@ -47,7 +47,7 @@ docker run -p 3000:3000 --env-file .env eduscan
 - Địa chỉ trang: giáo viên `/dashboard`, `/attendance`, `/classes`, `/students`, `/tuition` (admin), `/homework`, `/stats`, `/teachers` (admin); học viên `/home`, `/assignments`, `/attendance`, `/tuition`, `/notifications`. Lớp chọn sẵn đi kèm tham số, VD `/attendance?class=<id>`. Đường dẫn sai hoặc không đủ quyền chuyển về trang mặc định. Định nghĩa ở `src/app/routes.ts`.
 - `src/App.tsx`: đăng nhập, khung trang, tải dữ liệu. `src/app/TeacherApp.tsx` và `src/app/StudentApp.tsx` là hai giao diện theo vai trò, tải riêng (lazy) nên học viên không tải mã của giáo viên.
 - Dữ liệu: `src/hooks/data/` mỗi tính năng một hook (lớp, học viên, điểm danh, bài tập, học phí, giáo viên, thông báo, sao lưu); `src/hooks/useEcosystemData.ts` ghép chúng lại, lo tải lần đầu, làm mới và các thao tác chạm nhiều tính năng.
-- `src/app/viewModels.ts`: chuyển dữ liệu API sang dạng các màn hình cần (hàm thuần, có test).
+- Kiểu dữ liệu: `src/shared/types/index.ts` là nguồn duy nhất, dùng chung cho giao diện và server (DTO trong `server/lib/dto.ts` khai báo kiểu trả về theo đó nên lệch nhau là tsc báo lỗi). Giao diện dùng thẳng dữ liệu API, không có lớp chuyển đổi. Dữ liệu biểu mẫu gửi lên là `ClassInput`, `StudentInput`, `AssignmentInput`, `GradeInput`.
 - Máy chủ phải trả `index.html` cho mọi đường dẫn không bắt đầu bằng `/api` (server.ts đã làm). Nếu đặt frontend trên static host riêng, cần cấu hình rewrite tương tự.
 
 ## Sao lưu

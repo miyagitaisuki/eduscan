@@ -1,32 +1,26 @@
 import { apiClient } from './apiClient';
-import { Gender, User } from '../shared/types';
+import { Student, StudentInput } from '../shared/types';
 
 export const studentService = {
-  async getStudents(): Promise<User[]> {
-    return apiClient.get<User[]>('/students');
+  async getStudents(): Promise<Student[]> {
+    return apiClient.get<Student[]>('/students');
   },
 
-  async getStudent(id: string): Promise<User> {
-    return apiClient.get<User>(`/students/${id}`);
+  async getStudent(id: string): Promise<Student> {
+    return apiClient.get<Student>(`/students/${id}`);
   },
 
-  async createStudent(data: {
-    full_name: string;
-    email?: string;
-    phone?: string;
-    gender?: Gender | null;
-    student_code?: string;
-    class_id?: string;
-  }): Promise<User> {
-    return apiClient.post<User>('/students', data);
+  // Server trả mật khẩu tạm một lần trong phản hồi tạo học viên
+  async createStudent(data: StudentInput): Promise<Student & { temporary_password?: string }> {
+    return apiClient.post<Student & { temporary_password?: string }>('/students', data);
   },
 
   async deleteStudent(id: string): Promise<{ success: boolean }> {
     return apiClient.delete<{ success: boolean }>(`/students/${id}`);
   },
 
-  async updateStudent(id: string, data: Partial<User> & { class_id?: string }): Promise<User> {
-    return apiClient.put<User>(`/students/${id}`, data);
+  async updateStudent(id: string, data: Partial<StudentInput>): Promise<Student> {
+    return apiClient.put<Student>(`/students/${id}`, data);
   },
 
   // Chỉ admin: đặt mật khẩu (nhập tay hoặc tự sinh)

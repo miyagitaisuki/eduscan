@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
-import { ToastNotification as ToastType } from '../types/common';
+import { ToastNotification as ToastType } from '../types';
 
 interface ToastNotificationProps {
   toast: ToastType | null;

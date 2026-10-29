@@ -205,7 +205,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
           success: true,
           alreadyCheckedIn: true,
           message: `${student?.fullName || 'Học viên'} đã điểm danh trước đó rồi!`,
-          record: attendanceDto(existing, { student_name: student?.fullName }),
+          record: attendanceDto(existing, { student_name: student?.fullName, class_id: session.classId, date: session.sessionDate }),
         });
       }
 
@@ -222,7 +222,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
       return res.status(201).json({
         success: true,
         message: `Điểm danh thành công cho ${student?.fullName}!`,
-        record: attendanceDto(record, { student_name: student?.fullName }),
+        record: attendanceDto(record, { student_name: student?.fullName, class_id: session.classId, date: session.sessionDate }),
       });
     })
   );

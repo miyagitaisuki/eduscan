@@ -18,3 +18,10 @@ export function addDaysLocal(days: number): string {
   d.setDate(d.getDate() + days);
   return formatLocalDate(d);
 }
+
+/** Ngày (YYYY-MM-DD, giờ địa phương) của một mốc thời gian ISO từ server; rỗng nếu thiếu hoặc không hợp lệ */
+export function localDateOf(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : formatLocalDate(d);
+}

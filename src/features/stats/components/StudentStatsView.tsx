@@ -9,20 +9,21 @@ import {
 import { 
   Student, 
   ClassItem, 
-  Attendance, 
-  Payment, 
+  AttendanceRecord, 
+  TuitionRecord, 
   Assignment, 
   Submission 
 } from '../../../shared/types';
 import { averageScore, formatScore, scoreGrade } from '../../../shared/utils/score';
+import { isSubmitted } from '../../../shared/utils/submission';
 
 interface StudentStatsViewProps {
   /** Học phí chỉ hiển thị với admin */
   isAdmin?: boolean;
   students: Student[];
   classes: ClassItem[];
-  attendance: Attendance[];
-  payments: Payment[];
+  attendance: AttendanceRecord[];
+  payments: TuitionRecord[];
   assignments: Assignment[];
   submissions: Submission[];
 }
@@ -58,7 +59,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
   // Assignments for active student
   const classAssignments = assignments.filter((a) => a.class_id === activeStudent?.class_id);
   const studentSubmissions = submissions.filter((s) => s.student_id === activeStudent?.id);
-  const submittedCount = studentSubmissions.filter((s) => s.status === 'submitted').length;
+  const submittedCount = studentSubmissions.filter(isSubmitted).length;
   const scoredSubmissions = studentSubmissions.filter((s) => s.score !== null);
   const avgScore = averageScore(scoredSubmissions.map((s) => s.score));
 
@@ -83,7 +84,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
       attRate: rate,
       absentCount: total - present,
       unpaidDebt: unpaid,
-      submittedCount: subs.filter((s) => s.status === 'submitted').length,
+      submittedCount: subs.filter(isSubmitted).length,
       avgScore: avg,
     };
   });

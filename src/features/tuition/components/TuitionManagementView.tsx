@@ -11,18 +11,17 @@ import {
   Pencil
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { Student, ClassItem } from '../../../shared/types';
-import { Payment } from '../types';
+import { Student, ClassItem, TuitionRecord } from '../../../shared/types';
 import { currentTuitionMonth, tuitionMonthOptions } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
 import { useConfirm } from '../../../shared/components/ui';
 
 interface TuitionManagementViewProps {
-  payments: Payment[];
+  payments: TuitionRecord[];
   students: Student[];
   classes: ClassItem[];
   initialClassId?: string;
-  onUpdatePayment: (paymentId: string, updates: Partial<Payment>) => void;
+  onUpdatePayment: (paymentId: string, updates: Partial<TuitionRecord>) => void;
   onCreatePaymentRecord: (studentId: string, month: string, amount: number) => void;
   onSetAmount: (studentId: string, month: string, amount: number) => void;
   /** Họ tên giáo viên đang đăng nhập, ký dưới tin nhắn nhắc học phí */

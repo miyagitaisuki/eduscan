@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { Assignment, Submission } from '../shared/types';
+import { Assignment, AssignmentInput, GradeInput, Submission } from '../shared/types';
 
 export const homeworkService = {
   async getAssignments(classId?: string): Promise<Assignment[]> {
@@ -21,7 +21,7 @@ export const homeworkService = {
     return apiClient.get<{ url: string; expires_in: number }>(`/submissions/${submissionId}/attachment`);
   },
 
-  async createAssignment(data: Partial<Assignment>): Promise<Assignment> {
+  async createAssignment(data: AssignmentInput): Promise<Assignment> {
     return apiClient.post<Assignment>('/assignments', data);
   },
 
@@ -56,23 +56,12 @@ export const homeworkService = {
     student_id: string;
     status: 'submitted' | 'unsubmitted' | 'graded';
     score: number | null;
-    comment: string;
+    feedback: string;
   }): Promise<Submission> {
     return apiClient.post<Submission>('/submissions/manual', data);
   },
 
-  async gradeSubmission(
-    submissionId: string,
-    gradeData: {
-      score: number;
-      feedback?: string;
-      rubric_breakdown?: any[];
-      strengths?: string[];
-      weaknesses?: string[];
-      suggestions?: string[];
-      graded_by_ai?: boolean;
-    }
-  ): Promise<Submission> {
+  async gradeSubmission(submissionId: string, gradeData: GradeInput): Promise<Submission> {
     return apiClient.put<Submission>(`/submissions/${submissionId}/grade`, gradeData);
   },
 };
