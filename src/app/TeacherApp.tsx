@@ -105,6 +105,7 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
             onNavigateTab={goTo}
             onScheduleChanged={data.reloadSchedule}
             notify={data.notify}
+            currentUserId={currentUser.id}
           />
         )}
 

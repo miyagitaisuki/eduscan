@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createTestContext, ADMIN, TEACHER, STUDENT_AN } from '../helpers';
+import { createTestContext, ADMIN, TEACHER, STUDENT_AN, SEED_PASSWORD } from '../helpers';
+import { hashPassword } from '../../server/lib/security';
+import { users } from '../../server/db/schema';
 
 
 // Gemini giả: trả đúng JSON theo schema, hoặc ném lỗi khi test yêu cầu
@@ -15,7 +17,7 @@ const fakeAi = {
 let lastCall: any = null;
 
 let ctx: Awaited<ReturnType<typeof createTestContext>>;
-let ADM: string, T: string, S: string;
+let ADM: string, T: string, S: string, OTHER: string;
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 beforeAll(async () => {
@@ -23,6 +25,15 @@ beforeAll(async () => {
   ADM = await ctx.login(ADMIN);
   T = await ctx.login(TEACHER);
   S = await ctx.login(STUDENT_AN);
+  await ctx.db.insert(users).values({
+    id: 'usr-teacher-2',
+    email: 'other.teacher@eduscan.edu.vn',
+    passwordHash: hashPassword(SEED_PASSWORD),
+    fullName: 'GV khác',
+    role: 'teacher',
+    status: 'active',
+  });
+  OTHER = await ctx.login('other.teacher@eduscan.edu.vn');
 });
 afterAll(async () => {
   await ctx.close();
@@ -65,8 +76,11 @@ describe('gợi ý nội dung buổi học bằng AI', () => {
     expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/suggest-titles').set(auth(ADM)).send({ count: 2 })).status).toBe(503);
   });
 
-  it('chỉ admin được gợi ý; số buổi phải hợp lệ', async () => {
-    expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/suggest-titles').set(auth(T)).send({ count: 2 })).status).toBe(403);
+  it('quyền gợi ý; số buổi phải hợp lệ', async () => {
+    reply = async () => ({ text: JSON.stringify({ titles: ['Bài 1'] }) });
+    // Giáo viên phụ trách được soạn; giáo viên khác và học viên thì không
+    expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/suggest-titles').set(auth(T)).send({ count: 2 })).status).toBe(200);
+    expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/suggest-titles').set(auth(OTHER)).send({ count: 2 })).status).toBe(403);
     expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/suggest-titles').set(auth(S)).send({ count: 2 })).status).toBe(403);
     expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/suggest-titles').set(auth(ADM)).send({ count: 0 })).status).toBe(400);
     expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/suggest-titles').set(auth(ADM)).send({ count: 61 })).status).toBe(400);

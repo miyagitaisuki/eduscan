@@ -35,6 +35,8 @@ interface ClassManagementViewProps {
   /** Gọi sau khi admin đổi lịch lặp, buổi học hoặc ngày nghỉ: tải lại lớp và buổi học */
   onScheduleChanged?: () => void;
   notify?: Notify;
+  /** Giáo viên đăng nhập: được sửa nội dung buổi học của lớp mình phụ trách */
+  currentUserId?: string;
 }
 
 export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
@@ -50,6 +52,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   onNavigateTab,
   onScheduleChanged,
   notify,
+  currentUserId,
 }) => {
   // Lịch học của lớp nào đang mở (null = đóng); lưu id để modal luôn lấy dữ liệu lớp mới nhất
   const [scheduleClassId, setScheduleClassId] = useState<string | null>(null);
@@ -342,7 +345,8 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
       {scheduleClass && (
         <LessonScheduleModal
           cls={scheduleClass}
-          canEdit={isAdmin}
+          canEditSchedule={isAdmin}
+          canEditContent={isAdmin || scheduleClass.teacher_id === currentUserId}
           onClose={() => setScheduleClassId(null)}
           onChanged={() => onScheduleChanged?.()}
           notify={notify}

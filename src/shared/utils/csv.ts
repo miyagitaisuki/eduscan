@@ -114,3 +114,48 @@ export function studentRowsFromCsv(text: string): { rows: StudentCsvRow[]; error
   });
   return { rows };
 }
+
+export interface LessonCsvRow {
+  line: number;
+  lesson_date: string;
+  title: string;
+  notes: string;
+}
+
+const LESSON_HEADER_ALIASES: Record<string, string> = {
+  ngay: 'lesson_date', date: 'lesson_date', ngayhoc: 'lesson_date',
+  noidung: 'title', tieude: 'title', title: 'title', baihoc: 'title',
+  ghichu: 'notes', notes: 'notes',
+};
+
+/** Ngày chấp nhận YYYY-MM-DD (xuất ra) và DD/MM/YYYY (Excel hay đổi sang dạng này). Trả chuỗi gốc nếu không nhận ra. */
+export function normalizeLessonDate(raw: string): string {
+  const v = raw.trim();
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return v;
+}
+
+/** Đọc file xuất từ lịch lớp (hoặc file tự điền theo mẫu). Cột Ngày là bắt buộc. */
+export function lessonRowsFromCsv(text: string): { rows: LessonCsvRow[]; error?: string } {
+  const table = parseCsv(text);
+  if (table.length < 2) return { rows: [], error: 'File không có dòng dữ liệu nào.' };
+  const keys = table[0].map((h) => {
+    const folded = h.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[\s_]/g, '');
+    return LESSON_HEADER_ALIASES[folded] ?? '';
+  });
+  if (!keys.includes('lesson_date')) return { rows: [], error: 'Không tìm thấy cột "Ngày" ở dòng đầu tiên.' };
+  const rows = table.slice(1).map((cells, i) => {
+    const row: Record<string, string> = {};
+    keys.forEach((key, col) => {
+      if (key) row[key] = (cells[col] ?? '').trim();
+    });
+    return {
+      line: i + 2,
+      lesson_date: normalizeLessonDate(row.lesson_date ?? ''),
+      title: row.title ?? '',
+      notes: row.notes ?? '',
+    };
+  });
+  return { rows };
+}

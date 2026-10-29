@@ -7,11 +7,15 @@ import { todayLocal } from '../../../shared/utils/date';
 import { errorDetail } from '../../../shared/utils/errorMessage';
 import { shortLessonDate, WEEKDAY_PICKER } from '../../../shared/utils/lessonDates';
 import type { Notify } from '../../../hooks/data/types';
+import { LessonCsvPanel } from './LessonCsvPanel';
 
 interface LessonScheduleModalProps {
   cls: ClassItem;
   /** Chỉ admin được đặt lịch lặp và sửa từng buổi; giáo viên và học viên chỉ xem */
-  canEdit: boolean;
+  /** Admin: đặt lịch lặp, đổi ngày/giờ, hủy hoặc xóa buổi */
+  canEditSchedule: boolean;
+  /** Admin hoặc giáo viên phụ trách: nội dung, ghi chú, dán hàng loạt, AI, CSV */
+  canEditContent: boolean;
   onClose: () => void;
   /** Gọi sau khi lịch đổi để màn hình ngoài tải lại lớp và buổi học */
   onChanged: () => void;
@@ -30,7 +34,7 @@ const STATE_BADGE: Record<string, string> = {
   upcoming: 'bg-primary-50 text-primary-700 border-primary-200',
 };
 
-export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, canEdit, onClose, onChanged, notify }) => {
+export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, canEditSchedule, canEditContent, onClose, onChanged, notify }) => {
   const uid = useId();
   const confirm = useConfirm();
   const today = todayLocal();
@@ -72,6 +76,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
   const [bulkText, setBulkText] = useState('');
   const [bulkOverwrite, setBulkOverwrite] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [aiHint, setAiHint] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNote, setAiNote] = useState('');
@@ -121,7 +126,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
   // Xem trước tự chạy (trễ 450ms) mỗi khi form đổi, không ghi gì vào DB
   useEffect(() => {
     setAllowConflicts(false);
-    if (!canEdit || !setupOpen || !plan) {
+    if (!canEditSchedule || !setupOpen || !plan) {
       setPreview(null);
       setPreviewError('');
       return;
@@ -148,7 +153,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
     };
     // plan được theo dõi qua planKey để tránh chạy lại khi chỉ đổi tham chiếu
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEdit, setupOpen, cls.id, planKey, refreshTick]);
+  }, [canEditSchedule, setupOpen, cls.id, planKey, refreshTick]);
 
   const reloadAll = async () => {
     await loadLessons();
@@ -187,12 +192,11 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
     setSavingEdit(true);
     setEditError('');
     try {
+      // Giáo viên chỉ gửi nội dung và ghi chú; server từ chối nếu có trường lịch
       await lessonService.updateLesson(l.id, {
         title: editTitle,
         notes: editNotes,
-        lesson_date: editDate,
-        start_time: editStart,
-        end_time: editEnd,
+        ...(canEditSchedule ? { lesson_date: editDate, start_time: editStart, end_time: editEnd } : {}),
       });
       setEditingId(null);
       await reloadAll();
@@ -271,7 +275,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
       closeOnBackdrop={false}
     >
       <div className="space-y-4">
-        {canEdit && !setupOpen && (
+        {canEditSchedule && !setupOpen && (
           <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
             <p className="text-xs text-slate-700">
               <strong>Lịch lặp:</strong> {cls.schedule}
@@ -288,7 +292,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
           </div>
         )}
 
-        {canEdit && setupOpen && (
+        {canEditSchedule && setupOpen && (
           <section aria-label="Lịch lặp hàng tuần" className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-extrabold text-slate-800">Lịch lặp hàng tuần</h3>
@@ -438,7 +442,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
                 </button>
               ))}
             </div>
-            {canEdit && (lessons?.length ?? 0) > 0 && (
+            {canEditContent && (lessons?.length ?? 0) > 0 && (
               <button
                 type="button"
                 onClick={() => setBulkOpen((v) => !v)}
@@ -448,9 +452,23 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
                 Dán nội dung các buổi {untitledCount > 0 ? `(${untitledCount} buổi trống)` : ''}
               </button>
             )}
+            {canEditContent && (lessons?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setCsvOpen((v) => !v)}
+                aria-expanded={csvOpen}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                Xuất / nhập CSV
+              </button>
+            )}
           </div>
 
-          {canEdit && bulkOpen && (
+          {canEditContent && csvOpen && (
+            <LessonCsvPanel cls={cls} onImported={() => reloadAll()} notify={notify} />
+          )}
+
+          {canEditContent && bulkOpen && (
             <div className="p-3 bg-accent-50/50 border border-accent-200 rounded-2xl space-y-2">
               <label className={labelClass} htmlFor={`${uid}-bulk`}>Mỗi dòng là nội dung một buổi, gán lần lượt theo ngày (bỏ qua buổi đã hủy)</label>
               <div className="flex flex-wrap items-end gap-2">
@@ -498,7 +516,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
           {lessons && visible.length === 0 && (
             <p className="p-5 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl">
               {lessons.length === 0
-                ? canEdit
+                ? canEditSchedule || canEditContent
                   ? 'Lớp chưa có buổi học nào. Chọn các thứ trong tuần ở trên để tạo lịch.'
                   : 'Lớp chưa có lịch học chi tiết.'
                 : filter === 'upcoming'
@@ -528,14 +546,14 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${STATE_BADGE[l.state]}`}>
                           {l.state === 'cancelled' ? 'Đã hủy' : l.state === 'done' ? (l.has_attendance ? 'Đã điểm danh' : 'Đã qua') : 'Sắp tới'}
                         </span>
-                        {canEdit && l.manually_edited && (
+                        {canEditContent && l.manually_edited && (
                           <span className="px-2 py-0.5 rounded-full text-xs font-bold border bg-accent-50 text-accent-700 border-accent-200" title="Đã nhập nội dung hoặc sửa riêng: đồng bộ lịch sẽ không ghi đè buổi này">
                             Đã chốt
                           </span>
                         )}
                       </div>
                     </div>
-                    {canEdit && (
+                    {canEditContent && (
                       <button
                         type="button"
                         onClick={() => (editing ? setEditingId(null) : startEdit(l))}
@@ -548,7 +566,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
                     )}
                   </div>
 
-                  {canEdit && editing && (
+                  {canEditContent && editing && (
                     <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
                       <div>
                         <label className={labelClass} htmlFor={`${uid}-t-${l.id}`}>Nội dung buổi học</label>
@@ -558,6 +576,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
                         <label className={labelClass} htmlFor={`${uid}-n-${l.id}`}>Ghi chú</label>
                         <textarea id={`${uid}-n-${l.id}`} rows={2} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className={inputClass} />
                       </div>
+                      {canEditSchedule && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="col-span-2 sm:col-span-1">
                           <label className={labelClass} htmlFor={`${uid}-d-${l.id}`}>Ngày</label>
@@ -572,15 +591,20 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
                           <input id={`${uid}-e-${l.id}`} type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className={inputClass} />
                         </div>
                       </div>
+                      )}
                       {editError && <p className="text-xs text-danger-700 font-medium">{editError}</p>}
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex gap-1.5">
+                          {canEditSchedule && (
+                          <>
                           <button type="button" onClick={() => toggleCancel(l)} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-warning-50 text-warning-700 hover:bg-warning-100 cursor-pointer">
                             {l.status === 'cancelled' ? 'Khôi phục buổi' : 'Hủy buổi'}
                           </button>
                           <button type="button" onClick={() => removeLesson(l)} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-danger-50 text-danger-700 hover:bg-danger-100 cursor-pointer">
                             Xóa
                           </button>
+                          </>
+                          )}
                         </div>
                         <button
                           type="button"

@@ -7,8 +7,10 @@ import { holidayDto, lessonDto } from '../lib/dto';
 import { ah, AuthedRequest, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
 import { audit } from '../lib/audit';
-import { canManageClass, manageableClassIds } from '../lib/access';
+import { canManageClass, isAdmin, manageableClassIds } from '../lib/access';
 import { parseDateOnly } from '../lib/validation';
+import { toCsv } from '../lib/csv';
+import { hhmm, weekdayOf } from '../lib/lessons';
 import {
   addDays,
   applyLessonPlan,
@@ -29,6 +31,7 @@ import type { Deps } from './deps';
 const MAX_TITLE_LENGTH = 255;
 const MAX_BULK_TITLES = 400;
 const MAX_SUGGESTIONS = 60;
+const WEEKDAY_NAMES = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 const MAX_RANGE_DAYS = 400;
 
 // Admin xem mọi lớp, giáo viên xem lớp mình phụ trách, học viên xem lớp mình đang học
@@ -206,10 +209,13 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
   // Mặc định chỉ điền buổi còn trống; overwrite = true thì ghi đè từ buổi đầu tiên.
   r.post(
     '/classes/:id/lessons/titles',
-    auth.requireAdmin,
+    auth.requireTeacher,
     ah(async (req: AuthedRequest, res) => {
       const [cls] = await db.select({ id: classes.id }).from(classes).where(eq(classes.id, req.params.id)).limit(1);
       if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });
+      if (!(await canManageClass(db, req.user, cls.id))) {
+        return res.status(403).json({ error: 'Bạn chỉ được sửa nội dung buổi học của lớp mình phụ trách.' });
+      }
       const raw = req.body?.titles;
       if (!Array.isArray(raw)) return res.status(400).json({ error: 'titles phải là danh sách nội dung.' });
       const titles = raw.map((t) => String(t ?? '').trim()).filter(Boolean);
@@ -240,11 +246,14 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
   // không ghi vào DB. Lỗi AI trả 503 chứ không trả nội dung giả.
   r.post(
     '/classes/:id/lessons/suggest-titles',
-    auth.requireAdmin,
+    auth.requireTeacher,
     ah(async (req: AuthedRequest, res) => {
       if (!ai) return res.status(503).json({ error: 'Chưa cấu hình GEMINI_API_KEY trên máy chủ.' });
       const [cls] = await db.select().from(classes).where(eq(classes.id, req.params.id)).limit(1);
       if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });
+      if (!(await canManageClass(db, req.user, cls.id))) {
+        return res.status(403).json({ error: 'Bạn chỉ được soạn nội dung cho lớp mình phụ trách.' });
+      }
       const count = Number(req.body?.count);
       if (!Number.isInteger(count) || count < 1 || count > MAX_SUGGESTIONS) {
         return res.status(400).json({ error: `Số buổi cần gợi ý phải từ 1 đến ${MAX_SUGGESTIONS}.` });
@@ -285,14 +294,116 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
     })
   );
 
-  // ---- Sửa / xóa một buổi (admin) ----
+  // Xuất lịch lớp ra CSV: vừa là file mẫu để điền nội dung, vừa là bản sao lưu
+  r.get(
+    '/classes/:id/lessons/export.csv',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const [cls] = await db.select().from(classes).where(eq(classes.id, req.params.id)).limit(1);
+      if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });
+      if (!(await canManageClass(db, req.user, cls.id))) {
+        return res.status(403).json({ error: 'Bạn chỉ được xuất lịch của lớp mình phụ trách.' });
+      }
+      const rows = await db.select().from(lessons).where(eq(lessons.classId, cls.id)).orderBy(asc(lessons.lessonDate));
+      const body = rows.map((l) => [
+        l.lessonDate,
+        WEEKDAY_NAMES[weekdayOf(l.lessonDate)],
+        hhmm(l.startTime),
+        hhmm(l.endTime),
+        l.status === 'cancelled' ? 'Đã hủy' : '',
+        l.title,
+        l.notes ?? '',
+      ]);
+      await audit(db, req.user.id, 'lessons.export_csv', cls.id, { count: rows.length });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="lich-hoc-${cls.id}-${todayStr()}.csv"`);
+      return res.send(toCsv(['Ngày', 'Thứ', 'Giờ bắt đầu', 'Giờ kết thúc', 'Trạng thái', 'Nội dung', 'Ghi chú'], body));
+    })
+  );
+
+  // Nhập nội dung từ CSV, khớp theo cột Ngày. Dòng không có nội dung và ghi chú bị bỏ qua (giữ nguyên buổi).
+  // dry_run = true chỉ kiểm tra. Ghi thì đánh dấu buổi là đã sửa tay để đồng bộ lịch không ghi đè.
+  r.post(
+    '/classes/:id/lessons/import-csv',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const [cls] = await db.select({ id: classes.id }).from(classes).where(eq(classes.id, req.params.id)).limit(1);
+      if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });
+      if (!(await canManageClass(db, req.user, cls.id))) {
+        return res.status(403).json({ error: 'Bạn chỉ được nhập nội dung cho lớp mình phụ trách.' });
+      }
+      const b = req.body ?? {};
+      if (!Array.isArray(b.rows) || b.rows.length === 0) return res.status(400).json({ error: 'Không có dòng nào để nhập.' });
+      if (b.rows.length > MAX_BULK_TITLES) return res.status(400).json({ error: `Mỗi lần nhập tối đa ${MAX_BULK_TITLES} dòng.` });
+
+      const byDate = new Map(
+        (await db.select().from(lessons).where(eq(lessons.classId, cls.id))).map((l) => [l.lessonDate, l])
+      );
+      const seen = new Set<string>();
+      const results: { line: number; status: 'ok' | 'skip' | 'error'; lesson_date: string; title: string; errors: string[] }[] = [];
+      const updates: { id: string; title?: string; notes: string }[] = [];
+
+      for (const [i, raw] of (b.rows as unknown[]).entries()) {
+        const row = (raw ?? {}) as Record<string, unknown>;
+        const line = Number(row.line) || i + 1;
+        const date = String(row.lesson_date ?? '').trim();
+        const title = String(row.title ?? '').trim();
+        const notes = String(row.notes ?? '').trim();
+        const errors: string[] = [];
+        const lesson = byDate.get(date);
+        if (!date || !parseDateOnly(date)) errors.push('Ngày phải dạng YYYY-MM-DD.');
+        else if (!lesson) errors.push('Lớp không có buổi học vào ngày này.');
+        else if (lesson.status === 'cancelled') errors.push('Buổi này đã hủy.');
+        if (date && seen.has(date)) errors.push('Ngày này xuất hiện nhiều lần trong file.');
+        if (date) seen.add(date);
+        if (title.length > MAX_TITLE_LENGTH) errors.push(`Nội dung tối đa ${MAX_TITLE_LENGTH} ký tự.`);
+
+        if (errors.length > 0) {
+          results.push({ line, status: 'error', lesson_date: date, title, errors });
+        } else if (!title && !notes) {
+          results.push({ line, status: 'skip', lesson_date: date, title, errors: ['Không có nội dung, giữ nguyên buổi.'] });
+        } else {
+          results.push({ line, status: 'ok', lesson_date: date, title, errors: [] });
+          updates.push({ id: lesson!.id, ...(title ? { title } : {}), notes });
+        }
+      }
+
+      const valid = updates.length;
+      const invalid = results.filter((r) => r.status === 'error').length;
+      if (b.dry_run === true) {
+        return res.json({ dry_run: true, total: results.length, valid, skipped: results.length - valid - invalid, invalid, results });
+      }
+      await db.transaction(async (tx) => {
+        for (const u of updates) {
+          await tx
+            .update(lessons)
+            .set({ ...(u.title !== undefined ? { title: u.title } : {}), notes: u.notes || null, manuallyEdited: true })
+            .where(eq(lessons.id, u.id));
+        }
+      });
+      await audit(db, req.user.id, 'lessons.import_csv', cls.id, { updated: valid, invalid });
+      return res.json({ dry_run: false, total: results.length, updated: valid, skipped: results.length - valid - invalid, invalid, results });
+    })
+  );
+
+  // ---- Sửa / xóa một buổi (admin; giáo viên chỉ nội dung) ----
   r.patch(
     '/lessons/:id',
-    auth.requireAdmin,
+    auth.requireTeacher,
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
       const [lesson] = await db.select().from(lessons).where(eq(lessons.id, req.params.id)).limit(1);
       if (!lesson) return res.status(404).json({ error: 'Không tìm thấy buổi học.' });
+      if (!(await canManageClass(db, req.user, lesson.classId))) {
+        return res.status(403).json({ error: 'Bạn chỉ được sửa buổi học của lớp mình phụ trách.' });
+      }
+      // Giáo viên chỉ sửa nội dung và ghi chú; lịch, giờ, trạng thái do admin quản lý
+      if (!isAdmin(req.user)) {
+        const scheduleFields = ['lesson_date', 'start_time', 'end_time', 'status'];
+        if (scheduleFields.some((k) => b[k] !== undefined)) {
+          return res.status(403).json({ error: 'Chỉ admin mới đổi ngày, giờ hoặc hủy buổi học.' });
+        }
+      }
 
       const set: Record<string, unknown> = {};
       if (b.title !== undefined) {

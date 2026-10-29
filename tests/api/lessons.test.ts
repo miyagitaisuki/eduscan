@@ -190,12 +190,23 @@ describe('trùng giáo viên / phòng', () => {
 });
 
 describe('quyền xem và sửa', () => {
-  it('chỉ admin sinh lịch, sửa, xóa buổi và gán nội dung', async () => {
+  it('chỉ admin sinh lịch và xóa buổi; giáo viên phụ trách sửa nội dung, học viên không sửa được gì', async () => {
     const [l] = await listLessons('cls-n5-01');
     expect((await ctx.api.post(planUrl('cls-n5-01')).set(auth(T)).send(plan())).status).toBe(403);
-    expect((await ctx.api.patch(`/api/lessons/${l.id}`).set(auth(T)).send({ title: 'x' })).status).toBe(403);
-    expect((await ctx.api.delete(`/api/lessons/${l.id}`).set(auth(S))).status).toBe(403);
-    expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/titles').set(auth(T)).send({ titles: ['a'] })).status).toBe(403);
+    expect((await ctx.api.delete(`/api/lessons/${l.id}`).set(auth(T))).status).toBe(403);
+    expect((await ctx.api.patch(`/api/lessons/${l.id}`).set(auth(S)).send({ title: 'x' })).status).toBe(403);
+    expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/titles').set(auth(S)).send({ titles: ['a'] })).status).toBe(403);
+    // Giáo viên phụ trách: sửa nội dung được, đổi ngày/giờ/hủy bị chặn
+    expect((await ctx.api.patch(`/api/lessons/${l.id}`).set(auth(T)).send({ title: 'Bài của GV' })).status).toBe(200);
+    expect((await ctx.api.patch(`/api/lessons/${l.id}`).set(auth(T)).send({ start_time: '08:00' })).status).toBe(403);
+    expect((await ctx.api.patch(`/api/lessons/${l.id}`).set(auth(T)).send({ status: 'cancelled' })).status).toBe(403);
+    expect((await ctx.api.post('/api/classes/cls-n5-01/lessons/titles').set(auth(T)).send({ titles: ['a'] })).status).toBe(200);
+  });
+
+  it('giáo viên không phụ trách không sửa được buổi học của lớp khác', async () => {
+    const n4 = await listLessons('cls-n4-01');
+    expect((await ctx.api.patch(`/api/lessons/${n4[0].id}`).set(auth(OTHER)).send({ title: 'x' })).status).toBe(403);
+    expect((await ctx.api.post('/api/classes/cls-n4-01/lessons/titles').set(auth(OTHER)).send({ titles: ['a'] })).status).toBe(403);
   });
 
   it('giáo viên chỉ xem lớp mình; học viên chỉ xem lớp mình học', async () => {

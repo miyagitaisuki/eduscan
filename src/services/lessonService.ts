@@ -43,6 +43,20 @@ export const lessonService = {
     return apiClient.post<{ titles: string[] }>(`/classes/${classId}/lessons/suggest-titles`, { count, hint });
   },
 
+  /** Xuất lịch lớp ra CSV; cũng là file mẫu để điền nội dung rồi nhập lại */
+  exportLessonsCsv(classId: string): Promise<{ blob: Blob; filename: string }> {
+    return apiClient.download(`/classes/${classId}/lessons/export.csv`);
+  },
+
+  /** Nhập nội dung từ CSV, khớp theo ngày. dryRun chỉ kiểm tra. */
+  importLessonsCsv(
+    classId: string,
+    rows: unknown[],
+    dryRun: boolean
+  ): Promise<{ dry_run: boolean; total: number; valid?: number; updated?: number; skipped: number; invalid: number; results: { line: number; status: 'ok' | 'skip' | 'error'; lesson_date: string; title: string; errors: string[] }[] }> {
+    return apiClient.post(`/classes/${classId}/lessons/import-csv`, { rows, dry_run: dryRun });
+  },
+
   getHolidays(): Promise<Holiday[]> {
     return apiClient.get<Holiday[]>('/holidays');
   },

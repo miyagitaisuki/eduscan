@@ -38,6 +38,7 @@ import { compressImage } from '../../../shared/utils/compressImage';
 import { formatScore, scoreGrade } from '../../../shared/utils/score';
 import { studentGreeting } from '../../../shared/utils/greeting';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
+import { todayLocal } from '../../../shared/utils/date';
 
 interface StudentPortalViewProps {
   currentUser: User;
@@ -351,6 +352,34 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 );
               })}
             </div>
+
+            {/* Hôm nay học gì: buổi học của lớp mình trong ngày */}
+            {myClass && (() => {
+              const today = todayLocal();
+              const todayLesson = lessons.find((l) => l.class_id === myClass.id && l.lesson_date === today);
+              const cancelled = todayLesson?.status === 'cancelled';
+              return (
+                <div className="p-4 rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50/60 to-white space-y-1.5">
+                  <p className="text-xs font-bold text-slate-600 flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-primary-600" />
+                    Hôm nay học gì
+                  </p>
+                  {!todayLesson ? (
+                    <p className="text-xs text-slate-500">Hôm nay lớp không có buổi học.</p>
+                  ) : cancelled ? (
+                    <p className="text-xs font-bold text-danger-700">Buổi học hôm nay đã được hủy.</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-extrabold text-slate-900">{todayLesson.title || 'Giáo viên chưa cập nhật nội dung'}</p>
+                      <p className="text-xs text-slate-600">
+                        {todayLesson.start_time} - {todayLesson.end_time}
+                        {todayLesson.notes ? ` • ${todayLesson.notes}` : ''}
+                      </p>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Schedule Card */}
             <div className="p-4 bg-slate-100/60 border border-slate-200 rounded-2xl space-y-2">
@@ -829,7 +858,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       )}
 
       {isScheduleOpen && myClass && (
-        <LessonScheduleModal cls={myClass} canEdit={false} onClose={() => setIsScheduleOpen(false)} onChanged={() => {}} />
+        <LessonScheduleModal cls={myClass} canEditSchedule={false} canEditContent={false} onClose={() => setIsScheduleOpen(false)} onChanged={() => {}} />
       )}
 
       {/* Live Camera QR Scanner Modal */}
