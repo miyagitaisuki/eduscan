@@ -81,7 +81,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const todayDateStr = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="space-y-5 pb-16 md:pb-6">
+    <div className="space-y-5">
       
       {/* Welcome Banner Card */}
       <div className="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white rounded-3xl p-5 sm:p-7 shadow-lg shadow-blue-900/15 relative overflow-hidden">

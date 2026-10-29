@@ -180,7 +180,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   const rate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
   return (
-    <div className="space-y-4 pb-20 md:pb-6">
+    <div className="space-y-4">
       
       {/* Top Class Selector & Date Header */}
       <div className="bg-white rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-xs space-y-4">

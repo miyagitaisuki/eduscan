@@ -97,7 +97,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
   });
 
   return (
-    <div className="space-y-4 pb-16 md:pb-6">
+    <div className="space-y-4">
       
       {/* Top Header */}
       <div className="bg-white rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-xs">

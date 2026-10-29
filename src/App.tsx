@@ -255,7 +255,7 @@ export default function App() {
            EDUSCAN TEACHER (WEB APP)
            ========================================================================= */
         <>
-          <main className="flex-1 max-w-6xl w-full mx-auto px-3.5 sm:px-6 py-4 sm:py-6">
+          <main className="flex-1 max-w-6xl w-full mx-auto px-3.5 sm:px-6 pt-4 sm:pt-6 pb-20 md:pb-6">
             {activeTab === 'dashboard' && (
               <DashboardView
                 isAdmin={isAdmin}
