@@ -1,6 +1,0 @@
-{
-  "name": "EduScan AI - Điểm Danh QR & Chấm Bài AI",
-  "description": "Ứng dụng điểm danh học viên thông minh bằng mã QR, thống kê chuyên cần hàng tuần, quản lý nộp bài tập và chấm điểm tự động hỗ trợ bởi AI.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

@@ -15,6 +15,7 @@ import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
 import { AttendanceSession, ClassItem, Student } from '../../../shared/types';
 import { Attendance } from '../types';
+import { todayLocal } from '../../../shared/utils/date';
 
 interface QuickAttendanceViewProps {
   classes: ClassItem[];
@@ -42,7 +43,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
 
   // Selected date (YYYY-MM-DD), default today
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toLocaleDateString('en-CA');
+    return todayLocal();
   });
 
   // View mode: 'take_attendance' or 'history'
@@ -287,7 +288,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500"
             />
             <button
-              onClick={() => setSelectedDate(new Date().toLocaleDateString('en-CA'))}
+              onClick={() => setSelectedDate(todayLocal())}
               className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
             >
               Hôm nay
@@ -336,7 +337,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {classStudents.length === 0 ? (
               <div className="col-span-full p-8 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">
-                Lớp này hiện chưa có học viên nào. Thầy vui lòng vào tab "Học viên" để thêm học viên vào lớp.
+                Lớp này hiện chưa có học viên nào. Vui lòng vào tab "Học viên" để thêm học viên vào lớp.
               </div>
             ) : (
               classStudents.map((student, idx) => {

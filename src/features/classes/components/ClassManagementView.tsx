@@ -14,6 +14,7 @@ import {
 import { Student, Attendance, Payment, JlptLevel, ActiveTab } from '../../../shared/types';
 import { ClassItem } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
+import { todayLocal } from '../../../shared/utils/date';
 
 interface ClassManagementViewProps {
   /** Học phí và chọn giáo viên phụ trách chỉ dành cho admin */
@@ -53,10 +54,9 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   const [name, setName] = useState('');
   const [level, setLevel] = useState<JlptLevel>('N5');
   const [schedule, setSchedule] = useState('Thứ 2 - 4 - 6 (18:00 - 19:30)');
-  const [scheduleDays, setScheduleDays] = useState<number[]>([1, 3, 5]);
   const [monthlyFee, setMonthlyFee] = useState<number>(800000);
   const [teacherId, setTeacherId] = useState<string>('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(todayLocal());
   const [notes, setNotes] = useState('');
   const [room, setRoom] = useState('Phòng 201 - Nhà Ngoại ngữ');
 
@@ -65,9 +65,8 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     setName('');
     setLevel('N5');
     setSchedule('Thứ 2 - 4 - 6 (18:00 - 19:30)');
-    setScheduleDays([1, 3, 5]);
     setMonthlyFee(800000);
-    setStartDate(new Date().toISOString().split('T')[0]);
+    setStartDate(todayLocal());
     setNotes('');
     setRoom('Phòng 201 - Nhà Ngoại ngữ');
     setTeacherId(teachers[0]?.id ?? '');
@@ -79,7 +78,6 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     setName(cls.name);
     setLevel(cls.level);
     setSchedule(cls.schedule);
-    setScheduleDays(cls.scheduleDays || [1, 3, 5]);
     setMonthlyFee(cls.monthly_fee);
     setStartDate(cls.start_date);
     setNotes(cls.notes);
@@ -98,7 +96,6 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
         name: name.trim(),
         level,
         schedule: schedule.trim(),
-        scheduleDays,
         monthly_fee: Number(monthlyFee) || 0,
         start_date: startDate,
         notes: notes.trim(),
@@ -110,7 +107,6 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
         name: name.trim(),
         level,
         schedule: schedule.trim(),
-        scheduleDays,
         monthly_fee: Number(monthlyFee) || 0,
         start_date: startDate,
         notes: notes.trim(),
@@ -217,7 +213,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                     </button>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Thầy có chắc chắn muốn xóa lớp "${cls.name}"?`)) {
+                        if (window.confirm(`Bạn có chắc chắn muốn xóa lớp "${cls.name}"?`)) {
                           onDeleteClass(cls.id);
                         }
                       }}
@@ -396,6 +392,9 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   onChange={(e) => setSchedule(e.target.value)}
                   className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Ghi rõ thứ trong tuần (VD: Thứ 2 - 4 - 6, Chủ Nhật) để trang Tổng quan hiện đúng lớp học hôm nay.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

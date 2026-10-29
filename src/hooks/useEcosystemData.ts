@@ -1,12 +1,12 @@
 import type { Gender } from '../shared/types';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { errorDetail } from '../shared/utils/errorMessage';
+import { todayLocal } from '../shared/utils/date';
 import {
   ClassItem,
   User,
   Assignment,
   Submission,
-  AttendanceSession,
   AttendanceRecord,
   TuitionRecord,
   NotificationItem,
@@ -44,12 +44,20 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const [tuitionRecords, setTuitionRecords] = useState<TuitionRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [teachers, setTeachers] = useState<TeacherAccount[]>([]);
-  const [activeSession, setActiveSession] = useState<AttendanceSession | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Có ít nhất một yêu cầu tải dữ liệu thất bại (dữ liệu cũ vẫn được giữ nguyên)
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fetch all data from API
   const refreshData = useCallback(async () => {
     try {
+      let failed = false;
+      // Yêu cầu lỗi trả về undefined để giữ nguyên dữ liệu đang có thay vì xóa trắng màn hình
+      const safe = <T,>(request: Promise<T>): Promise<T | undefined> =>
+        request.catch(() => {
+          failed = true;
+          return undefined;
+        });
       const [
         fetchedClasses,
         fetchedStudents,
@@ -60,34 +68,42 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
         fetchedNotifs,
         fetchedTeachers,
       ] = await Promise.all([
-        classService.getClasses().catch(() => []),
-        studentService.getStudents().catch(() => []),
-        homeworkService.getAssignments().catch(() => []),
-        homeworkService.getSubmissions().catch(() => []),
-        attendanceService.getHistory().catch(() => []),
-        isAdmin ? tuitionService.getTuitionRecords().catch(() => []) : Promise.resolve([] as TuitionRecord[]),
-        notificationService.getNotifications(currentUserId).catch(() => []),
-        isAdmin ? teacherService.getTeachers().catch(() => []) : Promise.resolve([] as TeacherAccount[]),
+        safe(classService.getClasses()),
+        safe(studentService.getStudents()),
+        safe(homeworkService.getAssignments()),
+        safe(homeworkService.getSubmissions()),
+        safe(attendanceService.getHistory()),
+        isAdmin ? safe(tuitionService.getTuitionRecords()) : Promise.resolve([] as TuitionRecord[]),
+        safe(notificationService.getNotifications(currentUserId)),
+        isAdmin ? safe(teacherService.getTeachers()) : Promise.resolve([] as TeacherAccount[]),
       ]);
 
-      setClasses(fetchedClasses);
-      setStudents(fetchedStudents);
-      setAssignments(fetchedAssignments);
-      setSubmissions(fetchedSubmissions);
-      setAttendanceRecords(fetchedAttendance);
-      setTuitionRecords(fetchedTuition);
-      setNotifications(fetchedNotifs);
-      setTeachers(fetchedTeachers);
+      if (fetchedClasses) setClasses(fetchedClasses);
+      if (fetchedStudents) setStudents(fetchedStudents);
+      if (fetchedAssignments) setAssignments(fetchedAssignments);
+      if (fetchedSubmissions) setSubmissions(fetchedSubmissions);
+      if (fetchedAttendance) setAttendanceRecords(fetchedAttendance);
+      if (fetchedTuition) setTuitionRecords(fetchedTuition);
+      if (fetchedNotifs) setNotifications(fetchedNotifs);
+      if (fetchedTeachers) setTeachers(fetchedTeachers);
+      setLoadError(failed ? 'Không tải được một phần dữ liệu. Có thể máy chủ đang khởi động hoặc mạng không ổn định.' : null);
     } catch (err: any) {
       console.warn('Could not sync with EduScan REST API:', err);
+      setLoadError('Không kết nối được máy chủ.');
     } finally {
       setIsLoading(false);
     }
   }, [currentUserId, isAdmin]);
 
+  // Chỉ tải khi đã đăng nhập; mỗi lần đổi tài khoản thì hiện lại màn hình đang tải
   useEffect(() => {
+    if (!currentUserId) {
+      setIsLoading(true);
+      return;
+    }
+    setIsLoading(true);
     refreshData();
-  }, [refreshData]);
+  }, [currentUserId, refreshData]);
 
   // 1. Classes Handlers
   const handleCreateClass = async (data: Partial<ClassItem>) => {
@@ -155,7 +171,6 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const handleCreateAttendanceSession = async (classId: string) => {
     try {
       const session = await attendanceService.createSession(classId);
-      setActiveSession(session);
       notify?.('success', 'Đã phát sinh mã QR điểm danh động!', `Phiên học: ${session.session_code}`);
       return session;
     } catch (err: any) {
@@ -426,7 +441,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `eduscan-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `eduscan-backup-${todayLocal()}.json`;
       a.click();
       URL.revokeObjectURL(url);
       notify?.('success', 'Đã xuất file sao lưu!', 'File có chứa băm mật khẩu, hãy cất giữ an toàn.');
@@ -457,28 +472,6 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     }
   };
 
-  // Calculated Stats
-  const stats = useMemo(() => {
-    const totalClasses = classes.length;
-    const totalStudents = students.length;
-    const totalRevenue = tuitionRecords.filter((t) => t.status === 'paid').reduce((acc, t) => acc + (t.paid_amount || t.amount), 0);
-    const unpaidCount = tuitionRecords.filter((t) => t.status === 'unpaid').length;
-    const pendingHomeworkCount = submissions.filter((s) => s.status === 'submitted' && s.score === null).length;
-
-    const presentAtt = attendanceRecords.filter((r) => r.status === 'present').length;
-    const totalAtt = attendanceRecords.length;
-    const overallAttendanceRate = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 100;
-
-    return {
-      totalClasses,
-      totalStudents,
-      totalRevenue,
-      unpaidCount,
-      pendingHomeworkCount,
-      overallAttendanceRate,
-    };
-  }, [classes, students, tuitionRecords, submissions, attendanceRecords]);
-
   return {
     classes,
     students,
@@ -492,9 +485,8 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     handleSetTeacherStatus,
     handleSetTeacherPassword,
     notifications,
-    activeSession,
     isLoading,
-    stats,
+    loadError,
     refreshData,
     handleCreateClass,
     handleUpdateClass,

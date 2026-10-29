@@ -14,6 +14,7 @@ import confetti from 'canvas-confetti';
 import { Student, ClassItem } from '../../../shared/types';
 import { Payment } from '../types';
 import { currentTuitionMonth, tuitionMonthOptions } from '../../../shared/utils/tuitionMonth';
+import { todayLocal } from '../../../shared/utils/date';
 
 interface TuitionManagementViewProps {
   payments: Payment[];
@@ -53,7 +54,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   const rows = students.map((st) => {
     const cls = classes.find((c) => c.id === st.class_id);
     const existingPayment = payments.find((p) => p.student_id === st.id && p.month === selectedMonth);
-    const amount = existingPayment ? existingPayment.amount : (cls?.monthly_fee || 800000);
+    const amount = existingPayment ? existingPayment.amount : (cls?.monthly_fee ?? 0);
     const status = existingPayment ? existingPayment.status : 'unpaid';
     const paidDate = existingPayment ? existingPayment.paid_date : null;
     const notes = existingPayment ? existingPayment.notes : '';
@@ -110,7 +111,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
 
   // Đã thu: ghi nhận số tiền thực thu (mặc định bằng học phí)
   const handleMarkPaid = (row: typeof rows[0], paidAmount: number) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayLocal();
     if (row.payment) {
       onUpdatePayment(row.payment.id, {
         status: 'paid',

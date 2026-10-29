@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Student, ClassItem, AiDraft } from '../../../shared/types';
 import { Assignment, Submission } from '../types';
+import { todayLocal, addDaysLocal } from '../../../shared/utils/date';
 import { aiService } from '../../../services/aiService';
 import { SubmissionAttachmentsModal } from './SubmissionAttachmentsModal';
 
@@ -56,7 +57,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newClassId, setNewClassId] = useState(classes[0]?.id || '');
-  const [newDeadline, setNewDeadline] = useState(new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]);
+  const [newDeadline, setNewDeadline] = useState(addDaysLocal(7));
 
   // Quick feedback template phrases
   const quickComments = [
@@ -98,7 +99,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
     if (existing) {
       onUpdateSubmission(existing.id, {
         status: existing.status === 'submitted' ? 'unsubmitted' : 'submitted',
-        submitted_at: existing.status === 'unsubmitted' ? new Date().toISOString().split('T')[0] : undefined,
+        submitted_at: existing.status === 'unsubmitted' ? todayLocal() : undefined,
       });
     } else {
       onCreateSubmissionRecord(activeAssignment.id, studentId, 'submitted', null, '');
@@ -239,7 +240,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
           {filteredAssignments.length === 0 ? (
             <div className="p-6 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
-              Chưa có bài tập nào. Thầy bấm nút "Tạo bài tập mới" để giao bài tập cho lớp.
+              Chưa có bài tập nào. Hãy bấm nút "Tạo bài tập mới" để giao bài tập cho lớp.
             </div>
           ) : (
             filteredAssignments.map((asg) => {

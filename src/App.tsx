@@ -6,7 +6,8 @@
 import React, { useState } from 'react';
 
 // Shared UI Components
-import { Header, BottomNav, ToastNotification } from './shared/components';
+import { Header, BottomNav, ToastNotification, LoadingScreen, LoadErrorBanner } from './shared/components';
+import { parseScheduleDays } from './shared/utils/schedule';
 import { currentTuitionMonth } from './shared/utils/tuitionMonth';
 import { EcosystemViewMode, EcosystemTeacherTab } from './shared/components/Header';
 
@@ -34,7 +35,7 @@ import { useAuth, useEcosystemData, useToast } from './hooks';
 
 export default function App() {
   const { toast, showToast, hideToast } = useToast();
-  const { currentUser, role, switchRole, login, logout, isLoading: isAuthLoading, updateCurrentUser } = useAuth();
+  const { currentUser, switchRole, login, logout, isLoading: isAuthLoading, updateCurrentUser } = useAuth();
   const isAdmin = currentUser?.role === 'admin';
   const [showProfile, setShowProfile] = useState(false);
   
@@ -60,6 +61,9 @@ export default function App() {
     handleSetTeacherStatus,
     handleSetTeacherPassword,
     notifications,
+    isLoading: isDataLoading,
+    loadError,
+    refreshData,
     handleCreateClass,
     handleUpdateClass,
     handleDeleteClass,
@@ -96,11 +100,13 @@ export default function App() {
   const formattedClasses = classes.map((c) => ({
     id: c.id,
     name: c.name,
-    level: (c.level as any) || 'N5',
-    scheduleDays: c.scheduleDays || [1, 3, 5],
-    monthly_fee: c.monthly_fee || 800000,
-    schedule: c.schedule || 'Thứ 2 - 4 - 6',
-    start_date: c.created_at?.split('T')[0] || '2026-09-01',
+    level: (c.level as any) || '',
+    // Server chỉ lưu chuỗi lịch học, nên suy ra các ngày học từ chuỗi đó
+    scheduleDays: parseScheduleDays(c.schedule),
+    // Giáo viên (không phải admin) không nhận học phí lớp từ server
+    monthly_fee: c.monthly_fee ?? 0,
+    schedule: c.schedule || '',
+    start_date: c.created_at?.split('T')[0] || '',
     notes: c.description || '',
     room: c.room || '',
     teacher_id: c.teacher_id,
@@ -110,15 +116,15 @@ export default function App() {
     id: s.id,
     full_name: s.full_name,
     phone: s.phone || '',
-    class_id: (s as any).class_id || classes[0]?.id || 'cls-n5-01',
-    level: (s as any).level || 'N5',
-    join_date: s.created_at?.split('T')[0] || '2026-09-01',
+    class_id: (s as any).class_id || '',
+    level: (classes.find((c) => c.id === (s as any).class_id)?.level || '') as any,
+    join_date: s.created_at?.split('T')[0] || '',
     notes: s.student_code ? `MSSV: ${s.student_code}` : '',
   }));
 
   const formattedAttendance = attendanceRecords.map((r) => ({
     id: r.id,
-    class_id: r.class_id || classes[0]?.id || 'cls-n5-01',
+    class_id: r.class_id || '',
     student_id: r.student_id,
     date: r.date || r.check_in_time.split('T')[0],
     status: r.status as 'present' | 'absent',
@@ -177,6 +183,11 @@ export default function App() {
     return <ChangePasswordModal required onClose={logout} onDone={() => window.location.reload()} />;
   }
 
+  // Đang tải dữ liệu lần đầu (kể cả lúc máy chủ khởi động lại): không hiện số liệu 0 gây hiểu nhầm
+  if (isDataLoading) {
+    return <LoadingScreen />;
+  }
+
   // Số học viên chưa đóng học phí tháng hiện tại (kể cả chưa có hồ sơ)
   const currentMonth = currentTuitionMonth();
   const unpaidTuitionCount = formattedStudents.filter(
@@ -218,17 +229,13 @@ export default function App() {
               </span>
             </div>
           )}
+          {loadError && (
+            <div className="w-full max-w-md px-2">
+              <LoadErrorBanner message={loadError} onRetry={refreshData} />
+            </div>
+          )}
           <StudentPortalView
-            currentUser={
-              currentUser || {
-                id: 'usr-student-1',
-                email: 'student@qnu.edu.vn',
-                full_name: 'Nguyễn Văn An',
-                role: 'student',
-                status: 'active',
-                student_code: '',
-              }
-            }
+            currentUser={currentUser}
             classes={classes}
             assignments={assignments}
             submissions={submissions}
@@ -236,16 +243,11 @@ export default function App() {
             tuitionRecords={tuitionRecords}
             notifications={notifications}
             onCheckinQR={async (payload) => {
-              const res = await handleStudentCheckin(currentUser?.id || 'usr-student-1', payload);
+              const res = await handleStudentCheckin(currentUser.id, payload);
               return res;
             }}
             onSubmitHomework={async (asgId, content, attachmentUrl) => {
-              const res = await handleSubmitHomework(
-                asgId,
-                currentUser?.id || 'usr-student-1',
-                content,
-                attachmentUrl
-              );
+              const res = await handleSubmitHomework(asgId, currentUser.id, content, attachmentUrl);
               return res;
             }}
             onMarkNotificationRead={handleMarkNotificationRead}
@@ -257,6 +259,7 @@ export default function App() {
            ========================================================================= */
         <>
           <main className="flex-1 max-w-6xl w-full mx-auto px-3.5 sm:px-6 pt-4 sm:pt-6 pb-20 md:pb-6">
+            {loadError && <LoadErrorBanner message={loadError} onRetry={refreshData} />}
             {activeTab === 'dashboard' && (
               <DashboardView
                 isAdmin={isAdmin}
@@ -394,7 +397,7 @@ export default function App() {
           />
         </>
       )}
-{showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
       {showProfile && currentUser && (
         <ProfileModal
           user={currentUser}

@@ -19,6 +19,14 @@ afterAll(async () => {
 });
 
 describe('phân quyền theo vai trò', () => {
+  it('học viên chỉ thấy lớp mình đang học', async () => {
+    const mine = await ctx.api.get('/api/classes').set('Authorization', `Bearer ${AN}`);
+    expect(mine.status).toBe(200);
+    expect(mine.body.map((c: any) => c.id)).toEqual(['cls-n5-01']);
+    const all = await ctx.api.get('/api/classes').set('Authorization', `Bearer ${T}`);
+    expect(all.body.length).toBeGreaterThan(1);
+  });
+
   it('học viên không thể tạo, sửa, xóa lớp', async () => {
     expect((await ctx.api.post('/api/classes').set('Authorization', `Bearer ${AN}`).send({ name: 'x' })).status).toBe(403);
     expect((await ctx.api.put('/api/classes/cls-n5-01').set('Authorization', `Bearer ${AN}`).send({ name: 'x' })).status).toBe(403);

@@ -22,6 +22,7 @@ import {
 } from '../../../shared/types';
 import { Student } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
+import { todayLocal } from '../../../shared/utils/date';
 import { StudentAccountPanel } from './StudentAccountPanel';
 
 interface StudentManagementViewProps {
@@ -96,7 +97,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   const [gender, setGender] = useState<Gender | null>(null);
   const [level, setLevel] = useState<JlptLevel>('N5');
   const [classId, setClassId] = useState<string>(classes[0]?.id || '');
-  const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0]);
+  const [joinDate, setJoinDate] = useState(todayLocal());
   const [notes, setNotes] = useState('');
 
   const openCreateModal = () => {
@@ -106,7 +107,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     setGender(null);
     setLevel('N5');
     setClassId(classes[0]?.id || '');
-    setJoinDate(new Date().toISOString().split('T')[0]);
+    setJoinDate(todayLocal());
     setNotes('');
     setIsModalOpen(true);
   };
@@ -494,12 +495,12 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   {tuitionEditAmount === null ? (
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold text-slate-700">
-                        Học phí tháng {currentTuitionMonth()}: {(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === currentTuitionMonth())?.amount ?? cls?.monthly_fee ?? 800000).toLocaleString('vi-VN')} đ
+                        Học phí tháng {currentTuitionMonth()}: {(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === currentTuitionMonth())?.amount ?? cls?.monthly_fee ?? 0).toLocaleString('vi-VN')} đ
                       </span>
                       <button
                         type="button"
                         onClick={() =>
-                          setTuitionEditAmount(String(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === currentTuitionMonth())?.amount ?? cls?.monthly_fee ?? 800000))
+                          setTuitionEditAmount(String(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === currentTuitionMonth())?.amount ?? cls?.monthly_fee ?? 0))
                         }
                         className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
                       >

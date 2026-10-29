@@ -1,6 +1,7 @@
 import React from 'react';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
-import { teacherGreeting } from '../../../shared/utils/greeting';
+import { teacherGreeting, teacherTitle } from '../../../shared/utils/greeting';
+import { todayLocal } from '../../../shared/utils/date';
 import type { Gender } from '../../../shared/types';
 import { 
   BookOpen, 
@@ -82,7 +83,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const todayClasses = classes.filter((c) => (c.scheduleDays as number[] | undefined)?.includes(todayDayIndex));
 
   // Today's date YYYY-MM-DD
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = todayLocal();
+  const honorific = teacherTitle(teacherGender);
 
   return (
     <div className="space-y-5">
@@ -111,8 +113,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-xs sm:text-sm text-blue-100/90 mt-1 max-w-xl leading-relaxed">
               Hôm nay là <span className="font-bold text-white">{todayName}</span>. 
               {todayClasses.length > 0 
-                ? ` Thầy có ${todayClasses.length} lớp học tiếng Nhật cần điểm danh.`
-                : isAdmin ? ' Không có lịch học cố định hôm nay. Thầy có thể kiểm tra học phí và chấm bài tập.' : ' Không có lịch học cố định hôm nay. Thầy có thể chấm bài tập.'}
+                ? ` ${honorific} có ${todayClasses.length} lớp học tiếng Nhật cần điểm danh.`
+                : isAdmin ? ` Không có lịch học cố định hôm nay. ${honorific} có thể kiểm tra học phí và chấm bài tập.` : ` Không có lịch học cố định hôm nay. ${honorific} có thể chấm bài tập.`}
             </p>
           </div>
 
@@ -233,8 +235,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h3>
               <p className="text-xs text-slate-500">
                 {todayClasses.length > 0
-                  ? `Có ${todayClasses.length} lớp diễn ra hôm nay. Thầy bấm nút để vào điểm danh ngay.`
-                  : 'Không có lớp cố định hôm nay. Thầy có thể xem toàn bộ các lớp bên dưới.'}
+                  ? `Có ${todayClasses.length} lớp diễn ra hôm nay. ${honorific} bấm nút để vào điểm danh ngay.`
+                  : `Không có lớp cố định hôm nay. ${honorific} có thể xem toàn bộ các lớp bên dưới.`}
               </p>
             </div>
           </div>
@@ -253,7 +255,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
             <p className="text-xs font-bold text-slate-700">Hôm nay ({todayName}) không có lịch dạy cố định</p>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Thầy có thể chọn lớp bất kỳ trong tab Lớp học hoặc thực hiện điểm danh bù.
+              {honorific} có thể chọn lớp bất kỳ trong tab Lớp học hoặc thực hiện điểm danh bù.
             </p>
             <div className="mt-3 flex items-center justify-center gap-2">
               <button

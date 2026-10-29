@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { classes, enrollments, users } from '../db/schema';
 import { classDto } from '../lib/dto';
-import { ah, AuthedRequest } from '../lib/http';
+import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
 import { canManageClass, isAdmin } from '../lib/access';
 import type { Deps } from './deps';
@@ -40,10 +40,20 @@ export function classRoutes({ db, auth }: Deps) {
     '/',
     auth.requireAuth,
     ah(async (req: AuthedRequest, res) => {
-      const rows = await db
+      const allRows = await db
         .select({ c: classes, teacherName: users.fullName })
         .from(classes)
         .leftJoin(users, eq(users.id, classes.teacherId));
+      // Học viên chỉ thấy các lớp mình đang học, không thấy lớp của người khác
+      let rows = allRows;
+      if (isStudent(req)) {
+        const mine = await db
+          .select({ classId: enrollments.classId })
+          .from(enrollments)
+          .where(and(eq(enrollments.studentId, req.user.id), eq(enrollments.status, 'active')));
+        const mineIds = new Set(mine.map((m) => m.classId));
+        rows = allRows.filter((row) => mineIds.has(row.c.id));
+      }
       const counts = await db
         .select({ classId: enrollments.classId, n: sql<number>`count(*)::int` })
         .from(enrollments)

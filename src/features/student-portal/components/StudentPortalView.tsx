@@ -32,6 +32,7 @@ import {
 import { CameraQRScanner } from '../../../shared/components/CameraQRScanner';
 import { compressImage } from '../../../shared/utils/compressImage';
 import { studentGreeting } from '../../../shared/utils/greeting';
+import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 
 interface StudentPortalViewProps {
   currentUser: User;
@@ -68,6 +69,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const [attachmentName, setAttachmentName] = useState('');
   const [attachmentBase64, setAttachmentBase64] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Selected submission for viewing AI feedback
   const [viewFeedbackSubmission, setViewFeedbackSubmission] = useState<Submission | null>(null);
@@ -79,23 +81,17 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const myNotifs = notifications.filter((n) => !n.user_id || n.user_id === currentUser.id);
   const unreadNotifsCount = myNotifs.filter((n) => !n.is_read).length;
 
-  // Enrolled class
-  const myClass = classes[0] || {
-    id: 'cls-n5-01',
-    name: 'N5 Sơ cấp 1 (Minna no Nihongo)',
-    schedule: 'Thứ 2 - 4 - 6 (18:00 - 19:30)',
-  };
+  // Lớp đang học (server chỉ trả các lớp học viên đã ghi danh); null nếu chưa được xếp lớp
+  const myClass = classes[0] ?? null;
 
   // Calculations
   const presentCount = myAttendance.filter((r) => r.status === 'present').length;
   const attendanceRate = myAttendance.length > 0 ? Math.round((presentCount / myAttendance.length) * 100) : 100;
 
-  const currentMonthTuition = myTuition[0] || {
-    month: '10/2026',
-    amount: 800000,
-    paid_amount: 0,
-    status: 'unpaid',
-  };
+  // Học phí của tháng hiện tại; null nếu giáo viên chưa lập hồ sơ học phí tháng này
+  const tuitionMonth = currentTuitionMonth();
+  const currentMonthTuition = myTuition.find((t) => t.month === tuitionMonth) ?? null;
+  const initials = currentUser.full_name.trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || '?';
 
   // Handle file select
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,6 +119,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       setAttachmentName('');
       setAttachmentBase64('');
     }
+    setSubmitError('');
     setIsSubmitModalOpen(true);
   };
 
@@ -130,9 +127,10 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     e.preventDefault();
     if (!selectedAssignment) return;
     if (!submissionContent.trim() && !attachmentBase64) {
-      alert('Vui lòng nhập nội dung bài làm hoặc đính kèm ảnh/tệp tin.');
+      setSubmitError('Vui lòng nhập nội dung bài làm hoặc đính kèm ảnh/tệp tin.');
       return;
     }
+    setSubmitError('');
 
     setIsSubmitting(true);
     try {
@@ -152,11 +150,20 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       {/* Mobile App Bar */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img
-            src={currentUser.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
-            alt={currentUser.full_name}
-            className="w-10 h-10 rounded-full object-cover border-2 border-blue-500 shadow-md"
-          />
+          {currentUser.avatar ? (
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.full_name}
+              className="w-10 h-10 rounded-full object-cover border-2 border-blue-500 shadow-md"
+            />
+          ) : (
+            <div
+              aria-hidden="true"
+              className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-base font-black border-2 border-blue-200 shadow-md"
+            >
+              {initials}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-1.5">
               <h2 className="text-sm font-bold text-slate-900 tracking-tight">{currentUser.full_name}</h2>
@@ -164,7 +171,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 Học viên
               </span>
             </div>
-            <p className="text-[11px] text-slate-500">{currentUser.student_code ? `MSSV: ${currentUser.student_code} • ` : ''}{myClass.name}</p>
+            <p className="text-[11px] text-slate-500">{currentUser.student_code ? `MSSV: ${currentUser.student_code}` : ''}{currentUser.student_code && myClass ? ' • ' : ''}{myClass ? myClass.name : !currentUser.student_code ? 'Chưa được xếp lớp' : ''}</p>
           </div>
         </div>
 
@@ -247,15 +254,24 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl p-4 cursor-pointer transition-all"
               >
                 <div className="flex items-center justify-between text-slate-500 mb-2">
-                  <span className="text-xs font-semibold">Học phí T10</span>
+                  <span className="text-xs font-semibold">Học phí T{Number(tuitionMonth.split('/')[0])}</span>
                   <CreditCard className="w-4 h-4 text-amber-400" />
                 </div>
-                <div className={`text-lg font-black ${currentMonthTuition.status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {currentMonthTuition.status === 'paid' ? 'Đã hoàn tất' : 'Chưa đóng'}
-                </div>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  {currentMonthTuition.amount.toLocaleString('vi-VN')} đ
-                </p>
+                {currentMonthTuition ? (
+                  <>
+                    <div className={`text-lg font-black ${currentMonthTuition.status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {currentMonthTuition.status === 'paid' ? 'Đã hoàn tất' : 'Chưa đóng'}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      {currentMonthTuition.amount.toLocaleString('vi-VN')} đ
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-lg font-black text-slate-400">Chưa có</div>
+                    <p className="text-[10px] text-slate-500 mt-1">Chưa có học phí tháng này</p>
+                  </>
+                )}
               </div>
             </div>
 
@@ -328,8 +344,14 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 <Calendar className="w-4 h-4 text-blue-600" />
                 Lịch học lớp tiếng Nhật
               </div>
-              <p className="text-xs text-slate-900 font-semibold">{myClass.name}</p>
-              <p className="text-xs text-blue-600 font-medium">{myClass.schedule}</p>
+              {myClass ? (
+                <>
+                  <p className="text-xs text-slate-900 font-semibold">{myClass.name}</p>
+                  <p className="text-xs text-blue-600 font-medium">{myClass.schedule || 'Chưa có lịch học'}</p>
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">Bạn chưa được xếp vào lớp nào. Hãy liên hệ giáo viên.</p>
+              )}
             </div>
 
           </div>
@@ -476,7 +498,9 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
         {activeTab === 'tuition' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="bg-slate-100 border border-slate-200 rounded-3xl p-5 space-y-3">
-              <span className="text-xs font-semibold text-slate-500">Tình trạng học phí tháng hiện tại (10/2026)</span>
+              <span className="text-xs font-semibold text-slate-500">Tình trạng học phí tháng hiện tại ({tuitionMonth})</span>
+              {currentMonthTuition ? (
+              <>
               <div className="flex items-center justify-between">
                 <div className="text-2xl font-black text-slate-900">
                   {currentMonthTuition.amount.toLocaleString('vi-VN')} đ
@@ -500,6 +524,10 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                   <p className="text-slate-600">Chủ tài khoản: <strong>NGUYEN THANH QUANG</strong></p>
                   <p className="text-blue-600">Nội dung: <strong>HP {currentUser.student_code ? `${currentUser.student_code} ` : ''}{currentUser.full_name}</strong></p>
                 </div>
+              )}
+              </>
+              ) : (
+                <p className="text-sm text-slate-500">Chưa có học phí cho tháng này.</p>
               )}
             </div>
 
@@ -666,6 +694,11 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 </label>
               </div>
 
+              {submitError && (
+                <p role="alert" className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                  {submitError}
+                </p>
+              )}
               <div className="pt-2 flex gap-2">
                 <button
                   type="button"
