@@ -1,14 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createTestContext, TEACHER, STUDENT_AN } from '../helpers';
+import { createTestContext, TEACHER, STUDENT_AN, ADMIN } from '../helpers';
 import { eq } from 'drizzle-orm';
 import { enrollments, tuitionRecords } from '../../server/db/schema';
 
 let ctx: Awaited<ReturnType<typeof createTestContext>>;
 let T: string;
+let A: string; // admin: học phí chỉ admin được đọc và ghi
 
 beforeAll(async () => {
   ctx = await createTestContext();
   T = await ctx.login(TEACHER);
+  A = await ctx.login(ADMIN);
 });
 afterAll(async () => {
   await ctx.close();
@@ -67,9 +69,9 @@ describe('học viên và học phí', () => {
   });
 
   it('ghi nhận thu học phí: cập nhật hồ sơ cùng tháng, không tạo trùng', async () => {
-    const list = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${T}`);
+    const list = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${A}`);
     const unpaid = list.body.find((t: any) => t.status === 'unpaid');
-    const res = await ctx.api.post('/api/tuition/payment').set('Authorization', `Bearer ${T}`).send({
+    const res = await ctx.api.post('/api/tuition/payment').set('Authorization', `Bearer ${A}`).send({
       student_id: unpaid.student_id,
       month: unpaid.month,
       amount: unpaid.amount,
@@ -82,9 +84,9 @@ describe('học viên và học phí', () => {
   });
 
   it('cập nhật học phí sang đã đóng tự ghi ngày đóng và số tiền đã đóng', async () => {
-    const list = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${T}`);
+    const list = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${A}`);
     const t = list.body[0];
-    const res = await ctx.api.put(`/api/tuition/${t.id}`).set('Authorization', `Bearer ${T}`).send({ status: 'paid' });
+    const res = await ctx.api.put(`/api/tuition/${t.id}`).set('Authorization', `Bearer ${A}`).send({ status: 'paid' });
     expect(res.body.status).toBe('paid');
     expect(res.body.paid_date).toBeTruthy();
     expect(res.body.paid_amount).toBe(t.amount);

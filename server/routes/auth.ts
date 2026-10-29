@@ -151,6 +151,27 @@ export function authRoutes({ db, auth, config }: Deps) {
     })
   );
 
+  // Tự cập nhật hồ sơ: họ tên và SĐT. Email (tên đăng nhập) và vai trò chỉ admin đổi được.
+  r.put(
+    '/profile',
+    auth.requireAuth,
+    ah(async (req: AuthedRequest, res) => {
+      const b = req.body ?? {};
+      const set: Partial<{ fullName: string; phone: string }> = {};
+      if (b.full_name !== undefined) {
+        const name = String(b.full_name).trim();
+        if (!name) return res.status(400).json({ error: 'Họ tên không được để trống.' });
+        set.fullName = name;
+      }
+      if (b.phone !== undefined) set.phone = String(b.phone).trim();
+      if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Không có trường nào để cập nhật.' });
+
+      const [u] = await db.update(users).set(set).where(eq(users.id, req.user.id)).returning();
+      await audit(db, req.user.id, 'profile.updated', req.user.id, { fields: Object.keys(set) });
+      return res.json(userDto(u));
+    })
+  );
+
   // Người dùng tự đổi mật khẩu: cần mật khẩu hiện tại. Sau khi đổi, mọi token cũ bị vô hiệu,
   // và server trả về token mới cho phiên hiện tại.
   r.post(

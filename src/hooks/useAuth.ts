@@ -66,5 +66,6 @@ export function useAuth() {
     login,
     logout,
     switchRole,
+    updateCurrentUser: setCurrentUser,
   };
 }

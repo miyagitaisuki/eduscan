@@ -207,7 +207,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
               Quản lý Học viên ({students.length} học viên)
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Hồ sơ học tập, theo dõi chuyên cần, bài tập và học phí từng học viên.
+              {isAdmin ? 'Hồ sơ học tập, theo dõi chuyên cần, bài tập và học phí từng học viên.' : 'Hồ sơ học tập, theo dõi chuyên cần và bài tập từng học viên.'}
             </p>
           </div>
 
@@ -327,12 +327,14 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                       </strong>
                     </div>
 
+                    {isAdmin && (
                     <div className="bg-slate-50 p-1.5 rounded-xl">
                       <span className="text-[9px] text-slate-400 uppercase font-bold block">Học phí T10</span>
                       <strong className={`text-[11px] font-black ${metrics.isPaidOctober ? 'text-emerald-700' : 'text-rose-600'}`}>
                         {metrics.isPaidOctober ? '✅ Đã đóng' : '❌ Chưa đóng'}
                       </strong>
                     </div>
+                    )}
 
                     <div className="bg-slate-50 p-1.5 rounded-xl">
                       <span className="text-[9px] text-slate-400 uppercase font-bold block">Điểm TB</span>
@@ -446,6 +448,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   </p>
                 </div>
 
+                {isAdmin && (
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">Học phí tháng này</span>
                   <div className={`text-base font-black mt-0.5 ${metrics.isPaidOctober ? 'text-emerald-700' : 'text-rose-600'}`}>
@@ -455,6 +458,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     {cls?.monthly_fee.toLocaleString('vi-VN')} đ/tháng
                   </p>
                 </div>
+                )}
 
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">Bài tập hoàn thành</span>

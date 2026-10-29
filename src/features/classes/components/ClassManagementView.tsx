@@ -16,6 +16,10 @@ import { ClassItem } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 
 interface ClassManagementViewProps {
+  /** Học phí và chọn giáo viên phụ trách chỉ dành cho admin */
+  isAdmin?: boolean;
+  /** Danh sách giáo viên để admin chọn người phụ trách */
+  teachers?: { id: string; full_name: string }[];
   classes: ClassItem[];
   students: Student[];
   attendance: Attendance[];
@@ -27,6 +31,8 @@ interface ClassManagementViewProps {
 }
 
 export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
+  isAdmin = false,
+  teachers = [],
   classes,
   students,
   attendance,
@@ -49,6 +55,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   const [schedule, setSchedule] = useState('Thứ 2 - 4 - 6 (18:00 - 19:30)');
   const [scheduleDays, setScheduleDays] = useState<number[]>([1, 3, 5]);
   const [monthlyFee, setMonthlyFee] = useState<number>(800000);
+  const [teacherId, setTeacherId] = useState<string>('');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [room, setRoom] = useState('Phòng 201 - Nhà Ngoại ngữ');
@@ -63,6 +70,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     setStartDate(new Date().toISOString().split('T')[0]);
     setNotes('');
     setRoom('Phòng 201 - Nhà Ngoại ngữ');
+    setTeacherId(teachers[0]?.id ?? '');
     setIsModalOpen(true);
   };
 
@@ -76,6 +84,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     setStartDate(cls.start_date);
     setNotes(cls.notes);
     setRoom(cls.room || '');
+    setTeacherId(cls.teacher_id ?? '');
     setIsModalOpen(true);
   };
 
@@ -94,6 +103,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
         start_date: startDate,
         notes: notes.trim(),
         room: room.trim(),
+        ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
       });
     } else {
       onCreateClass({
@@ -105,6 +115,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
         start_date: startDate,
         notes: notes.trim(),
         room: room.trim(),
+        ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
       });
     }
 
@@ -180,7 +191,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
         {filteredClasses.map((cls) => {
           const classStudents = students.filter((s) => s.class_id === cls.id);
 
-          // Tình trạng thu học phí tháng hiện tại
+          // Tình trạng thu học phí tháng hiện tại (chỉ admin)
           const classStudentIds = new Set(classStudents.map((s) => s.id));
           const monthPayments = payments.filter((p) => p.month === currentTuitionMonth() && classStudentIds.has(p.student_id));
           const paidCount = monthPayments.filter((p) => p.status === 'paid').length;
@@ -228,12 +239,14 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                     <span>{cls.schedule}</span>
                   </div>
 
+                  {isAdmin && (
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span className="font-bold text-emerald-700">
                       {cls.monthly_fee.toLocaleString('vi-VN')} VNĐ/tháng
                     </span>
                   </div>
+                  )}
 
                   {cls.room && (
                     <div className="flex items-center gap-2 text-slate-500">
@@ -255,10 +268,12 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                     <span className="text-[10px] text-slate-400 uppercase font-bold block">Sĩ số</span>
                     <strong className="text-xs text-slate-800 font-extrabold">{classStudents.length} học viên</strong>
                   </div>
+                  {isAdmin && (
                   <div className="bg-slate-50 p-2 rounded-xl">
                     <span className="text-[10px] text-slate-400 uppercase font-bold block">Học phí T10</span>
                     <strong className="text-xs text-emerald-700 font-extrabold">{paidCount}/{classStudents.length} đã đóng</strong>
                   </div>
+                  )}
                 </div>
               </div>
 
@@ -280,6 +295,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   <Users className="w-3.5 h-3.5" />
                 </button>
 
+                {isAdmin && (
                 <button
                   onClick={() => onNavigateTab('tuition', cls.id)}
                   className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
@@ -287,6 +303,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                 >
                   <CreditCard className="w-3.5 h-3.5" />
                 </button>
+                )}
               </div>
             </div>
           );
@@ -310,6 +327,24 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
             </div>
 
             <form onSubmit={handleFormSubmit} className="space-y-3.5">
+              {isAdmin && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Giáo viên phụ trách</label>
+                  <select
+                    value={teacherId}
+                    onChange={(e) => setTeacherId(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
+                  >
+                    {teachers.length === 0 && <option value="">Chưa có giáo viên</option>}
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Tên lớp *</label>
                 <input
@@ -338,6 +373,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   </select>
                 </div>
 
+                {isAdmin && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Học phí (VNĐ/tháng)</label>
                   <input
@@ -348,6 +384,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700"
                   />
                 </div>
+                )}
               </div>
 
               <div>

@@ -25,6 +25,8 @@ import { StudentPortalView } from './features/student-portal';
 // Feature Module: Đăng nhập
 import { LoginView } from './features/auth';
 import { ChangePasswordModal } from './features/auth/ChangePasswordModal';
+import { ProfileModal } from './features/auth/ProfileModal';
+import { TeacherManagementView } from './features/teachers';
 import { ResetPasswordView } from './features/auth/ResetPasswordView';
 
 // Custom Hooks (State & REST API Integration Layer)
@@ -32,7 +34,9 @@ import { useAuth, useEcosystemData, useToast } from './hooks';
 
 export default function App() {
   const { toast, showToast, hideToast } = useToast();
-  const { currentUser, role, switchRole, login, logout, isLoading: isAuthLoading } = useAuth();
+  const { currentUser, role, switchRole, login, logout, isLoading: isAuthLoading, updateCurrentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'admin';
+  const [showProfile, setShowProfile] = useState(false);
   
   // Ecosystem App View Mode: 'teacher' (Web App) vs 'student' (Android/Web App)
   const [viewMode, setViewMode] = useState<EcosystemViewMode>('teacher');
@@ -50,6 +54,11 @@ export default function App() {
     submissions,
     attendanceRecords,
     tuitionRecords,
+    teachers,
+    handleCreateTeacher,
+    handleUpdateTeacher,
+    handleSetTeacherStatus,
+    handleSetTeacherPassword,
     notifications,
     handleCreateClass,
     handleUpdateClass,
@@ -72,7 +81,7 @@ export default function App() {
     handleRecordSubmission,
     handleExportBackup,
     handleRestoreBackup,
-  } = useEcosystemData({ onNotify: showToast, currentUserId: currentUser?.id });
+  } = useEcosystemData({ onNotify: showToast, currentUserId: currentUser?.id, isAdmin });
 
   const navigateToTab = (tab: EcosystemTeacherTab, classId?: string) => {
     setActiveTab(tab);
@@ -93,6 +102,7 @@ export default function App() {
     start_date: c.created_at?.split('T')[0] || '2026-09-01',
     notes: c.description || '',
     room: 'Phòng Lab 304',
+    teacher_id: c.teacher_id,
   }));
 
   const formattedStudents = students.map((s) => ({
@@ -189,7 +199,9 @@ export default function App() {
         onTabChange={(tab) => navigateToTab(tab)}
         onExportData={handleExportBackup}
         onImportData={handleRestoreBackup}
-        canBackup={currentUser?.role === 'admin'}
+        canBackup={isAdmin}
+        isAdmin={isAdmin}
+        onEditProfile={() => setShowProfile(true)}
       />
 
       {/* Main Ecosystem Body */}
@@ -244,6 +256,7 @@ export default function App() {
           <main className="flex-1 max-w-6xl w-full mx-auto px-3.5 sm:px-6 py-4 sm:py-6">
             {activeTab === 'dashboard' && (
               <DashboardView
+                isAdmin={isAdmin}
                 classes={formattedClasses}
                 students={formattedStudents}
                 attendance={formattedAttendance}
@@ -270,6 +283,8 @@ export default function App() {
 
             {activeTab === 'classes' && (
               <ClassManagementView
+                isAdmin={isAdmin}
+                teachers={teachers}
                 classes={formattedClasses}
                 students={formattedStudents}
                 attendance={formattedAttendance}
@@ -283,6 +298,7 @@ export default function App() {
 
             {activeTab === 'students' && (
               <StudentManagementView
+                isAdmin={isAdmin}
                 students={formattedStudents}
                 classes={formattedClasses}
                 attendance={formattedAttendance}
@@ -290,7 +306,6 @@ export default function App() {
                 assignments={formattedAssignments}
                 submissions={formattedSubmissions}
                 initialClassId={preselectedClassId}
-                isAdmin={currentUser?.role === 'admin'}
                 onCreateStudent={(st) => handleCreateStudent({ ...st, student_code: st.phone })}
                 onUpdateStudent={(st) => handleUpdateStudent(st.id, st)}
                 onDeleteStudent={handleDeleteStudent}
@@ -299,7 +314,18 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'tuition' && (
+            {activeTab === 'teachers' && isAdmin && (
+              <TeacherManagementView
+                teachers={teachers}
+                currentUserId={currentUser?.id ?? ''}
+                onCreate={handleCreateTeacher}
+                onUpdate={handleUpdateTeacher}
+                onSetStatus={handleSetTeacherStatus}
+                onSetPassword={handleSetTeacherPassword}
+              />
+            )}
+
+            {activeTab === 'tuition' && isAdmin && (
               <TuitionManagementView
                 payments={formattedPayments}
                 students={formattedStudents}
@@ -340,6 +366,7 @@ export default function App() {
 
             {activeTab === 'stats' && (
               <StudentStatsView
+                isAdmin={isAdmin}
                 students={formattedStudents}
                 classes={formattedClasses}
                 attendance={formattedAttendance}
@@ -356,10 +383,19 @@ export default function App() {
             onTabChange={(tab) => navigateToTab(tab as EcosystemTeacherTab)}
             unpaidCount={unpaidTuitionCount}
             ungradedCount={ungradedHomeworkCount}
+            isAdmin={isAdmin}
           />
         </>
       )}
 {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+      {showProfile && currentUser && (
+        <ProfileModal
+          user={currentUser}
+          onClose={() => setShowProfile(false)}
+          onSaved={updateCurrentUser}
+          onError={(message) => showToast('warning', 'Lỗi lưu hồ sơ', message)}
+        />
+      )}
       {/* Shared Toast Notification */}
       <ToastNotification toast={toast} onClose={hideToast} />
 

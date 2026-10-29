@@ -22,6 +22,13 @@ export const authService = {
     return res;
   },
 
+  // Tự cập nhật họ tên và SĐT. Tên đăng nhập và vai trò do admin quản lý.
+  async updateProfile(data: { full_name?: string; phone?: string }): Promise<User> {
+    const user = await apiClient.put<User>('/auth/profile', data);
+    apiClient.setCurrentUser(user);
+    return user;
+  },
+
   async forgotPassword(email: string): Promise<{ ok: boolean; message: string }> {
     return apiClient.post('/auth/forgot-password', { email });
   },

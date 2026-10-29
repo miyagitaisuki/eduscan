@@ -1,35 +1,28 @@
 import { Router } from 'express';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { classes, enrollments, tuitionRecords, users } from '../db/schema';
 import { tuitionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
 import { currentDueDate, currentMonthLabel } from './students';
-import { canManageClass, canManageStudent, manageableClassIds } from '../lib/access';
+import { canManageClass, canManageStudent } from '../lib/access';
 import type { Deps } from './deps';
 
 const EDITABLE = ['amount', 'paidAmount', 'dueDate', 'paidDate', 'status', 'notes', 'month'] as const;
 
+// Học phí chỉ dành cho admin: giáo viên không đọc hay ghi học phí
 export function tuitionRoutes({ db, auth }: Deps) {
   const r = Router();
 
+  // Học viên xem học phí của mình; admin xem tất cả; giáo viên không xem được
   r.get(
     '/',
     auth.requireAuth,
     ah(async (req: AuthedRequest, res) => {
-      const conds = isStudent(req) ? [eq(tuitionRecords.studentId, req.user.id)] : [];
-      const owned = isStudent(req) ? null : await manageableClassIds(db, req.user);
-      if (owned) {
-        if (owned.length === 0) return res.json([]);
-        // Giáo viên chỉ thấy học phí của học viên đang học lớp mình phụ trách
-        const inOwned = await db
-          .select({ studentId: enrollments.studentId })
-          .from(enrollments)
-          .where(and(eq(enrollments.status, 'active'), inArray(enrollments.classId, owned)));
-        const ids = inOwned.map((r) => r.studentId);
-        if (ids.length === 0) return res.json([]);
-        conds.push(inArray(tuitionRecords.studentId, ids));
+      if (!isStudent(req) && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Chỉ admin mới xem được học phí.' });
       }
+      const conds = isStudent(req) ? [eq(tuitionRecords.studentId, req.user.id)] : [];
       const rows = await db
         .select({ t: tuitionRecords, u: users, c: classes })
         .from(tuitionRecords)
@@ -50,7 +43,7 @@ export function tuitionRoutes({ db, auth }: Deps) {
 
   r.post(
     '/',
-    auth.requireTeacher,
+    auth.requireAdmin,
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
       if (!b.student_id) return res.status(400).json({ error: 'Thiếu student_id' });
@@ -83,7 +76,7 @@ export function tuitionRoutes({ db, auth }: Deps) {
 
   r.put(
     '/:id',
-    auth.requireTeacher,
+    auth.requireAdmin,
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
       const [current] = await db.select().from(tuitionRecords).where(eq(tuitionRecords.id, req.params.id)).limit(1);
@@ -120,7 +113,7 @@ export function tuitionRoutes({ db, auth }: Deps) {
   // Ghi nhận thu học phí tại lớp: cập nhật hồ sơ cùng tháng nếu có, không thì tạo mới
   r.post(
     '/payment',
-    auth.requireTeacher,
+    auth.requireAdmin,
     ah(async (req: AuthedRequest, res) => {
       const { student_id, month, amount } = req.body ?? {};
       if (!student_id) return res.status(400).json({ error: 'Thiếu student_id' });

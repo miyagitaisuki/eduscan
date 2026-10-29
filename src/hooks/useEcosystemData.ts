@@ -19,16 +19,21 @@ import {
   notificationService,
   aiService,
   adminService,
+  teacherService,
+  TeacherAccount,
 } from '../services';
 
 interface UseEcosystemDataOptions {
   onNotify?: (type: 'success' | 'warning' | 'info', title: string, subtitle?: string) => void;
   currentUserId?: string;
+  /** Admin mới tải danh sách giáo viên và học phí */
+  isAdmin?: boolean;
 }
 
 export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const notify = options?.onNotify;
   const currentUserId = options?.currentUserId;
+  const isAdmin = options?.isAdmin ?? false;
 
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [students, setStudents] = useState<User[]>([]);
@@ -37,6 +42,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [tuitionRecords, setTuitionRecords] = useState<TuitionRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [teachers, setTeachers] = useState<TeacherAccount[]>([]);
   const [activeSession, setActiveSession] = useState<AttendanceSession | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -51,14 +57,16 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
         fetchedAttendance,
         fetchedTuition,
         fetchedNotifs,
+        fetchedTeachers,
       ] = await Promise.all([
         classService.getClasses().catch(() => []),
         studentService.getStudents().catch(() => []),
         homeworkService.getAssignments().catch(() => []),
         homeworkService.getSubmissions().catch(() => []),
         attendanceService.getHistory().catch(() => []),
-        tuitionService.getTuitionRecords().catch(() => []),
+        isAdmin ? tuitionService.getTuitionRecords().catch(() => []) : Promise.resolve([] as TuitionRecord[]),
         notificationService.getNotifications(currentUserId).catch(() => []),
+        isAdmin ? teacherService.getTeachers().catch(() => []) : Promise.resolve([] as TeacherAccount[]),
       ]);
 
       setClasses(fetchedClasses);
@@ -68,12 +76,13 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       setAttendanceRecords(fetchedAttendance);
       setTuitionRecords(fetchedTuition);
       setNotifications(fetchedNotifs);
+      setTeachers(fetchedTeachers);
     } catch (err: any) {
       console.warn('Could not sync with EduScan REST API:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, isAdmin]);
 
   useEffect(() => {
     refreshData();
@@ -300,6 +309,50 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     }
   };
 
+  // 5b. Tài khoản giáo viên (chỉ admin)
+  const handleCreateTeacher = async (data: Parameters<typeof teacherService.createTeacher>[0]) => {
+    try {
+      const created = await teacherService.createTeacher(data);
+      setTeachers((prev) => [...prev, { ...created, class_count: 0 }]);
+      notify?.('success', 'Đã tạo tài khoản giáo viên', created.full_name);
+      return created;
+    } catch (err: any) {
+      notify?.('warning', 'Lỗi tạo giáo viên', errorDetail(err));
+    }
+  };
+
+  const handleUpdateTeacher = async (id: string, data: Parameters<typeof teacherService.updateTeacher>[1]) => {
+    try {
+      const updated = await teacherService.updateTeacher(id, data);
+      setTeachers((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)));
+      notify?.('success', 'Đã cập nhật giáo viên', updated.full_name);
+      return updated;
+    } catch (err: any) {
+      notify?.('warning', 'Lỗi cập nhật giáo viên', errorDetail(err));
+    }
+  };
+
+  const handleSetTeacherStatus = async (id: string, status: 'active' | 'inactive') => {
+    try {
+      const updated = await teacherService.setTeacherStatus(id, status);
+      setTeachers((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)));
+      notify?.('success', status === 'active' ? 'Đã mở khóa tài khoản' : 'Đã khóa tài khoản', updated.full_name);
+    } catch (err: any) {
+      notify?.('warning', 'Lỗi đổi trạng thái', errorDetail(err));
+    }
+  };
+
+  const handleSetTeacherPassword = async (id: string, body: Parameters<typeof teacherService.setTeacherPassword>[1]) => {
+    try {
+      const res = await teacherService.setTeacherPassword(id, body);
+      setTeachers((prev) => prev.map((t) => (t.id === id ? { ...t, must_change_password: true } : t)));
+      notify?.('success', 'Đã đặt lại mật khẩu giáo viên');
+      return res;
+    } catch (err: any) {
+      notify?.('warning', 'Lỗi đặt lại mật khẩu', errorDetail(err));
+    }
+  };
+
   // 6. Notification Handlers
   const handleMarkNotificationRead = async (id: string) => {
     try {
@@ -427,6 +480,11 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     submissions,
     attendanceRecords,
     tuitionRecords,
+    teachers,
+    handleCreateTeacher,
+    handleUpdateTeacher,
+    handleSetTeacherStatus,
+    handleSetTeacherPassword,
     notifications,
     activeSession,
     isLoading,
