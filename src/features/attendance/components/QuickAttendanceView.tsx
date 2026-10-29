@@ -26,7 +26,7 @@ interface QuickAttendanceViewProps {
   initialClassId?: string;
   onOpenSession: (classId: string) => Promise<AttendanceSession | undefined>;
   /** Gọi khi đóng màn hình QR Live để tải lại điểm danh (các lượt học viên đã quét) */
-  onRefreshAttendance?: () => void | Promise<void>;
+  onRefreshAttendance?: () => unknown;
   onSaveAttendance: (classId: string, date: string, presentStudentIds: string[], notesMap: Record<string, string>) => void;
 }
 

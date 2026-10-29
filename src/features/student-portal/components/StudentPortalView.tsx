@@ -45,6 +45,9 @@ interface StudentPortalViewProps {
   onCheckinQR: (qrPayload: string) => Promise<any>;
   onSubmitHomework: (assignmentId: string, content: string, attachmentUrl?: string) => Promise<any>;
   onMarkNotificationRead: (id: string) => void;
+  /** Tab đang mở, do đường dẫn quyết định (/home, /assignments...) */
+  activeTab: StudentTab;
+  onTabChange: (tab: StudentTab) => void;
 }
 
 export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
@@ -58,8 +61,9 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   onCheckinQR,
   onSubmitHomework,
   onMarkNotificationRead,
+  activeTab,
+  onTabChange: setActiveTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<StudentTab>('home');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Selected assignment for viewing details or submitting

@@ -42,6 +42,14 @@ docker run -p 3000:3000 --env-file .env eduscan
 
 Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc** để quét QR bằng camera trên điện thoại hoạt động, vì trình duyệt chỉ cho phép camera trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
 
+## Cấu trúc frontend
+
+- Địa chỉ trang: giáo viên `/dashboard`, `/attendance`, `/classes`, `/students`, `/tuition` (admin), `/homework`, `/stats`, `/teachers` (admin); học viên `/home`, `/assignments`, `/attendance`, `/tuition`, `/notifications`. Lớp chọn sẵn đi kèm tham số, VD `/attendance?class=<id>`. Đường dẫn sai hoặc không đủ quyền chuyển về trang mặc định. Định nghĩa ở `src/app/routes.ts`.
+- `src/App.tsx`: đăng nhập, khung trang, tải dữ liệu. `src/app/TeacherApp.tsx` và `src/app/StudentApp.tsx` là hai giao diện theo vai trò, tải riêng (lazy) nên học viên không tải mã của giáo viên.
+- Dữ liệu: `src/hooks/data/` mỗi tính năng một hook (lớp, học viên, điểm danh, bài tập, học phí, giáo viên, thông báo, sao lưu); `src/hooks/useEcosystemData.ts` ghép chúng lại, lo tải lần đầu, làm mới và các thao tác chạm nhiều tính năng.
+- `src/app/viewModels.ts`: chuyển dữ liệu API sang dạng các màn hình cần (hàm thuần, có test).
+- Máy chủ phải trả `index.html` cho mọi đường dẫn không bắt đầu bằng `/api` (server.ts đã làm). Nếu đặt frontend trên static host riêng, cần cấu hình rewrite tương tự.
+
 ## Sao lưu
 
 - **Lớp chính:** sao lưu tự động của Supabase (gói có sao lưu hằng ngày/PITR). Kiểm tra gói đang dùng có bật tính năng này.
