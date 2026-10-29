@@ -8,12 +8,16 @@ import {
   Clock, 
   CreditCard, 
   CheckSquare, 
-  Search
+  Search,
+  CalendarDays,
+  CalendarOff,
 } from 'lucide-react';
 import { Student, AttendanceRecord, TuitionRecord, ClassInput, ClassItem, JlptLevel, ActiveTab } from '../../../shared/types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
 import { Modal, useConfirm } from '../../../shared/components/ui';
+import { HolidayManagerModal, LessonScheduleModal } from '../../schedule';
+import type { Notify } from '../../../hooks/data/types';
 
 interface ClassManagementViewProps {
   /** Học phí và chọn giáo viên phụ trách chỉ dành cho admin */
@@ -28,6 +32,11 @@ interface ClassManagementViewProps {
   onUpdateClass: (classId: string, cls: Partial<ClassInput>) => void;
   onDeleteClass: (classId: string) => void;
   onNavigateTab: (tab: ActiveTab, preselectedClassId?: string) => void;
+  /** Gọi sau khi admin đổi lịch lặp, buổi học hoặc ngày nghỉ: tải lại lớp và buổi học */
+  onScheduleChanged?: () => void;
+  notify?: Notify;
+  /** Giáo viên đăng nhập: được sửa nội dung buổi học của lớp mình phụ trách */
+  currentUserId?: string;
 }
 
 export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
@@ -41,7 +50,14 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   onUpdateClass,
   onDeleteClass,
   onNavigateTab,
+  onScheduleChanged,
+  notify,
+  currentUserId,
 }) => {
+  // Lịch học của lớp nào đang mở (null = đóng); lưu id để modal luôn lấy dữ liệu lớp mới nhất
+  const [scheduleClassId, setScheduleClassId] = useState<string | null>(null);
+  const [holidaysOpen, setHolidaysOpen] = useState(false);
+  const scheduleClass = classes.find((c) => c.id === scheduleClassId) ?? null;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>('all');
 
@@ -134,13 +150,24 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 active:scale-95 cursor-pointer self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            Tạo lớp mới
-          </button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            {isAdmin && (
+              <button
+                onClick={() => setHolidaysOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-warning-50 hover:bg-warning-100 text-warning-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                <CalendarOff className="w-4 h-4" />
+                Ngày nghỉ chung
+              </button>
+            )}
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Tạo lớp mới
+            </button>
+          </div>
         </div>
 
         {/* Search & Level Filter */}
@@ -229,7 +256,10 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                 <div className="space-y-1.5 mt-3 text-xs text-slate-600">
                   <div className="flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                    <span>{cls.schedule}</span>
+                    <span>
+                      {cls.schedule}
+                      {cls.end_date && cls.weekdays.length > 0 ? ` • đến ${cls.end_date.split('-').reverse().join('/')}` : ''}
+                    </span>
                   </div>
 
                   {isAdmin && (
@@ -280,6 +310,17 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   Điểm danh
                 </button>
 
+                {(isAdmin || cls.teacher_id === currentUserId) && (
+                <button
+                  onClick={() => setScheduleClassId(cls.id)}
+                  className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                  title="Xem lịch học và nội dung từng buổi"
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  Lịch
+                </button>
+                )}
+
                 <button
                   onClick={() => onNavigateTab('students', cls.id)}
                   className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
@@ -302,6 +343,20 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
           );
         })}
       </div>
+
+      {scheduleClass && (
+        <LessonScheduleModal
+          cls={scheduleClass}
+          canEditSchedule={isAdmin}
+          canEditContent={isAdmin || scheduleClass.teacher_id === currentUserId}
+          onClose={() => setScheduleClassId(null)}
+          onChanged={() => onScheduleChanged?.()}
+          notify={notify}
+        />
+      )}
+      {holidaysOpen && (
+        <HolidayManagerModal onClose={() => setHolidaysOpen(false)} onChanged={() => onScheduleChanged?.()} notify={notify} />
+      )}
 
       {/* Create / Edit Modal */}
       {isModalOpen && (
@@ -374,10 +429,15 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                 placeholder="VD: Thứ 2 - 4 - 6 (18:00 - 19:30)"
                 value={schedule}
                 onChange={(e) => setSchedule(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+                disabled={!!editingClass && editingClass.weekdays.length > 0}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium disabled:bg-slate-100 disabled:text-slate-500"
               />
               <p className="text-xs text-slate-500 mt-1">
-                Ghi rõ thứ trong tuần (VD: Thứ 2 - 4 - 6, Chủ Nhật) để trang Tổng quan hiện đúng lớp học hôm nay.
+                {editingClass && editingClass.weekdays.length > 0
+                  ? 'Lịch này do lịch lặp tự sinh. Muốn đổi, mở "Lịch" của lớp.'
+                  : isAdmin
+                    ? 'Ghi chú tự do. Muốn tự sinh lịch từng buổi, lưu lớp rồi mở "Lịch" trên thẻ lớp.'
+                    : 'Ghi rõ thứ trong tuần (VD: Thứ 2 - 4 - 6, Chủ Nhật) để trang Tổng quan hiện đúng lớp học hôm nay.'}
               </p>
             </div>
 
@@ -388,7 +448,9 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+                  disabled={!!editingClass && editingClass.weekdays.length > 0}
+                  title={editingClass && editingClass.weekdays.length > 0 ? 'Đổi ngày bắt đầu trong mục "Lịch" của lớp' : undefined}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium disabled:bg-slate-100 disabled:text-slate-500"
                 />
               </div>
 

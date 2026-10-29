@@ -151,6 +151,10 @@ export function classRoutes({ db, auth }: Deps) {
       const b = req.body ?? {};
       const extras = parseClassExtras(b);
       if ('error' in extras) return res.status(400).json({ error: extras.error });
+      const [current] = await db.select({ weekdays: classes.weekdays }).from(classes).where(eq(classes.id, req.params.id)).limit(1);
+      if (!current) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });
+      // Lớp đã dùng lịch tự động: chuỗi lịch do server sinh từ lịch lặp, không sửa tay để khỏi lệch
+      const hasLessonPlan = !!current.weekdays?.length;
       const set: Record<string, unknown> = {};
       const map: Record<string, string> = {
         name: 'name',
@@ -163,10 +167,11 @@ export function classRoutes({ db, auth }: Deps) {
       for (const [apiKey, col] of Object.entries(map)) {
         // Chỉ admin được đổi học phí lớp
         if (apiKey === 'monthly_fee' && !isAdmin(req.user)) continue;
+        if (apiKey === 'schedule' && hasLessonPlan) continue;
         if (b[apiKey] !== undefined) set[col] = apiKey === 'monthly_fee' ? Number(b[apiKey]) : b[apiKey];
       }
       if (b.room !== undefined) set.room = extras.room;
-      if (b.start_date !== undefined) set.startDate = extras.startDate;
+      if (b.start_date !== undefined && !hasLessonPlan) set.startDate = extras.startDate;
       if (b.teacher_id !== undefined && isAdmin(req.user)) {
         if (!(await isTeacherAccount(db, String(b.teacher_id)))) {
           return res.status(400).json({ error: 'Giáo viên phụ trách không hợp lệ.' });

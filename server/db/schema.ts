@@ -5,6 +5,7 @@ import {
   varchar,
   timestamp,
   date,
+  time,
   integer,
   numeric,
   boolean,
@@ -58,8 +59,51 @@ export const classes = pgTable('classes', {
   monthlyFee: integer('monthly_fee').notNull().default(800000),
   room: varchar('room', { length: 100 }),
   startDate: date('start_date'),
+  // Lịch lặp hàng tuần (0 = Chủ Nhật ... 6 = Thứ Bảy). null = lớp chưa dùng lịch tự động;
+  // khi đó `schedule` vẫn là chuỗi tự do như trước. Giờ học là time thuần, không gắn múi giờ.
+  weekdays: integer('weekdays').array(),
+  lessonStartTime: time('lesson_start_time'),
+  lessonEndTime: time('lesson_end_time'),
+  endDate: date('end_date'),
   createdAt: createdAt(),
 });
+
+// ---- Lịch giảng ----
+// Mỗi lớp tối đa một buổi mỗi ngày. Ngày và giờ là date/time thuần để không lệch ngày theo múi giờ.
+export const lessonStatus = pgEnum('lesson_status', ['planned', 'cancelled']);
+
+export const lessons = pgTable(
+  'lessons',
+  {
+    id: text('id').primaryKey(),
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id, { onDelete: 'cascade' }),
+    lessonDate: date('lesson_date').notNull(),
+    startTime: time('start_time').notNull(),
+    endTime: time('end_time').notNull(),
+    title: varchar('title', { length: 255 }).notNull().default(''),
+    notes: text('notes'),
+    status: lessonStatus('status').notNull().default('planned'),
+    // Admin đã sửa tay (nội dung, ngày, giờ, hủy buổi): đồng bộ lại lịch không được ghi đè
+    manuallyEdited: boolean('manually_edited').notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('unique_lesson_class_date').on(t.classId, t.lessonDate)]
+);
+
+// Ngày nghỉ chung (lễ, Tết...) áp dụng cho mọi lớp; một khoảng ngày liên tục
+export const holidays = pgTable(
+  'holidays',
+  {
+    id: text('id').primaryKey(),
+    name: varchar('name', { length: 150 }).notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('idx_holidays_start').on(t.startDate)]
+);
 
 export const enrollments = pgTable(
   'enrollments',

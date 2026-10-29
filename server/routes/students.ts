@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { classes, enrollments, tuitionRecords, users } from '../db/schema';
 import { classDto, parseGender, userDto } from '../lib/dto';
 import { parseDateOnly } from '../lib/validation';
@@ -12,6 +12,8 @@ import { sendPasswordReset } from '../lib/reset';
 import { canManageClass, canManageStudent, isAdmin, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
+import { toCsv, foldVi } from '../lib/csv';
+import { randomBytes } from 'crypto';
 
 // Chuyển lớp: hủy ghi danh đang hoạt động ở lớp khác (giữ lịch sử), bật ghi danh vào lớp mới.
 export async function setStudentClass(db: AppDb, studentId: string, classId: string | null, joinDate?: string) {
@@ -48,6 +50,57 @@ export function currentMonthLabel() {
 export function currentDueDate() {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-15`;
+}
+
+type ClassRow = typeof classes.$inferSelect;
+
+const MAX_IMPORT_ROWS = 200;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+interface ImportResult {
+  line: number;
+  status: 'ok' | 'error';
+  full_name: string;
+  email: string;
+  class_name: string;
+  errors: string[];
+}
+
+interface ImportPlan {
+  line: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  gender: 'male' | 'female' | null;
+  studentCode: string;
+  joinDate: string | null;
+  cls: ClassRow | null;
+}
+
+/** Giới tính từ cột CSV: Nam/Nữ hoặc male/female; "" = chưa khai báo; undefined = giá trị lạ */
+function parseGenderLabel(v: unknown): 'male' | 'female' | null | undefined {
+  const s = foldVi(String(v ?? ''));
+  if (!s) return null;
+  if (['nam', 'male', 'm'].includes(s)) return 'male';
+  if (['nu', 'female', 'f'].includes(s)) return 'female';
+  return undefined;
+}
+
+
+// Ghi danh học viên mới vào lớp và tạo học phí tháng hiện tại
+export async function enrollNewStudent(db: AppDb, studentId: string, cls: ClassRow, joinDate?: string) {
+  await setStudentClass(db, studentId, cls.id, joinDate);
+  await db.insert(tuitionRecords).values({
+    id: newId('tui'),
+    studentId,
+    classId: cls.id,
+    month: currentMonthLabel(),
+    amount: cls.monthlyFee,
+    paidAmount: 0,
+    dueDate: currentDueDate(),
+    status: 'unpaid',
+    notes: 'Học viên mới',
+  });
 }
 
 interface StudentClass {
@@ -111,6 +164,191 @@ export function studentRoutes({ db, auth }: Deps) {
     })
   );
 
+  // Xuất danh sách học viên ra CSV. Giáo viên chỉ xuất học viên của lớp mình phụ trách.
+  r.get(
+    '/export',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const classFilter = typeof req.query.class_id === 'string' ? req.query.class_id : '';
+      if (classFilter && !(await canManageClass(db, req.user, classFilter))) {
+        return res.status(403).json({ error: 'Bạn chỉ được xuất học viên của lớp mình phụ trách.' });
+      }
+      const owned = await manageableClassIds(db, req.user);
+      const list = await db.select().from(users).where(eq(users.role, 'student')).orderBy(asc(users.fullName));
+      const cls = await studentClassMap(
+        db,
+        list.map((u) => u.id)
+      );
+      const inScope = (id: string) => {
+        const c = cls.get(id);
+        if (classFilter) return c?.id === classFilter;
+        return owned === null || (!!c && owned.includes(c.id));
+      };
+      const GENDER_LABEL: Record<string, string> = { male: 'Nam', female: 'Nữ' };
+      const rows = list.filter((u) => inScope(u.id)).map((u) => {
+        const c = cls.get(u.id);
+        return [
+          u.studentCode ?? '',
+          u.fullName,
+          u.email,
+          u.phone ?? '',
+          u.gender ? GENDER_LABEL[u.gender] : '',
+          c?.name ?? '',
+          c?.level ?? '',
+          c?.joinDate ?? '',
+        ];
+      });
+      await audit(db, req.user.id, 'students.export', null, { count: rows.length, class_id: classFilter || null });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="hoc-vien-${todayStr()}.csv"`);
+      return res.send(toCsv(['Mã số', 'Họ tên', 'Email', 'Điện thoại', 'Giới tính', 'Lớp', 'Cấp độ', 'Ngày vào lớp'], rows));
+    })
+  );
+
+  // Nhập hàng loạt học viên. dry_run = true: chỉ kiểm tra từng dòng, không ghi gì.
+  // Dòng lỗi bị bỏ qua khi ghi; dòng hợp lệ được ghi trong một transaction.
+  r.post(
+    '/import',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const b = req.body ?? {};
+      if (!Array.isArray(b.rows) || b.rows.length === 0) {
+        return res.status(400).json({ error: 'Không có dòng học viên nào để nhập.' });
+      }
+      if (b.rows.length > MAX_IMPORT_ROWS) {
+        return res.status(400).json({ error: `Mỗi lần nhập tối đa ${MAX_IMPORT_ROWS} học viên. Hãy chia file nhỏ hơn.` });
+      }
+      const defaultClassId = typeof b.class_id === 'string' && b.class_id ? b.class_id : null;
+      if (defaultClassId && !(await canManageClass(db, req.user, defaultClassId))) {
+        return res.status(403).json({ error: 'Bạn chỉ được nhập học viên vào lớp mình phụ trách.' });
+      }
+
+      const owned = await manageableClassIds(db, req.user);
+      const canUseClass = (id: string) => owned === null || owned.includes(id);
+      const classRows = await db.select().from(classes);
+      const existing = new Set((await db.select({ email: users.email }).from(users)).map((u) => u.email));
+      const fileEmails = new Set<string>();
+
+      const results: ImportResult[] = [];
+      const plans: ImportPlan[] = [];
+      for (const [i, raw] of (b.rows as unknown[]).entries()) {
+        const row = (raw ?? {}) as Record<string, unknown>;
+        const line = Number(row.line) || i + 1;
+        const errors: string[] = [];
+        const fullName = String(row.full_name ?? '').trim();
+        if (!fullName) errors.push('Thiếu họ tên.');
+        if (fullName.length > 150) errors.push('Họ tên tối đa 150 ký tự.');
+
+        let email = String(row.email ?? '').trim().toLowerCase();
+        if (email) {
+          if (!EMAIL_RE.test(email)) errors.push('Email không đúng định dạng.');
+          else if (existing.has(email) || fileEmails.has(email)) errors.push('Email đã được sử dụng.');
+          else fileEmails.add(email);
+        }
+
+        const gender = parseGenderLabel(row.gender);
+        if (gender === undefined) errors.push('Giới tính phải là Nam hoặc Nữ (hoặc để trống).');
+
+        const joinDate = row.join_date === undefined || row.join_date === '' ? todayStr() : parseDateOnly(String(row.join_date).trim());
+        if (joinDate === undefined || joinDate === null) errors.push('Ngày vào lớp phải dạng YYYY-MM-DD.');
+
+        const phone = String(row.phone ?? '').trim();
+        if (phone.length > 30) errors.push('Số điện thoại tối đa 30 ký tự.');
+        const studentCode = String(row.student_code ?? '').trim();
+        if (studentCode.length > 50) errors.push('Mã số tối đa 50 ký tự.');
+
+        // Lớp: theo tên hoặc mã trong file; bỏ trống thì dùng lớp đã chọn trên màn hình
+        let cls: ClassRow | null = null;
+        const className = String(row.class_name ?? '').trim();
+        if (className) {
+          const key = foldVi(className);
+          cls = classRows.find((c) => foldVi(c.name) === key || (!!c.code && foldVi(c.code) === key)) ?? null;
+          if (!cls) errors.push(`Không tìm thấy lớp "${className}".`);
+        } else if (defaultClassId) {
+          cls = classRows.find((c) => c.id === defaultClassId) ?? null;
+        }
+        if (cls && !canUseClass(cls.id)) errors.push(`Bạn không phụ trách lớp "${cls.name}".`);
+        // Giáo viên chỉ thấy học viên trong lớp mình: học viên không lớp sẽ biến mất khỏi danh sách của họ
+        if (!cls && !className && owned !== null) errors.push('Chọn lớp cho học viên (cột Lớp hoặc lớp mặc định).');
+
+        if (errors.length > 0) {
+          results.push({ line, status: 'error', full_name: fullName, email, class_name: cls?.name ?? className, errors });
+          continue;
+        }
+        results.push({ line, status: 'ok', full_name: fullName, email, class_name: cls?.name ?? '', errors: [] });
+        plans.push({
+          line,
+          fullName,
+          email,
+          phone,
+          gender: gender ?? null,
+          studentCode,
+          joinDate: joinDate ?? null,
+          cls,
+        });
+      }
+
+      const okCount = plans.length;
+      if (b.dry_run === true) {
+        return res.json({ dry_run: true, total: results.length, valid: okCount, invalid: results.length - okCount, results });
+      }
+
+      // Email để trống: sinh địa chỉ duy nhất để học viên vẫn có tài khoản đăng nhập
+      for (const p of plans) {
+        if (!p.email) {
+          do {
+            p.email = `student.${randomBytes(5).toString('hex')}@eduscan.edu.vn`;
+          } while (existing.has(p.email) || fileEmails.has(p.email));
+          fileEmails.add(p.email);
+          const r = results.find((x) => x.line === p.line);
+          if (r) r.email = p.email;
+        }
+      }
+
+      const credentials: { line: number; full_name: string; email: string; class_name: string; temporary_password: string }[] = [];
+      await db.transaction(async (tx) => {
+        for (const p of plans) {
+          const tmp = newTempPassword();
+          const id = newId('usr');
+          await tx.insert(users).values({
+            id,
+            email: p.email,
+            passwordHash: tmp.hash,
+            fullName: p.fullName,
+            role: 'student',
+            studentCode: p.studentCode || `STU${Math.floor(1000 + Math.random() * 9000)}`,
+            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.fullName)}`,
+            phone: p.phone,
+            gender: p.gender,
+            status: 'active',
+            // Mật khẩu tạm được phát ra file: học viên phải tự đổi ở lần đăng nhập đầu
+            mustChangePassword: true,
+          });
+          if (p.cls) await enrollNewStudent(tx as unknown as AppDb, id, p.cls, p.joinDate ?? undefined);
+          credentials.push({
+            line: p.line,
+            full_name: p.fullName,
+            email: p.email,
+            class_name: p.cls?.name ?? '',
+            temporary_password: tmp.plain,
+          });
+        }
+      });
+      await audit(db, req.user.id, 'students.import', null, {
+        created: credentials.length,
+        skipped: results.length - okCount,
+      });
+      return res.status(201).json({
+        dry_run: false,
+        total: results.length,
+        created: credentials.length,
+        invalid: results.length - okCount,
+        results,
+        credentials,
+      });
+    })
+  );
+
   r.get(
     '/:id',
     auth.requireTeacher,
@@ -166,24 +404,15 @@ export function studentRoutes({ db, auth }: Deps) {
           phone: b.phone || '',
           gender: parseGender(b.gender) ?? null,
           status: 'active',
+          // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
+          mustChangePassword: true,
         })
         .returning();
 
       if (b.class_id) {
         const [cls] = await db.select().from(classes).where(eq(classes.id, b.class_id)).limit(1);
         if (!cls) return res.status(400).json({ error: 'Lớp học không tồn tại.' });
-        await setStudentClass(db, id, cls.id, joinDate ?? undefined);
-        await db.insert(tuitionRecords).values({
-          id: newId('tui'),
-          studentId: id,
-          classId: cls.id,
-          month: currentMonthLabel(),
-          amount: cls.monthlyFee,
-          paidAmount: 0,
-          dueDate: currentDueDate(),
-          status: 'unpaid',
-          notes: 'Học viên mới',
-        });
+        await enrollNewStudent(db, id, cls, joinDate ?? undefined);
       }
 
       // Mật khẩu tạm chỉ trả về một lần trong phản hồi tạo học viên

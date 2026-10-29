@@ -16,6 +16,8 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - name: Kiểm tra kiểu
         run: npm run lint
+      - name: Kiểm tra migration khớp schema
+        run: npm run db:check
       - name: Kiểm thử API (Postgres trong bộ nhớ)
         run: npm test
       - name: Build

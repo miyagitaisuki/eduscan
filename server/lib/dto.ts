@@ -1,6 +1,8 @@
 import type {
   Assignment,
   AttendanceRecord,
+  Holiday,
+  Lesson,
   AttendanceSession,
   ClassItem,
   NotificationItem,
@@ -55,6 +57,10 @@ export function classDto(c: any, extra: Partial<ClassItem> = {}): ClassItem {
     monthly_fee: Number(c.monthlyFee),
     room: c.room ?? '',
     start_date: c.startDate ?? '',
+    weekdays: c.weekdays ?? [],
+    lesson_start_time: c.lessonStartTime ? String(c.lessonStartTime).slice(0, 5) : '',
+    lesson_end_time: c.lessonEndTime ? String(c.lessonEndTime).slice(0, 5) : '',
+    end_date: c.endDate ?? '',
     created_at: isoRequired(c.createdAt),
     ...extra,
   };
@@ -155,4 +161,28 @@ export function notificationDto(n: any): NotificationItem {
     is_read: n.isRead,
     created_at: isoRequired(n.createdAt),
   };
+}
+
+export function lessonDto(l: any, ctx: { today: string; attended: Set<string>; className?: string }): Lesson {
+  const hasAttendance = ctx.attended.has(`${l.classId}|${l.lessonDate}`);
+  const state: Lesson['state'] =
+    l.status === 'cancelled' ? 'cancelled' : l.lessonDate < ctx.today || hasAttendance ? 'done' : 'upcoming';
+  return {
+    id: l.id,
+    class_id: l.classId,
+    ...(ctx.className !== undefined ? { class_name: ctx.className } : {}),
+    lesson_date: l.lessonDate,
+    start_time: String(l.startTime).slice(0, 5),
+    end_time: String(l.endTime).slice(0, 5),
+    title: l.title ?? '',
+    notes: l.notes ?? '',
+    status: l.status,
+    manually_edited: !!l.manuallyEdited,
+    has_attendance: hasAttendance,
+    state,
+  };
+}
+
+export function holidayDto(h: any): Holiday {
+  return { id: h.id, name: h.name, start_date: h.startDate, end_date: h.endDate };
 }

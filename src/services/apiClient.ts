@@ -72,6 +72,25 @@ export const apiClient = {
     return data as T;
   },
 
+  /** Tải file (CSV) về máy kèm token; trả về nội dung và tên file gợi ý từ server */
+  async download(endpoint: string): Promise<{ blob: Blob; filename: string }> {
+    const token = this.getToken();
+    const response = await fetch(`/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (response.status === 401 && token) {
+      this.removeToken();
+      window.dispatchEvent(new Event('eduscan:unauthorized'));
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP error ${response.status}`);
+    }
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = /filename="([^"]+)"/.exec(disposition);
+    return { blob: await response.blob(), filename: match?.[1] ?? 'download.csv' };
+  },
+
   get<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'GET' });
   },

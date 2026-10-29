@@ -26,13 +26,17 @@ import {
   TuitionRecord, 
   Assignment, 
   Submission, 
-  ActiveTab 
+  ActiveTab,
+  Lesson,
 } from '../../../shared/types';
+import { lessonOnDate } from '../../../shared/utils/lessonDates';
 
 interface DashboardViewProps {
   /** Học phí chỉ hiển thị với admin */
   isAdmin?: boolean;
   classes: ClassItem[];
+  /** Buổi học sắp tới (từ hôm nay); lớp có lịch lặp lấy lịch hôm nay và nội dung buổi từ đây */
+  lessons?: Lesson[];
   students: Student[];
   attendance: AttendanceRecord[];
   payments: TuitionRecord[];
@@ -48,6 +52,7 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   classes,
+  lessons = [],
   students,
   attendance,
   payments,
@@ -82,11 +87,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
   const todayName = dayNames[todayDayIndex];
 
-  // Classes that have schedule on today
-  const todayClasses = classes.filter((c) => parseScheduleDays(c.schedule).includes(todayDayIndex));
-
   // Today's date YYYY-MM-DD
   const todayDateStr = todayLocal();
+
+  // Lớp có lịch lặp: học hôm nay khi có buổi chưa hủy (đã loại ngày nghỉ chung).
+  // Lớp chưa dùng lịch tự động: đoán thứ từ chuỗi lịch như trước.
+  const todayClasses = classes.filter((c) =>
+    c.weekdays.length > 0
+      ? !!lessonOnDate(lessons, c.id, todayDateStr)
+      : parseScheduleDays(c.schedule).includes(todayDayIndex)
+  );
   const honorific = teacherTitle(teacherGender);
 
   return (
@@ -275,6 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               const classStudents = students.filter((s) => s.class_id === cls.id);
               const todayAtt = attendance.filter((a) => a.class_id === cls.id && a.date === todayDateStr);
               const isDone = todayAtt.length > 0;
+              const todayLesson = lessonOnDate(lessons, cls.id, todayDateStr);
               const presentTodayCount = todayAtt.filter((a) => a.status === 'present').length;
 
               return (
@@ -308,6 +319,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     {cls.room && (
                       <p className="text-xs text-slate-500 mt-0.5">
                         📍 {cls.room}
+                      </p>
+                    )}
+                    {todayLesson && (
+                      <p className="text-xs mt-2 p-2 rounded-xl bg-accent-50 text-accent-800 flex items-start gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span>
+                          <strong>{todayLesson.start_time} - {todayLesson.end_time}</strong>
+                          {' • '}
+                          {todayLesson.title || 'Chưa có nội dung buổi học'}
+                        </span>
                       </p>
                     )}
                   </div>

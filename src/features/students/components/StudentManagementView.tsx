@@ -9,6 +9,8 @@ import {
   Edit3, 
   Trash2, 
   Phone, 
+  Upload,
+  Download,
   ArrowRightLeft, 
   ChevronRight
 } from 'lucide-react';
@@ -26,6 +28,10 @@ import { averageScore as averageScoreOf, formatScore } from '../../../shared/uti
 import { todayLocal } from '../../../shared/utils/date';
 import { Modal, useConfirm } from '../../../shared/components/ui';
 import { StudentAccountPanel } from './StudentAccountPanel';
+import { ImportStudentsModal } from './ImportStudentsModal';
+import { studentService } from '../../../services';
+import { errorDetail } from '../../../shared/utils/errorMessage';
+import type { Notify } from '../../../hooks/data/types';
 
 interface StudentManagementViewProps {
   students: Student[];
@@ -44,6 +50,9 @@ interface StudentManagementViewProps {
   onChangeTuition?: (studentId: string, amount: number) => void;
   /** Admin mới thấy khối quản lý tài khoản đăng nhập */
   isAdmin?: boolean;
+  /** Gọi sau khi nhập CSV để tải lại danh sách */
+  onImported?: () => void;
+  notify?: Notify;
 }
 
 export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
@@ -60,8 +69,29 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   onTransferClass,
   onChangeTuition,
   isAdmin = false,
+  onImported,
+  notify,
 }) => {
   const confirm = useConfirm();
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const { blob, filename } = await studentService.exportStudents(selectedClassFilter !== 'all' ? selectedClassFilter : undefined);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      notify?.('warning', 'Không xuất được danh sách', errorDetail(err));
+    } finally {
+      setExporting(false);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>(initialClassId || 'all');
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>('all');
@@ -205,13 +235,30 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 active:scale-95 cursor-pointer self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            Thêm học viên mới
-          </button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              <Upload className="w-4 h-4" />
+              Nhập CSV
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? 'Đang xuất...' : 'Xuất CSV'}
+            </button>
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Thêm học viên mới
+            </button>
+          </div>
         </div>
 
         {/* Filter Controls */}
@@ -645,6 +692,16 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       )}
 
       {/* Create / Edit Student Modal */}
+      {importOpen && (
+        <ImportStudentsModal
+          classes={classes}
+          defaultClassId={selectedClassFilter !== 'all' ? selectedClassFilter : undefined}
+          onClose={() => setImportOpen(false)}
+          onImported={() => onImported?.()}
+          notify={notify}
+        />
+      )}
+
       {isModalOpen && (
         <Modal title={editingStudent ? 'Chỉnh sửa thông tin học viên' : 'Thêm học viên mới'} onClose={() => setIsModalOpen(false)} size="md" closeOnBackdrop={false}>
           <form onSubmit={handleFormSubmit} className="space-y-3.5">
