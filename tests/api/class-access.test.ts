@@ -66,14 +66,14 @@ describe('phân quyền theo lớp', () => {
     expect(tuition.status).toBe(403);
   });
 
-  it('giáo viên không phụ trách không giao bài hay chấm bài cho lớp khác', async () => {
+  it('giáo viên không phụ trách không giao bài cho lớp khác nhưng vẫn chấm được bài của lớp đó', async () => {
     const post = await ctx.api
       .post('/api/assignments')
       .set('Authorization', `Bearer ${OTHER}`)
       .send({ class_id: 'cls-n5-01', title: 'Bài lạ' });
     expect(post.status).toBe(403);
     const grade = await ctx.api.put('/api/submissions/sub-1/grade').set('Authorization', `Bearer ${OTHER}`).send({ score: 9 });
-    expect(grade.status).toBe(403);
+    expect(grade.status).toBe(200);
   });
 
   it('giáo viên không phụ trách không xếp học viên hay thu học phí của lớp khác', async () => {

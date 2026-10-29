@@ -171,7 +171,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 font-medium">
-                    {currentUser?.full_name || 'Giáo viên'} • ĐH Quy Nhơn
+                    {currentUser?.full_name || 'Giáo viên'}
                   </p>
                 </div>
               </div>

@@ -5,7 +5,7 @@ import { assignmentDto, submissionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
 import { createAttachmentSignedUrl, StorageError, uploadHomeworkAttachment } from '../lib/storage';
-import { canManageClass, manageableClassIds } from '../lib/access';
+import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
 
@@ -343,8 +343,8 @@ export function homeworkRoutes({ db, auth }: Deps) {
       const [current] = await db.select().from(submissions).where(eq(submissions.id, req.params.id)).limit(1);
       if (!current) return res.status(404).json({ error: 'Không tìm thấy bài nộp' });
       const [owner] = await db.select({ classId: assignments.classId }).from(assignments).where(eq(assignments.id, current.assignmentId)).limit(1);
-      if (!owner || !(await canManageClass(db, req.user, owner.classId))) {
-        return res.status(403).json({ error: 'Bạn chỉ được chấm bài của lớp mình phụ trách.' });
+      if (!owner || !canGradeSubmissions(req.user)) {
+        return res.status(403).json({ error: 'Bạn không có quyền chấm bài này.' });
       }
 
       const hasScore = b.score !== undefined && b.score !== null && b.score !== '';
