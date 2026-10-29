@@ -85,6 +85,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       
       {/* Welcome Banner Card */}
       <div className="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white rounded-3xl p-5 sm:p-7 shadow-lg shadow-blue-900/15 relative overflow-hidden">
+        {/* Background photo, darkened on the left so the white greeting stays readable */}
+        <img
+          src="/images/welcome-banner.jpg"
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-blue-900/70 to-blue-900/30 pointer-events-none" />
         <div className="absolute -right-8 -bottom-8 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
