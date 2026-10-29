@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 import { assignments, classes, enrollments, notifications, submissions, users } from '../db/schema';
 import { assignmentDto, submissionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
-import { StorageError, uploadHomeworkAttachment } from '../lib/storage';
+import { createAttachmentSignedUrl, StorageError, uploadHomeworkAttachment } from '../lib/storage';
 import { canManageClass, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
@@ -281,6 +281,56 @@ export function homeworkRoutes({ db, auth }: Deps) {
         })
         .returning();
       return res.status(201).json(submissionDto(row));
+    })
+  );
+
+  // Danh sách mọi bài nộp có đính kèm. Mọi giáo viên/admin đều xem được, không giới hạn theo lớp.
+  r.get(
+    '/submissions/attachments',
+    auth.requireTeacher,
+    ah(async (_req: AuthedRequest, res) => {
+      const rows = await db
+        .select({
+          s: submissions,
+          assignmentTitle: assignments.title,
+          className: classes.name,
+          studentName: users.fullName,
+        })
+        .from(submissions)
+        .innerJoin(assignments, eq(assignments.id, submissions.assignmentId))
+        .innerJoin(classes, eq(classes.id, assignments.classId))
+        .innerJoin(users, eq(users.id, submissions.studentId))
+        .where(and(isNotNull(submissions.attachmentUrl), ne(submissions.attachmentUrl, '')))
+        .orderBy(desc(submissions.submittedAt));
+      return res.json(
+        rows.map((row) =>
+          submissionDto(row.s, {
+            assignment_title: row.assignmentTitle,
+            class_name: row.className,
+            student_name: row.studentName,
+          })
+        )
+      );
+    })
+  );
+
+  // Link tạm để mở tệp đính kèm. Giáo viên/admin xem được mọi bài; học viên chỉ xem bài của chính mình.
+  r.get(
+    '/submissions/:id/attachment',
+    auth.requireAuth,
+    ah(async (req: AuthedRequest, res) => {
+      const [row] = await db.select().from(submissions).where(eq(submissions.id, req.params.id)).limit(1);
+      if (!row || !row.attachmentUrl) return res.status(404).json({ error: 'Không có tệp đính kèm.' });
+      if (isStudent(req) && row.studentId !== req.user.id) {
+        return res.status(403).json({ error: 'Bạn chỉ được xem tệp của chính mình.' });
+      }
+      try {
+        const signed = await createAttachmentSignedUrl(row.attachmentUrl);
+        return res.json({ url: signed, expires_in: 600 });
+      } catch (err) {
+        if (err instanceof StorageError) return res.status(err.status).json({ error: err.message });
+        throw err;
+      }
     })
   );
 

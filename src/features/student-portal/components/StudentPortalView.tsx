@@ -30,6 +30,7 @@ import {
   ClassItem,
 } from '../../../shared/types';
 import { CameraQRScanner } from '../../../shared/components/CameraQRScanner';
+import { compressImage } from '../../../shared/utils/compressImage';
 
 interface StudentPortalViewProps {
   currentUser: User;
@@ -96,15 +97,18 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   };
 
   // Handle file select
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setAttachmentName(file.name);
+    setAttachmentBase64('');
+    // Nén ảnh trước khi đọc thành base64 để tránh gửi ảnh chụp gốc vài MB
+    const toSend = await compressImage(file);
     const reader = new FileReader();
     reader.onload = () => {
       setAttachmentBase64(reader.result as string);
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(toSend);
   };
 
   const handleOpenSubmit = (asg: Assignment) => {

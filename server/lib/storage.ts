@@ -57,3 +57,26 @@ export async function uploadHomeworkAttachment(dataUrl: string, submissionKey: s
   }
   return `${BUCKET}/${path}`;
 }
+
+// Tạo link tạm thời để xem tệp (mặc định 10 phút). Bucket private nên không có link công khai.
+export async function createAttachmentSignedUrl(attachmentPath: string, expiresIn = 600): Promise<string> {
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, '');
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new StorageError('Chưa cấu hình nơi lưu tệp đính kèm.', 503);
+
+  const prefix = `${BUCKET}/`;
+  if (!attachmentPath.startsWith(prefix)) throw new StorageError('Đường dẫn tệp không hợp lệ.', 400);
+  const path = attachmentPath.slice(prefix.length);
+
+  const res = await fetch(`${url}/storage/v1/object/sign/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresIn }),
+  });
+  const data = (await res.json().catch(() => null)) as { signedURL?: string } | null;
+  if (!res.ok || !data?.signedURL) {
+    console.error('[storage] Tạo link xem thất bại:', res.status);
+    throw new StorageError('Không mở được tệp đính kèm. Vui lòng thử lại.', 502);
+  }
+  return `${url}/storage/v1${data.signedURL}`;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { uploadHomeworkAttachment, StorageError } from '../../server/lib/storage';
+import { createAttachmentSignedUrl, uploadHomeworkAttachment, StorageError } from '../../server/lib/storage';
 
 const png = 'data:image/png;base64,' + Buffer.from('fake-png').toString('base64');
 
@@ -39,5 +39,29 @@ describe('uploadHomeworkAttachment', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`https://x.supabase.co/storage/v1/object/homework/${path.slice('homework/'.length)}`);
     expect(init.headers['Content-Type']).toBe('image/png');
+  });
+});
+
+describe('createAttachmentSignedUrl', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('đổi đường dẫn thành link tạm có token', async () => {
+    vi.stubEnv('SUPABASE_URL', 'https://x.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ signedURL: '/object/sign/homework/a/b.jpg?token=t' }), { status: 200 }))
+    );
+    const url = await createAttachmentSignedUrl('homework/a/b.jpg');
+    expect(url).toBe('https://x.supabase.co/storage/v1/object/sign/homework/a/b.jpg?token=t');
+  });
+
+  it('từ chối đường dẫn không thuộc bucket homework', async () => {
+    vi.stubEnv('SUPABASE_URL', 'https://x.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k');
+    await expect(createAttachmentSignedUrl('other/a.jpg')).rejects.toMatchObject({ status: 400 });
   });
 });
