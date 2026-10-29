@@ -6,6 +6,21 @@ export const attendanceService = {
     return apiClient.post<AttendanceSession>('/attendance/session', { class_id: classId });
   },
 
+  // Mã QR hiện hành của phiên (server ký); refresh_in_ms là thời gian còn lại trước khi phải lấy mã mới
+  async getSessionQr(sessionId: string): Promise<{ payload: string; refresh_in_ms: number; window_seconds: number }> {
+    return apiClient.get(`/attendance/session/${encodeURIComponent(sessionId)}/qr`);
+  },
+
+  // Kết thúc phiên QR để mã không còn dùng được
+  async closeSession(sessionId: string): Promise<{ success: boolean }> {
+    return apiClient.post(`/attendance/session/${encodeURIComponent(sessionId)}/close`);
+  },
+
+  // Học viên đã điểm danh trong phiên (cập nhật theo thời gian thực cho màn hình QR Live)
+  async getSessionCheckins(sessionId: string): Promise<{ count: number; student_ids: string[]; is_active: boolean }> {
+    return apiClient.get(`/attendance/session/${encodeURIComponent(sessionId)}/checkins`);
+  },
+
   async checkIn(data: {
     student_id: string;
     session_id?: string;

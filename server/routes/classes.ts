@@ -1,13 +1,26 @@
 import { Router } from 'express';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { classes, enrollments, users } from '../db/schema';
 import { classDto } from '../lib/dto';
-import { ah, AuthedRequest } from '../lib/http';
+import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
 import { canManageClass, isAdmin } from '../lib/access';
+import { JLPT_LEVELS, parseDateOnly } from '../lib/validation';
 import type { Deps } from './deps';
 
-const EDITABLE = ['name', 'code', 'description', 'schedule', 'level', 'monthlyFee'] as const;
+const MAX_ROOM_LENGTH = 100;
+
+// Kiểm tra các trường tùy chọn của lớp; trả thông báo lỗi hoặc giá trị đã chuẩn hóa
+function parseClassExtras(b: Record<string, any>) {
+  if (b.level !== undefined && !(JLPT_LEVELS as readonly string[]).includes(b.level)) {
+    return { error: 'Cấp độ phải là N5, N4, N3, N2 hoặc N1.' } as const;
+  }
+  const startDate = parseDateOnly(b.start_date);
+  if (startDate === undefined) return { error: 'Ngày bắt đầu không hợp lệ (định dạng YYYY-MM-DD).' } as const;
+  const room = b.room === undefined || b.room === null ? null : String(b.room).trim();
+  if (room && room.length > MAX_ROOM_LENGTH) return { error: `Phòng học tối đa ${MAX_ROOM_LENGTH} ký tự.` } as const;
+  return { startDate, room: room || null } as const;
+}
 
 // Học phí lớp chỉ admin được xem và sửa: giáo viên nhận DTO không có monthly_fee
 function classFor(req: AuthedRequest, c: any, extra: Record<string, unknown> = {}) {
@@ -40,10 +53,20 @@ export function classRoutes({ db, auth }: Deps) {
     '/',
     auth.requireAuth,
     ah(async (req: AuthedRequest, res) => {
-      const rows = await db
+      const allRows = await db
         .select({ c: classes, teacherName: users.fullName })
         .from(classes)
         .leftJoin(users, eq(users.id, classes.teacherId));
+      // Học viên chỉ thấy các lớp mình đang học, không thấy lớp của người khác
+      let rows = allRows;
+      if (isStudent(req)) {
+        const mine = await db
+          .select({ classId: enrollments.classId })
+          .from(enrollments)
+          .where(and(eq(enrollments.studentId, req.user.id), eq(enrollments.status, 'active')));
+        const mineIds = new Set(mine.map((m) => m.classId));
+        rows = allRows.filter((row) => mineIds.has(row.c.id));
+      }
       const counts = await db
         .select({ classId: enrollments.classId, n: sql<number>`count(*)::int` })
         .from(enrollments)
@@ -93,6 +116,8 @@ export function classRoutes({ db, auth }: Deps) {
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
       if (!b.name) return res.status(400).json({ error: 'Tên lớp không được để trống.' });
+      const extras = parseClassExtras(b);
+      if ('error' in extras) return res.status(400).json({ error: extras.error });
       // Giáo viên tạo lớp cho chính mình; admin có thể chọn giáo viên khác
       const teacherId = req.user.role === 'admin' && b.teacher_id ? String(b.teacher_id) : req.user.id;
       if (teacherId !== req.user.id && !(await isTeacherAccount(db, teacherId))) {
@@ -109,6 +134,8 @@ export function classRoutes({ db, auth }: Deps) {
           schedule: b.schedule || 'Thứ 2 - 4 - 6',
           level: b.level || 'N5',
           monthlyFee: isAdmin(req.user) ? Number(b.monthly_fee) || 800000 : 800000,
+          room: extras.room,
+          startDate: extras.startDate,
         })
         .returning();
       const [t] = await db.select({ n: users.fullName }).from(users).where(eq(users.id, teacherId)).limit(1);
@@ -122,6 +149,8 @@ export function classRoutes({ db, auth }: Deps) {
     requireClassOwner,
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
+      const extras = parseClassExtras(b);
+      if ('error' in extras) return res.status(400).json({ error: extras.error });
       const set: Record<string, unknown> = {};
       const map: Record<string, string> = {
         name: 'name',
@@ -136,6 +165,8 @@ export function classRoutes({ db, auth }: Deps) {
         if (apiKey === 'monthly_fee' && !isAdmin(req.user)) continue;
         if (b[apiKey] !== undefined) set[col] = apiKey === 'monthly_fee' ? Number(b[apiKey]) : b[apiKey];
       }
+      if (b.room !== undefined) set.room = extras.room;
+      if (b.start_date !== undefined) set.startDate = extras.startDate;
       if (b.teacher_id !== undefined && isAdmin(req.user)) {
         if (!(await isTeacherAccount(db, String(b.teacher_id)))) {
           return res.status(400).json({ error: 'Giáo viên phụ trách không hợp lệ.' });

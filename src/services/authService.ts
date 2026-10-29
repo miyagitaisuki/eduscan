@@ -12,7 +12,7 @@ export const authService = {
   },
   // Đổi mật khẩu: server trả token mới (token cũ đã vô hiệu) và user đã cập nhật cờ bắt buộc đổi
   async changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ ok: boolean; message?: string }> {
-    const res = await apiClient.post<{ ok: boolean; message?: string; token?: string; user?: any }>('/auth/change-password', {
+    const res = await apiClient.post<{ ok: boolean; message?: string; token?: string; user?: User }>('/auth/change-password', {
       current_password: currentPassword,
       new_password: newPassword,
       confirm_password: confirmPassword,

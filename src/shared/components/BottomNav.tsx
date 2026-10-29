@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { MoreHorizontal, X } from 'lucide-react';
-import { ActiveTab } from '../types/common';
+import { MoreHorizontal } from 'lucide-react';
+import { Modal } from './ui';
+import { ActiveTab } from '../types';
 import { getTeacherNavItems, TeacherNavItem } from '../config/teacherNav';
 
 interface BottomNavProps {
@@ -12,7 +13,7 @@ interface BottomNavProps {
 }
 
 const badgeClass = (tone: 'rose' | 'amber') =>
-  `absolute -top-1 -right-2 ${tone === 'rose' ? 'bg-rose-500' : 'bg-amber-500'} text-white text-[9px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center`;
+  `absolute -top-1 -right-2 ${tone === 'rose' ? 'bg-danger-600' : 'bg-warning-600'} text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center`;
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
@@ -49,10 +50,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     return (
       <>
         <div className="relative">
-          <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110 text-blue-600' : ''}`} />
+          <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110 text-primary-600' : ''}`} />
           {badge && <span className={badgeClass(badge.tone)}>{formatCount(badge.count)}</span>}
         </div>
-        <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-bold text-blue-600' : 'font-medium'}`}>
+        <span className={`text-xs mt-0.5 tracking-tighter whitespace-nowrap ${isActive ? 'font-semibold text-primary-600' : 'font-medium'}`}>
           {tab.shortLabel}
         </span>
       </>
@@ -61,7 +62,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   const itemClass = (isActive: boolean) =>
     `flex flex-col items-center justify-center relative py-1 transition-colors cursor-pointer ${
-      isActive ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'
+      isActive ? 'text-primary-600' : 'text-slate-500 hover:text-slate-800'
     }`;
 
   return (
@@ -73,7 +74,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             return (
               <button key={tab.id} onClick={() => handleSelect(tab.id)} className={itemClass(isActive)}>
                 {renderItem(tab, isActive)}
-                {isActive && <span className="absolute top-0 w-8 h-0.5 bg-blue-600 rounded-full" />}
+                {isActive && <span className="absolute top-0 w-8 h-0.5 bg-primary-600 rounded-full" />}
               </button>
             );
           })}
@@ -92,36 +93,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   <span className={badgeClass('rose')}>{formatCount(overflowBadgeCount)}</span>
                 )}
               </div>
-              <span className={`text-[10px] mt-0.5 tracking-tight ${isOverflowActive ? 'font-bold text-blue-600' : 'font-medium'}`}>
+              <span className={`text-xs mt-0.5 tracking-tighter whitespace-nowrap ${isOverflowActive ? 'font-semibold text-primary-600' : 'font-medium'}`}>
                 Thêm
               </span>
-              {isOverflowActive && <span className="absolute top-0 w-8 h-0.5 bg-blue-600 rounded-full" />}
+              {isOverflowActive && <span className="absolute top-0 w-8 h-0.5 bg-primary-600 rounded-full" />}
             </button>
           )}
         </div>
       </div>
 
       {isMoreOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
-          <button
-            type="button"
-            aria-label="Đóng menu"
-            onClick={() => setIsMoreOpen(false)}
-            className="absolute inset-0 bg-slate-900/40 cursor-default"
-          />
-          <div className="relative bg-white rounded-t-2xl shadow-2xl pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-            <div className="flex items-center justify-between px-4 pt-3 pb-2">
-              <h2 className="text-sm font-bold text-slate-900">Thêm mục</h2>
-              <button
-                type="button"
-                onClick={() => setIsMoreOpen(false)}
-                aria-label="Đóng"
-                className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-4 pb-2">
+        <Modal title="Thêm mục" onClose={() => setIsMoreOpen(false)} size="xl" placement="bottom">
+          <div className="grid grid-cols-3 gap-2">
               {overflowItems.map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;
@@ -133,7 +116,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                     onClick={() => handleSelect(tab.id)}
                     className={`relative flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border cursor-pointer transition-colors ${
                       isActive
-                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        ? 'border-primary-200 bg-primary-50 text-primary-700'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -143,9 +126,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </button>
                 );
               })}
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

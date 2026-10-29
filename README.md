@@ -42,6 +42,16 @@ docker run -p 3000:3000 --env-file .env eduscan
 
 Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc** để quét QR bằng camera trên điện thoại hoạt động, vì trình duyệt chỉ cho phép camera trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
 
+## Cấu trúc frontend
+
+- Địa chỉ trang: giáo viên `/dashboard`, `/attendance`, `/classes`, `/students`, `/tuition` (admin), `/homework`, `/stats`, `/teachers` (admin); học viên `/home`, `/assignments`, `/attendance`, `/tuition`, `/notifications`. Lớp chọn sẵn đi kèm tham số, VD `/attendance?class=<id>`. Đường dẫn sai hoặc không đủ quyền chuyển về trang mặc định. Định nghĩa ở `src/app/routes.ts`.
+- `src/App.tsx`: đăng nhập, khung trang, tải dữ liệu. `src/app/TeacherApp.tsx` và `src/app/StudentApp.tsx` là hai giao diện theo vai trò, tải riêng (lazy) nên học viên không tải mã của giáo viên.
+- Dữ liệu: `src/hooks/data/` mỗi tính năng một hook (lớp, học viên, điểm danh, bài tập, học phí, giáo viên, thông báo, sao lưu); `src/hooks/useEcosystemData.ts` ghép chúng lại, lo tải lần đầu, làm mới và các thao tác chạm nhiều tính năng.
+- Kiểu dữ liệu: `src/shared/types/index.ts` là nguồn duy nhất, dùng chung cho giao diện và server (DTO trong `server/lib/dto.ts` khai báo kiểu trả về theo đó nên lệch nhau là tsc báo lỗi). Giao diện dùng thẳng dữ liệu API, không có lớp chuyển đổi. Dữ liệu biểu mẫu gửi lên là `ClassInput`, `StudentInput`, `AssignmentInput`, `GradeInput`.
+- Giao diện: màu theo ngữ nghĩa `primary`, `success`, `warning`, `danger`, `accent` (và `slate` cho trung tính) khai báo một chỗ trong `src/index.css`; không dùng tên màu thô như `blue-600`. Chữ tối thiểu 12px (`text-xs`). Phần tử bấm được không phải `<button>` dùng `clickable()` (`src/shared/utils/a11y.tsx`). `tests/unit/design-rules.test.ts` kiểm tra các quy ước này.
+- Hộp thoại dùng chung (`src/shared/components/ui`): `Modal`, `useConfirm()` thay cho `window.confirm`, và `useIssuedPassword()` hiện mật khẩu tạm vừa cấp (giáo viên, học viên) trong hộp thoại không tự tắt, có nút sao chép thông tin đăng nhập; đặt ở cấp ứng dụng nên không mất khi chuyển trang.
+- Máy chủ phải trả `index.html` cho mọi đường dẫn không bắt đầu bằng `/api` (server.ts đã làm). Nếu đặt frontend trên static host riêng, cần cấu hình rewrite tương tự.
+
 ## Sao lưu
 
 - **Lớp chính:** sao lưu tự động của Supabase (gói có sao lưu hằng ngày/PITR). Kiểm tra gói đang dùng có bật tính năng này.
@@ -58,5 +68,6 @@ docker run -p 3000:3000 --env-file .env eduscan
 
 ## Giới hạn đã biết
 
-- Mã QR đổi mỗi 15 giây và chấp nhận chu kỳ trước đó; học viên vẫn có thể chụp và gửi mã trong thời gian đó.
+- Mã QR do server ký (HMAC-SHA256, khóa suy ra từ `JWT_SECRET`), đổi mỗi 15 giây, gắn với đúng một phiên và chấp nhận thêm chu kỳ liền trước. Học viên không thể tự dựng mã, nhưng vẫn có thể chụp màn hình gửi cho bạn đang ở xa trong tối đa 30 giây. Đổi `JWT_SECRET` thì mã đang hiển thị mất hiệu lực (giáo viên chỉ cần chờ chu kỳ kế tiếp).
+- Mã phiên nhập tay (`ES-xxxx`) dùng cho học viên không có camera và không đổi trong suốt phiên, nên ai nhìn thấy trên màn chiếu cũng có thể gửi đi. Phiên được đóng khi giáo viên tắt màn hình QR Live (hoặc mở phiên mới), sau đó mã nhập tay không dùng được nữa. Nếu cần chặt hơn, hãy tắt QR Live ngay khi bắt đầu giờ học.
 - RLS bật trên mọi bảng (migration 0002) và không có policy: Data API của Supabase (anon/authenticated) không đọc được dữ liệu; server dùng role postgres nên không bị ảnh hưởng.

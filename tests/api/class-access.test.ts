@@ -35,6 +35,16 @@ describe('phân quyền theo lớp', () => {
     expect(del.status).toBe(403);
   });
 
+  it('giáo viên không phụ trách không lấy được mã QR hay số lượt điểm danh của phiên lớp khác', async () => {
+    const open = await ctx.api.post('/api/attendance/session').set('Authorization', `Bearer ${T}`).send({ class_id: 'cls-n5-01' });
+    expect(open.status).toBe(201);
+    const id = open.body.id;
+    expect((await ctx.api.get(`/api/attendance/session/${id}/qr`).set('Authorization', `Bearer ${OTHER}`)).status).toBe(403);
+    expect((await ctx.api.get(`/api/attendance/session/${id}/checkins`).set('Authorization', `Bearer ${OTHER}`)).status).toBe(403);
+    expect((await ctx.api.post(`/api/attendance/session/${id}/close`).set('Authorization', `Bearer ${OTHER}`)).status).toBe(403);
+    expect((await ctx.api.get(`/api/attendance/session/${id}/qr`).set('Authorization', `Bearer ${ADM}`)).status).toBe(200);
+  });
+
   it('giáo viên phụ trách vẫn sửa được lớp của mình', async () => {
     const res = await ctx.api.put('/api/classes/cls-n5-01').set('Authorization', `Bearer ${T}`).send({ name: 'N5 Sơ cấp 1 (Minna no Nihongo)' });
     expect(res.status).toBe(200);

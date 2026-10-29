@@ -9,19 +9,21 @@ import {
 import { 
   Student, 
   ClassItem, 
-  Attendance, 
-  Payment, 
+  AttendanceRecord, 
+  TuitionRecord, 
   Assignment, 
   Submission 
 } from '../../../shared/types';
+import { averageScore, formatScore, scoreGrade } from '../../../shared/utils/score';
+import { isSubmitted } from '../../../shared/utils/submission';
 
 interface StudentStatsViewProps {
   /** Học phí chỉ hiển thị với admin */
   isAdmin?: boolean;
   students: Student[];
   classes: ClassItem[];
-  attendance: Attendance[];
-  payments: Payment[];
+  attendance: AttendanceRecord[];
+  payments: TuitionRecord[];
   assignments: Assignment[];
   submissions: Submission[];
 }
@@ -57,11 +59,9 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
   // Assignments for active student
   const classAssignments = assignments.filter((a) => a.class_id === activeStudent?.class_id);
   const studentSubmissions = submissions.filter((s) => s.student_id === activeStudent?.id);
-  const submittedCount = studentSubmissions.filter((s) => s.status === 'submitted').length;
+  const submittedCount = studentSubmissions.filter(isSubmitted).length;
   const scoredSubmissions = studentSubmissions.filter((s) => s.score !== null);
-  const avgScore = scoredSubmissions.length > 0
-    ? Math.round(scoredSubmissions.reduce((sum, s) => sum + (s.score || 0), 0) / scoredSubmissions.length)
-    : null;
+  const avgScore = averageScore(scoredSubmissions.map((s) => s.score));
 
   // Comparison list for all students
   const studentStatsList = students.map((st) => {
@@ -76,7 +76,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
 
     const subs = submissions.filter((s) => s.student_id === st.id);
     const scored = subs.filter((s) => s.score !== null);
-    const avg = scored.length > 0 ? Math.round(scored.reduce((sum, s) => sum + (s.score || 0), 0) / scored.length) : null;
+    const avg = averageScore(scored.map((s) => s.score));
 
     return {
       student: st,
@@ -84,7 +84,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
       attRate: rate,
       absentCount: total - present,
       unpaidDebt: unpaid,
-      submittedCount: subs.filter((s) => s.status === 'submitted').length,
+      submittedCount: subs.filter(isSubmitted).length,
       avgScore: avg,
     };
   });
@@ -100,9 +100,9 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
     <div className="space-y-4">
       
       {/* Top Header */}
-      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-xs">
+      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-primary-100 shadow-xs">
         <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-          <GraduationCap className="w-5 h-5 text-blue-600" />
+          <GraduationCap className="w-5 h-5 text-primary-600" />
           Thống kê kết quả & Dashboard từng học viên
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
@@ -111,11 +111,11 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
 
         {/* Student Dropdown Switcher */}
         <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <label className="text-xs font-bold text-slate-700 shrink-0">Chọn học viên xem Dashboard:</label>
-          <select
+          <label className="text-xs font-bold text-slate-700 shrink-0" htmlFor="student-stats-field-1">Chọn học viên xem Dashboard:</label>
+          <select id="student-stats-field-1"
             value={activeStudent?.id}
             onChange={(e) => setSelectedStudentId(e.target.value)}
-            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-blue-800"
+            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-primary-800"
           >
             {students.map((st) => {
               const cls = classes.find((c) => c.id === st.class_id);
@@ -131,11 +131,11 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
 
       {/* Individual Student Dashboard (Optimized for Mobile) */}
       {activeStudent && (
-        <div className="bg-gradient-to-br from-white via-blue-50/20 to-white rounded-3xl p-5 sm:p-6 border border-blue-200 shadow-sm space-y-4">
+        <div className="bg-gradient-to-br from-white via-primary-50/20 to-white rounded-3xl p-5 sm:p-6 border border-primary-200 shadow-sm space-y-4">
           
           <div className="flex items-start justify-between">
             <div>
-              <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-blue-600 text-white">
+              <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-primary-600 text-white">
                 {activeStudent.level}
               </span>
               <h3 className="text-xl font-black text-slate-900 mt-1">
@@ -154,16 +154,16 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
                 <span className="font-bold">Tỷ lệ đi học</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 text-success-600" />
               </div>
-              <div className="text-2xl font-black text-emerald-700">{attRate}%</div>
+              <div className="text-2xl font-black text-success-700">{attRate}%</div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-1.5">
                 <div
-                  className="bg-emerald-600 h-full rounded-full"
+                  className="bg-success-600 h-full rounded-full"
                   style={{ width: `${attRate}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-500 mt-1.5 font-medium">
+              <p className="text-xs text-slate-500 mt-1.5 font-medium">
                 Vắng {absentSessions} trên {totalAttSessions} buổi
               </p>
             </div>
@@ -173,12 +173,12 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
                 <span className="font-bold">Học phí còn thiếu</span>
-                <CreditCard className="w-4 h-4 text-rose-500" />
+                <CreditCard className="w-4 h-4 text-danger-500" />
               </div>
-              <div className={`text-xl font-black ${unpaidAmount > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+              <div className={`text-xl font-black ${unpaidAmount > 0 ? 'text-danger-600' : 'text-success-700'}`}>
                 {unpaidAmount > 0 ? `${unpaidAmount.toLocaleString('vi-VN')} đ` : 'Đã hoàn thành'}
               </div>
-              <p className="text-[10px] text-slate-500 mt-2 font-medium">
+              <p className="text-xs text-slate-500 mt-2 font-medium">
                 Đã đóng: {paidAmount.toLocaleString('vi-VN')} đ
               </p>
             </div>
@@ -189,18 +189,18 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
                 <span className="font-bold">Bài tập hoàn thành</span>
-                <FileText className="w-4 h-4 text-purple-600" />
+                <FileText className="w-4 h-4 text-accent-600" />
               </div>
-              <div className="text-2xl font-black text-purple-700">
+              <div className="text-2xl font-black text-accent-700">
                 {submittedCount}/{classAssignments.length}
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-1.5">
                 <div
-                  className="bg-purple-600 h-full rounded-full"
+                  className="bg-accent-600 h-full rounded-full"
                   style={{ width: `${classAssignments.length > 0 ? (submittedCount / classAssignments.length) * 100 : 0}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-500 mt-1.5 font-medium">
+              <p className="text-xs text-slate-500 mt-1.5 font-medium">
                 Tỷ lệ: {classAssignments.length > 0 ? Math.round((submittedCount / classAssignments.length) * 100) : 0}% bài nộp
               </p>
             </div>
@@ -209,13 +209,13 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
                 <span className="font-bold">Điểm trung bình</span>
-                <Award className="w-4 h-4 text-amber-500" />
+                <Award className="w-4 h-4 text-warning-500" />
               </div>
-              <div className="text-2xl font-black text-amber-600">
-                {avgScore ? `${avgScore}/100` : '--'}
+              <div className="text-2xl font-black text-warning-600">
+                {formatScore(avgScore)}
               </div>
-              <p className="text-[10px] text-slate-500 mt-2 font-medium">
-                {avgScore && avgScore >= 90 ? 'Xếp loại: Xuất sắc (優)' : avgScore && avgScore >= 80 ? 'Xếp loại: Giỏi (良)' : 'Đạt yêu cầu'}
+              <p className="text-xs text-slate-500 mt-2 font-medium">
+                {scoreGrade(avgScore)}
               </p>
             </div>
 
@@ -225,7 +225,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
       )}
 
       {/* Comparison Table / All Students Roster */}
-      <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-xs space-y-3">
+      <div className="bg-white rounded-3xl p-5 border border-primary-100 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <h3 className="text-sm font-bold text-slate-900">
             Bảng tổng hợp tất cả học viên ({students.length} học viên)
@@ -234,12 +234,14 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
           <div className="flex items-center gap-2">
             <input
               type="text"
+              aria-label="Tìm học viên"
               placeholder="Tìm học viên..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
             />
             <select
+              aria-label="Lọc theo lớp"
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
               className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700"
@@ -269,15 +271,15 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                 <tr
                   key={row.student.id}
                   onClick={() => setSelectedStudentId(row.student.id)}
-                  className={`hover:bg-blue-50/50 cursor-pointer transition-colors ${
-                    activeStudent?.id === row.student.id ? 'bg-blue-50/70 font-semibold' : ''
+                  className={`hover:bg-primary-50/50 cursor-pointer transition-colors ${
+                    activeStudent?.id === row.student.id ? 'bg-primary-50/70 font-semibold' : ''
                   }`}
                 >
                   <td className="py-2.5 px-3 font-bold text-slate-900">{row.student.full_name}</td>
                   <td className="py-2.5 px-3 text-slate-600">{row.classItem?.name}</td>
                   <td className="py-2.5 px-3 text-center">
-                    <span className={`inline-block px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                      row.attRate >= 80 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'
+                    <span className={`inline-block px-2 py-0.5 rounded-full font-bold text-xs ${
+                      row.attRate >= 80 ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-700'
                     }`}>
                       {row.attRate}%
                     </span>
@@ -286,14 +288,14 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                   {isAdmin && (
                   <td className="py-2.5 px-3 text-center font-bold">
                     {row.unpaidDebt > 0 ? (
-                      <span className="text-rose-600">{row.unpaidDebt.toLocaleString('vi-VN')} đ</span>
+                      <span className="text-danger-600">{row.unpaidDebt.toLocaleString('vi-VN')} đ</span>
                     ) : (
-                      <span className="text-emerald-700">Đã đủ</span>
+                      <span className="text-success-700">Đã đủ</span>
                     )}
                   </td>
                   )}
-                  <td className="py-2.5 px-3 text-center font-black text-amber-600">
-                    {row.avgScore ? `${row.avgScore}/100` : '--'}
+                  <td className="py-2.5 px-3 text-center font-black text-warning-600">
+                    {formatScore(row.avgScore)}
                   </td>
                 </tr>
               ))}

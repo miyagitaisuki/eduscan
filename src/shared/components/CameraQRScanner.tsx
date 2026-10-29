@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import jsQR from 'jsqr';
-import { Camera, X, RefreshCw, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Camera, RefreshCw, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Modal } from './ui';
 
 interface CameraQRScannerProps {
   isOpen: boolean;
@@ -130,25 +131,22 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="bg-slate-900 text-white rounded-3xl p-5 w-full max-w-sm border border-slate-700 shadow-2xl space-y-4">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-blue-400" />
-            <h3 className="text-sm font-bold">{title}</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Modal
+      title={
+        <span className="flex items-center gap-2 text-sm">
+          <Camera className="w-5 h-5 text-primary-400" aria-hidden="true" />
+          {title}
+        </span>
+      }
+      onClose={onClose}
+      size="sm"
+      variant="dark"
+      overlayClassName="bg-slate-950/80 backdrop-blur-md"
+    >
+      <div className="space-y-4">
 
         {/* Video Camera Container */}
-        <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-black flex items-center justify-center border-2 border-dashed border-blue-500/50">
+        <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-black flex items-center justify-center border-2 border-dashed border-primary-500/50">
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
@@ -158,24 +156,24 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
           <canvas ref={canvasRef} className="hidden" />
 
           {/* Scanner Guide Frame */}
-          <div className="relative z-10 w-48 h-48 border-2 border-blue-400 rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] flex items-center justify-center pointer-events-none">
-            <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-blue-400 -mt-1 -ml-1 rounded-tl" />
-            <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-blue-400 -mt-1 -mr-1 rounded-tr" />
-            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-blue-400 -mb-1 -ml-1 rounded-bl" />
-            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-blue-400 -mb-1 -mr-1 rounded-br" />
-            <div className="w-full h-0.5 bg-blue-400/80 shadow-[0_0_8px_#3b82f6] animate-pulse" />
+          <div className="relative z-10 w-48 h-48 border-2 border-primary-400 rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] flex items-center justify-center pointer-events-none">
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-primary-400 -mt-1 -ml-1 rounded-tl" />
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-primary-400 -mt-1 -mr-1 rounded-tr" />
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-primary-400 -mb-1 -ml-1 rounded-bl" />
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-primary-400 -mb-1 -mr-1 rounded-br" />
+            <div className="w-full h-0.5 bg-primary-400/80 shadow-[0_0_8px_#3b82f6] animate-pulse" />
           </div>
 
           {!cameraActive && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 text-center bg-slate-900/90 text-xs text-slate-300">
-              <Camera className="w-8 h-8 text-blue-400 mb-2 animate-bounce" />
+              <Camera className="w-8 h-8 text-primary-400 mb-2 animate-bounce" />
               <span>Đang kết nối Camera thiết bị Android / Web...</span>
             </div>
           )}
         </div>
 
         {errorMessage && (
-          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs flex items-start gap-2">
+          <div className="p-3 bg-warning-500/10 border border-warning-500/20 rounded-xl text-warning-300 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{errorMessage}</span>
           </div>
@@ -185,7 +183,7 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
         <div className="space-y-3 pt-2">
           {/* Upload image */}
           <label className="flex items-center justify-center gap-2 w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer border border-slate-700 transition-colors">
-            <Upload className="w-4 h-4 text-blue-400" />
+            <Upload className="w-4 h-4 text-primary-400" />
             <span>Tải ảnh mã QR từ thư viện ảnh</span>
             <input
               type="file"
@@ -202,32 +200,18 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
               placeholder="Nhập mã phiên (VD: ES-8921)"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value)}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-primary-500"
             />
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               Check-in
             </button>
           </form>
-
-          {/* Demo scan: chỉ có ở chế độ dev, không có trong bản production */}
-          {import.meta.env.DEV && (
-            <button
-              type="button"
-              onClick={() => {
-                onScanSuccess('EDUSCAN_QR:cls-n5-01:LIVE:2026-10-28');
-                onClose();
-              }}
-              className="w-full py-2 text-center text-xs text-blue-400 hover:text-blue-300 underline cursor-pointer"
-            >
-              ⚡ Check-in nhanh mẫu (Demo Lớp N5 Sơ cấp)
-            </button>
-          )}
         </div>
 
       </div>
-    </div>
+    </Modal>
   );
 };

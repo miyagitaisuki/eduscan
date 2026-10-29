@@ -1,3 +1,5 @@
+import type { User } from '../shared/types';
+
 const TOKEN_STORAGE_KEY = 'eduscan_jwt_token';
 const USER_STORAGE_KEY = 'eduscan_current_user';
 
@@ -15,7 +17,7 @@ export const apiClient = {
     localStorage.removeItem(USER_STORAGE_KEY);
   },
 
-  getCurrentUser(): any | null {
+  getCurrentUser(): User | null {
     const saved = localStorage.getItem(USER_STORAGE_KEY);
     if (!saved) return null;
     try {
@@ -25,7 +27,7 @@ export const apiClient = {
     }
   },
 
-  setCurrentUser(user: any) {
+  setCurrentUser(user: User) {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
   },
 
@@ -74,14 +76,14 @@ export const apiClient = {
     return this.request<T>(endpoint, { method: 'GET' });
   },
 
-  post<T>(endpoint: string, body?: any): Promise<T> {
+  post<T>(endpoint: string, body?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
     });
   },
 
-  put<T>(endpoint: string, body?: any): Promise<T> {
+  put<T>(endpoint: string, body?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,

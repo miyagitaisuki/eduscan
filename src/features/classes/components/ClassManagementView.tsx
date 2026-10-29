@@ -8,12 +8,12 @@ import {
   Clock, 
   CreditCard, 
   CheckSquare, 
-  Search, 
-  X
+  Search
 } from 'lucide-react';
-import { Student, Attendance, Payment, JlptLevel, ActiveTab } from '../../../shared/types';
-import { ClassItem } from '../types';
+import { Student, AttendanceRecord, TuitionRecord, ClassInput, ClassItem, JlptLevel, ActiveTab } from '../../../shared/types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
+import { todayLocal } from '../../../shared/utils/date';
+import { Modal, useConfirm } from '../../../shared/components/ui';
 
 interface ClassManagementViewProps {
   /** Học phí và chọn giáo viên phụ trách chỉ dành cho admin */
@@ -22,10 +22,10 @@ interface ClassManagementViewProps {
   teachers?: { id: string; full_name: string }[];
   classes: ClassItem[];
   students: Student[];
-  attendance: Attendance[];
-  payments: Payment[];
-  onCreateClass: (cls: Omit<ClassItem, 'id'>) => void;
-  onUpdateClass: (cls: ClassItem) => void;
+  attendance: AttendanceRecord[];
+  payments: TuitionRecord[];
+  onCreateClass: (cls: ClassInput) => void;
+  onUpdateClass: (classId: string, cls: Partial<ClassInput>) => void;
   onDeleteClass: (classId: string) => void;
   onNavigateTab: (tab: ActiveTab, preselectedClassId?: string) => void;
 }
@@ -52,24 +52,23 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   // Form State
   const [name, setName] = useState('');
   const [level, setLevel] = useState<JlptLevel>('N5');
+  const confirm = useConfirm();
   const [schedule, setSchedule] = useState('Thứ 2 - 4 - 6 (18:00 - 19:30)');
-  const [scheduleDays, setScheduleDays] = useState<number[]>([1, 3, 5]);
   const [monthlyFee, setMonthlyFee] = useState<number>(800000);
   const [teacherId, setTeacherId] = useState<string>('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [notes, setNotes] = useState('');
-  const [room, setRoom] = useState('Phòng 201 - Nhà Ngoại ngữ');
+  const [startDate, setStartDate] = useState(todayLocal());
+  const [description, setDescription] = useState('');
+  const [room, setRoom] = useState('');
 
   const openCreateModal = () => {
     setEditingClass(null);
     setName('');
     setLevel('N5');
     setSchedule('Thứ 2 - 4 - 6 (18:00 - 19:30)');
-    setScheduleDays([1, 3, 5]);
     setMonthlyFee(800000);
-    setStartDate(new Date().toISOString().split('T')[0]);
-    setNotes('');
-    setRoom('Phòng 201 - Nhà Ngoại ngữ');
+    setStartDate(todayLocal());
+    setDescription('');
+    setRoom('');
     setTeacherId(teachers[0]?.id ?? '');
     setIsModalOpen(true);
   };
@@ -79,11 +78,10 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     setName(cls.name);
     setLevel(cls.level);
     setSchedule(cls.schedule);
-    setScheduleDays(cls.scheduleDays || [1, 3, 5]);
-    setMonthlyFee(cls.monthly_fee);
+    setMonthlyFee(cls.monthly_fee ?? 800000);
     setStartDate(cls.start_date);
-    setNotes(cls.notes);
-    setRoom(cls.room || '');
+    setDescription(cls.description);
+    setRoom(cls.room);
     setTeacherId(cls.teacher_id ?? '');
     setIsModalOpen(true);
   };
@@ -92,31 +90,21 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     e.preventDefault();
     if (!name.trim()) return;
 
+    const input: ClassInput = {
+      name: name.trim(),
+      level,
+      schedule: schedule.trim(),
+      start_date: startDate,
+      description: description.trim(),
+      room: room.trim(),
+      // Học phí và giáo viên phụ trách chỉ admin được đặt
+      ...(isAdmin ? { monthly_fee: Number(monthlyFee) || 0 } : {}),
+      ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
+    };
     if (editingClass) {
-      onUpdateClass({
-        ...editingClass,
-        name: name.trim(),
-        level,
-        schedule: schedule.trim(),
-        scheduleDays,
-        monthly_fee: Number(monthlyFee) || 0,
-        start_date: startDate,
-        notes: notes.trim(),
-        room: room.trim(),
-        ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
-      });
+      onUpdateClass(editingClass.id, input);
     } else {
-      onCreateClass({
-        name: name.trim(),
-        level,
-        schedule: schedule.trim(),
-        scheduleDays,
-        monthly_fee: Number(monthlyFee) || 0,
-        start_date: startDate,
-        notes: notes.trim(),
-        room: room.trim(),
-        ...(isAdmin && teacherId ? { teacher_id: teacherId } : {}),
-      });
+      onCreateClass(input);
     }
 
     setIsModalOpen(false);
@@ -134,11 +122,11 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
     <div className="space-y-4">
       
       {/* Top Action Bar */}
-      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-xs">
+      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-primary-100 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-blue-600" />
+              <BookOpen className="w-5 h-5 text-primary-600" />
               Quản lý Lớp học ({classes.length} lớp)
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -148,7 +136,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
 
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer self-start sm:self-auto"
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 active:scale-95 cursor-pointer self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             Tạo lớp mới
@@ -158,13 +146,14 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
         {/* Search & Level Filter */}
         <div className="flex flex-col sm:flex-row gap-2.5">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              aria-label="Tìm lớp học theo tên hoặc lịch học"
               placeholder="Tìm kiếm lớp học, lịch học..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-primary-500"
             />
           </div>
 
@@ -175,7 +164,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                 onClick={() => setSelectedLevelFilter(lvl)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedLevelFilter === lvl
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'bg-primary-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -199,29 +188,33 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
           return (
             <div
               key={cls.id}
-              className="bg-white rounded-3xl p-5 border border-blue-100 hover:border-blue-300 transition-all shadow-xs flex flex-col justify-between"
+              className="bg-white rounded-3xl p-5 border border-primary-100 hover:border-primary-300 transition-all shadow-xs flex flex-col justify-between"
             >
               <div>
                 {/* Header Badge & Level */}
                 <div className="flex items-center justify-between mb-2">
-                  <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-blue-600 text-white tracking-wide">
+                  <span className="px-2.5 py-0.5 rounded-md text-xs font-black bg-primary-600 text-white tracking-wide">
                     {cls.level}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEditModal(cls)}
-                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors cursor-pointer"
                       title="Chỉnh sửa lớp"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Thầy có chắc chắn muốn xóa lớp "${cls.name}"?`)) {
-                          onDeleteClass(cls.id);
-                        }
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: `Xóa lớp "${cls.name}"?`,
+                          message: 'Học viên, điểm danh và bài tập của lớp có thể bị ảnh hưởng. Không thể hoàn tác.',
+                          confirmLabel: 'Xóa lớp',
+                          tone: 'danger',
+                        });
+                        if (ok) onDeleteClass(cls.id);
                       }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-500 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors cursor-pointer"
                       title="Xóa lớp"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -235,15 +228,15 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
 
                 <div className="space-y-1.5 mt-3 text-xs text-slate-600">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <Clock className="w-3.5 h-3.5 text-primary-600 shrink-0" />
                     <span>{cls.schedule}</span>
                   </div>
 
                   {isAdmin && (
                   <div className="flex items-center gap-2">
-                    <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="font-bold text-emerald-700">
-                      {cls.monthly_fee.toLocaleString('vi-VN')} VNĐ/tháng
+                    <CreditCard className="w-3.5 h-3.5 text-success-600 shrink-0" />
+                    <span className="font-bold text-success-700">
+                      {(cls.monthly_fee ?? 0).toLocaleString('vi-VN')} VNĐ/tháng
                     </span>
                   </div>
                   )}
@@ -255,9 +248,9 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                     </div>
                   )}
 
-                  {cls.notes && (
-                    <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-xl mt-2 line-clamp-2">
-                      {cls.notes}
+                  {cls.description && (
+                    <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-xl mt-2 line-clamp-2">
+                      {cls.description}
                     </p>
                   )}
                 </div>
@@ -265,13 +258,13 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                 {/* Metrics Bar */}
                 <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-center">
                   <div className="bg-slate-50 p-2 rounded-xl">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Sĩ số</span>
+                    <span className="text-xs text-slate-500 uppercase font-bold block">Sĩ số</span>
                     <strong className="text-xs text-slate-800 font-extrabold">{classStudents.length} học viên</strong>
                   </div>
                   {isAdmin && (
                   <div className="bg-slate-50 p-2 rounded-xl">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Học phí T10</span>
-                    <strong className="text-xs text-emerald-700 font-extrabold">{paidCount}/{classStudents.length} đã đóng</strong>
+                    <span className="text-xs text-slate-500 uppercase font-bold block">Học phí T{Number(currentTuitionMonth().split('/')[0])}</span>
+                    <strong className="text-xs text-success-700 font-extrabold">{paidCount}/{classStudents.length} đã đóng</strong>
                   </div>
                   )}
                 </div>
@@ -281,7 +274,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                 <button
                   onClick={() => onNavigateTab('attendance', cls.id)}
-                  className="flex-1 py-2 px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2 px-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <CheckSquare className="w-3.5 h-3.5" />
                   Điểm danh
@@ -312,144 +305,133 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
 
       {/* Create / Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-lg border border-slate-200 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {editingClass ? 'Chỉnh sửa Lớp học' : 'Tạo Lớp học tiếng Nhật mới'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Modal title={editingClass ? 'Chỉnh sửa Lớp học' : 'Tạo Lớp học tiếng Nhật mới'} onClose={() => setIsModalOpen(false)} size="lg" closeOnBackdrop={false}>
+          <form onSubmit={handleFormSubmit} className="space-y-3.5">
+            {isAdmin && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-1">Giáo viên phụ trách</label>
+                <select id="class-management-field-1"
+                  value={teacherId}
+                  onChange={(e) => setTeacherId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
+                >
+                  {teachers.length === 0 && <option value="">Chưa có giáo viên</option>}
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-2">Tên lớp *</label>
+              <input id="class-management-field-2"
+                type="text"
+                required
+                placeholder="VD: N5 Sơ cấp 1, N4 Cấp tốc..."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary-500"
+              />
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-3.5">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-3">Trình độ JLPT</label>
+                <select id="class-management-field-3"
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value as JlptLevel)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-primary-700 bg-white"
+                >
+                  <option value="N5">N5 (Sơ cấp 1)</option>
+                  <option value="N4">N4 (Sơ cấp 2 / Cấp tốc)</option>
+                  <option value="N3">N3 (Trung cấp)</option>
+                  <option value="N2">N2 (Trung - Cao cấp)</option>
+                  <option value="N1">N1 (Cao cấp)</option>
+                </select>
+              </div>
+
               {isAdmin && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Giáo viên phụ trách</label>
-                  <select
-                    value={teacherId}
-                    onChange={(e) => setTeacherId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
-                  >
-                    {teachers.length === 0 && <option value="">Chưa có giáo viên</option>}
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-4">Học phí (VNĐ/tháng)</label>
+                <input id="class-management-field-4"
+                  type="number"
+                  step="50000"
+                  value={monthlyFee}
+                  onChange={(e) => setMonthlyFee(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-success-700"
+                />
+              </div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-5">Lịch học</label>
+              <input id="class-management-field-5"
+                type="text"
+                placeholder="VD: Thứ 2 - 4 - 6 (18:00 - 19:30)"
+                value={schedule}
+                onChange={(e) => setSchedule(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Ghi rõ thứ trong tuần (VD: Thứ 2 - 4 - 6, Chủ Nhật) để trang Tổng quan hiện đúng lớp học hôm nay.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-6">Ngày bắt đầu</label>
+                <input id="class-management-field-6"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+                />
+              </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tên lớp *</label>
-                <input
+                <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-7">Địa điểm / Phòng học</label>
+                <input id="class-management-field-7"
                   type="text"
-                  required
-                  placeholder="VD: N5 Sơ cấp 1, N4 Cấp tốc..."
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
+                  placeholder="VD: Phòng 201 - Nhà Ngoại ngữ"
+                  value={room}
+                  onChange={(e) => setRoom(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Trình độ JLPT</label>
-                  <select
-                    value={level}
-                    onChange={(e) => setLevel(e.target.value as JlptLevel)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
-                  >
-                    <option value="N5">N5 (Sơ cấp 1)</option>
-                    <option value="N4">N4 (Sơ cấp 2 / Cấp tốc)</option>
-                    <option value="N3">N3 (Trung cấp)</option>
-                    <option value="N2">N2 (Trung - Cao cấp)</option>
-                    <option value="N1">N1 (Cao cấp)</option>
-                  </select>
-                </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="class-management-field-8">Ghi chú giáo trình / mục tiêu</label>
+              <textarea id="class-management-field-8"
+                rows={2}
+                placeholder="Minna no Nihongo, Kanji, chuẩn bị thi tháng 12..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+            </div>
 
-                {isAdmin && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Học phí (VNĐ/tháng)</label>
-                  <input
-                    type="number"
-                    step="50000"
-                    value={monthlyFee}
-                    onChange={(e) => setMonthlyFee(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700"
-                  />
-                </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Lịch học</label>
-                <input
-                  type="text"
-                  placeholder="VD: Thứ 2 - 4 - 6 (18:00 - 19:30)"
-                  value={schedule}
-                  onChange={(e) => setSchedule(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Ngày bắt đầu</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Địa điểm / Phòng học</label>
-                  <input
-                    type="text"
-                    placeholder="VD: Phòng 201 - Nhà Ngoại ngữ"
-                    value={room}
-                    onChange={(e) => setRoom(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú giáo trình / mục tiêu</label>
-                <textarea
-                  rows={2}
-                  placeholder="Minna no Nihongo, Kanji, chuẩn bị thi tháng 12..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  {editingClass ? 'Lưu thay đổi' : 'Tạo lớp học'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md shadow-primary-500/20 cursor-pointer"
+              >
+                {editingClass ? 'Lưu thay đổi' : 'Tạo lớp học'}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
     </div>

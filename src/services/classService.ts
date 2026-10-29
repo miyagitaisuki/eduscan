@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { ClassItem } from '../shared/types';
+import { ClassInput, ClassItem } from '../shared/types';
 
 export const classService = {
   async getClasses(): Promise<ClassItem[]> {
@@ -10,11 +10,11 @@ export const classService = {
     return apiClient.get<ClassItem>(`/classes/${id}`);
   },
 
-  async createClass(data: Partial<ClassItem>): Promise<ClassItem> {
+  async createClass(data: ClassInput): Promise<ClassItem> {
     return apiClient.post<ClassItem>('/classes', data);
   },
 
-  async updateClass(id: string, data: Partial<ClassItem>): Promise<ClassItem> {
+  async updateClass(id: string, data: Partial<ClassInput>): Promise<ClassItem> {
     return apiClient.put<ClassItem>(`/classes/${id}`, data);
   },
 

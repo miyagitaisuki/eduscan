@@ -8,6 +8,7 @@ import * as schema from '../server/db/schema';
 import { createApp } from '../server/app';
 import { loadConfig, AppConfig } from '../server/lib/config';
 import { seedDatabase } from '../server/seed';
+import { createQrSigner, QR_WINDOW_SECONDS } from '../server/lib/qr';
 import type { AppDb } from '../server/db/client';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -41,8 +42,7 @@ export const STUDENT_MAI = 'mai.le@qnu.edu.vn';
 export const STUDENT_DUNG = 'dung.tran@qnu.edu.vn';
 export const ADMIN = 'admin@eduscan.edu.vn';
 
-// Mã QR hợp lệ ở chu kỳ hiện tại, đúng định dạng giáo viên hiển thị
-export function currentQr(classId: string, offsetPeriods = 0) {
-  const stamp = Math.floor(Date.now() / 15000) - offsetPeriods;
-  return `EDUSCAN_QR:${classId}:${stamp}:${new Date().toISOString().split('T')[0]}`;
+// Mã QR được server ký cho một phiên, dịch lùi `offsetPeriods` chu kỳ (âm = chu kỳ tương lai)
+export function signedQr(config: AppConfig, sessionId: string, offsetPeriods = 0) {
+  return createQrSigner(config.jwtSecret).build(sessionId, Date.now() - offsetPeriods * QR_WINDOW_SECONDS * 1000).payload;
 }

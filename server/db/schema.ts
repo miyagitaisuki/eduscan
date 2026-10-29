@@ -56,6 +56,8 @@ export const classes = pgTable('classes', {
   schedule: varchar('schedule', { length: 255 }),
   level: varchar('level', { length: 10 }).notNull().default('N5'),
   monthlyFee: integer('monthly_fee').notNull().default(800000),
+  room: varchar('room', { length: 100 }),
+  startDate: date('start_date'),
   createdAt: createdAt(),
 });
 

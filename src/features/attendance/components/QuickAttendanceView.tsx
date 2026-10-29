@@ -1,3 +1,4 @@
+import { clickable } from '../../../shared/utils/a11y';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   CheckSquare, 
@@ -8,20 +9,24 @@ import {
   QrCode,
   RefreshCw,
   Maximize2,
-  X,
   Users
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
-import { AttendanceSession, ClassItem, Student } from '../../../shared/types';
-import { Attendance } from '../types';
+import { Modal } from '../../../shared/components/ui';
+import { attendanceService } from '../../../services/attendanceService';
+import { errorDetail } from '../../../shared/utils/errorMessage';
+import { AttendanceRecord, AttendanceSession, ClassItem, Student } from '../../../shared/types';
+import { todayLocal } from '../../../shared/utils/date';
 
 interface QuickAttendanceViewProps {
   classes: ClassItem[];
   students: Student[];
-  attendance: Attendance[];
+  attendance: AttendanceRecord[];
   initialClassId?: string;
   onOpenSession: (classId: string) => Promise<AttendanceSession | undefined>;
+  /** Gọi khi đóng màn hình QR Live để tải lại điểm danh (các lượt học viên đã quét) */
+  onRefreshAttendance?: () => unknown;
   onSaveAttendance: (classId: string, date: string, presentStudentIds: string[], notesMap: Record<string, string>) => void;
 }
 
@@ -31,6 +36,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   attendance,
   initialClassId,
   onOpenSession,
+  onRefreshAttendance,
   onSaveAttendance,
 }) => {
   // Selected class
@@ -42,7 +48,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
 
   // Selected date (YYYY-MM-DD), default today
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toLocaleDateString('en-CA');
+    return todayLocal();
   });
 
   // View mode: 'take_attendance' or 'history'
@@ -58,6 +64,10 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [countdown, setCountdown] = useState(15);
   const [sessionCode, setSessionCode] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [qrError, setQrError] = useState('');
+  // Số học viên đã quét/nhập mã trong phiên QR Live, lấy từ server
+  const [liveCheckedIn, setLiveCheckedIn] = useState(0);
 
   // Sync when initialClassId changes
   useEffect(() => {
@@ -99,40 +109,82 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
     setIsSavedFeedback(false);
   }, [selectedClassId, selectedDate, activeClass, attendance, classStudents.length]);
 
-  // Dynamic QR Code generation with 15s refresh (must match QR_WINDOW_SECONDS on the server)
+  // Mã QR do server ký và đổi mỗi chu kỳ; trình duyệt chỉ hiển thị, hỏi lại đúng lúc hết chu kỳ.
+  // Dùng thời gian còn lại do server trả về nên không phụ thuộc đồng hồ của máy giáo viên.
   useEffect(() => {
-    let timer: any;
-    if (isQROpen && activeClassId) {
-      const generateQR = async () => {
-        const timestamp = Math.floor(Date.now() / 15000);
-        const payload = `EDUSCAN_QR:${activeClassId}:${timestamp}:${selectedDate}`;
-        try {
-          const url = await QRCode.toDataURL(payload, {
-            width: 340,
-            margin: 2,
-            color: { dark: '#1e3a8a', light: '#ffffff' },
-          });
-          setQrCodeUrl(url);
-        } catch (err) {
-          console.error('QR gen error:', err);
-        }
-      };
+    if (!isQROpen || !sessionId) return;
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let tickTimer: ReturnType<typeof setInterval> | undefined;
 
-      generateQR();
-      setCountdown(15);
-
-      timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            generateQR();
-            return 15;
-          }
-          return prev - 1;
+    const loadQr = async () => {
+      try {
+        const { payload, refresh_in_ms } = await attendanceService.getSessionQr(sessionId);
+        const url = await QRCode.toDataURL(payload, {
+          width: 340,
+          margin: 2,
+          color: { dark: '#1e3a8a', light: '#ffffff' },
         });
-      }, 1000);
+        if (cancelled) return;
+        setQrCodeUrl(url);
+        setQrError('');
+        const deadline = Date.now() + refresh_in_ms;
+        setCountdown(Math.max(1, Math.ceil(refresh_in_ms / 1000)));
+        clearInterval(tickTimer);
+        tickTimer = setInterval(() => {
+          setCountdown(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+        }, 250);
+        // Chờ thêm một chút để chắc chắn đã sang chu kỳ mới
+        refreshTimer = setTimeout(loadQr, refresh_in_ms + 150);
+      } catch (err) {
+        if (cancelled) return;
+        // Mã cũ hết hạn sau tối đa 2 chu kỳ nên không để hiển thị mã không còn dùng được
+        setQrCodeUrl('');
+        setQrError(errorDetail(err));
+        clearInterval(tickTimer);
+        refreshTimer = setTimeout(loadQr, 3000);
+      }
+    };
+
+    loadQr();
+    return () => {
+      cancelled = true;
+      clearTimeout(refreshTimer);
+      clearInterval(tickTimer);
+    };
+  }, [isQROpen, sessionId]);
+
+  // Cập nhật số học viên đã điểm danh khi đang chiếu QR (học viên quét trên điện thoại của họ)
+  useEffect(() => {
+    if (!isQROpen || !sessionId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const { count } = await attendanceService.getSessionCheckins(sessionId);
+        if (!cancelled) setLiveCheckedIn(count);
+      } catch {
+        // Lỗi mạng thoáng qua: giữ số cũ và thử lại ở lượt sau
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isQROpen, sessionId]);
+
+  // Đóng QR Live: kết thúc phiên trên server (mã nhập tay hết hiệu lực) rồi tải lại điểm danh
+  // để danh sách bên dưới phản ánh các lượt đã quét
+  const closeQr = async () => {
+    setIsQROpen(false);
+    try {
+      if (sessionId) await attendanceService.closeSession(sessionId);
+    } catch {
+      // Không đóng được (mạng): phiên sẽ tự đóng khi mở phiên mới
     }
-    return () => clearInterval(timer);
-  }, [isQROpen, activeClassId, selectedDate]);
+    await onRefreshAttendance?.();
+  };
 
   // Toggle student present / absent
   const handleToggleStudent = (studentId: string) => {
@@ -186,13 +238,13 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
     <div className="space-y-4">
       
       {/* Top Class Selector & Date Header */}
-      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-xs space-y-4">
+      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-primary-100 shadow-xs space-y-4">
         
         {/* Header Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 mb-1">
-              <Sparkles className="w-3 h-3 text-blue-600" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary-50 text-primary-700 border border-primary-200 mb-1">
+              <Sparkles className="w-3 h-3 text-primary-600" />
               Điểm danh 1 chạm • Dưới 10 giây
             </div>
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
@@ -206,7 +258,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               onClick={() => setViewMode('take_attendance')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'take_attendance'
-                  ? 'bg-blue-600 text-white shadow-xs'
+                  ? 'bg-primary-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -217,7 +269,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               onClick={() => setViewMode('history')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'history'
-                  ? 'bg-blue-600 text-white shadow-xs'
+                  ? 'bg-primary-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -231,9 +283,13 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                 const session = await onOpenSession(activeClass.id);
                 if (!session) return;
                 setSessionCode(session.session_code ?? '');
+                setSessionId(session.id);
+                setLiveCheckedIn(0);
+                setQrCodeUrl('');
+                setQrError('');
                 setIsQROpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
             >
               <QrCode className="w-3.5 h-3.5" />
               Tạo QR Live
@@ -255,17 +311,17 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                 }}
                 className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                   isSelected
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                    ? 'bg-primary-600 text-white border-primary-600 shadow-md shadow-primary-500/20'
                     : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-white hover:border-slate-300'
                 }`}
               >
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'
+                <span className={`px-1.5 py-0.5 rounded text-xs font-black ${
+                  isSelected ? 'bg-white text-primary-800' : 'bg-primary-100 text-primary-800'
                 }`}>
                   {cls.level}
                 </span>
                 <span>{cls.name}</span>
-                <span className={`text-[11px] font-medium opacity-80 ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
+                <span className={`text-xs font-medium ${isSelected ? 'text-white' : 'text-slate-500'}`}>
                   ({count} học viên)
                 </span>
               </button>
@@ -276,19 +332,19 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
         {/* Date Selector & Class schedule info */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-blue-600" />
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5" htmlFor="quick-attendance-field-1">
+              <Calendar className="w-4 h-4 text-primary-600" />
               Ngày học:
             </label>
-            <input
+            <input id="quick-attendance-field-1"
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary-500"
             />
             <button
-              onClick={() => setSelectedDate(new Date().toLocaleDateString('en-CA'))}
-              className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+              onClick={() => setSelectedDate(todayLocal())}
+              className="px-2.5 py-1 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors cursor-pointer"
             >
               Hôm nay
             </button>
@@ -307,10 +363,10 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
         <div className="space-y-3">
           
           {/* Quick Bulk Select Bar */}
-          <div className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-blue-100 shadow-xs">
+          <div className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-primary-100 shadow-xs">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700">
-                Có mặt: <span className="text-blue-600 text-sm">{presentCount}/{totalCount}</span> ({rate}%)
+                Có mặt: <span className="text-primary-600 text-sm">{presentCount}/{totalCount}</span> ({rate}%)
               </span>
             </div>
 
@@ -318,7 +374,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               <button
                 type="button"
                 onClick={handleSelectAll}
-                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
               >
                 Tất cả có mặt
               </button>
@@ -335,8 +391,8 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
           {/* Student Roster Checkbox Cards (Big Thumb Targets) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {classStudents.length === 0 ? (
-              <div className="col-span-full p-8 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">
-                Lớp này hiện chưa có học viên nào. Thầy vui lòng vào tab "Học viên" để thêm học viên vào lớp.
+              <div className="col-span-full p-8 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-500">
+                Lớp này hiện chưa có học viên nào. Vui lòng vào tab "Học viên" để thêm học viên vào lớp.
               </div>
             ) : (
               classStudents.map((student, idx) => {
@@ -346,18 +402,20 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                 return (
                   <div
                     key={student.id}
-                    onClick={() => handleToggleStudent(student.id)}
+                    {...clickable(() => handleToggleStudent(student.id))}
+                    role="checkbox"
+                    aria-checked={isChecked}
                     className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-center justify-between gap-3 ${
                       isChecked
-                        ? 'bg-blue-50/50 border-blue-400/80 shadow-xs'
-                        : 'bg-white border-slate-200 hover:border-slate-300 opacity-90'
+                        ? 'bg-primary-50/50 border-primary-400/80 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       {/* Checkbox Icon */}
                       <div className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
                         isChecked 
-                          ? 'bg-blue-600 text-white shadow-xs' 
+                          ? 'bg-primary-600 text-white shadow-xs' 
                           : 'border-2 border-slate-300 text-transparent bg-white'
                       }`}>
                         {isChecked && <CheckSquare className="w-4 h-4 text-white" />}
@@ -365,22 +423,22 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
 
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-mono text-slate-400 font-medium">#{idx + 1}</span>
+                          <span className="text-xs font-mono text-slate-500 font-medium">#{idx + 1}</span>
                           <h4 className={`text-sm font-bold ${isChecked ? 'text-slate-900' : 'text-slate-600'}`}>
                             {student.full_name}
                           </h4>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-xs text-slate-500 mt-0.5">
                           SĐT: {student.phone}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                         isChecked
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-700'
+                          ? 'bg-success-100 text-success-800'
+                          : 'bg-danger-100 text-danger-700'
                       }`}>
                         {isChecked ? 'Có mặt' : 'Vắng'}
                       </span>
@@ -395,7 +453,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                             e.stopPropagation();
                             setNotesMap({ ...notesMap, [student.id]: e.target.value });
                           }}
-                          className="text-[10px] px-2 py-0.5 border border-slate-200 rounded-lg max-w-[120px] bg-white"
+                          className="text-xs px-2 py-0.5 border border-slate-200 rounded-lg max-w-[120px] bg-white"
                         />
                       )}
                     </div>
@@ -412,8 +470,8 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               onClick={handleSave}
               className={`w-full py-4 px-6 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer ${
                 isSavedFeedback
-                  ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-400'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30'
+                  ? 'bg-success-600 text-white shadow-success-600/30 ring-2 ring-success-400'
+                  : 'bg-primary-600 hover:bg-primary-700 text-white shadow-primary-600/30'
               }`}
             >
               {isSavedFeedback ? (
@@ -433,7 +491,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
         </div>
       ) : (
         /* History of Class Attendance */
-        <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-xs space-y-4">
+        <div className="bg-white rounded-3xl p-5 border border-primary-100 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900">
               Lịch sử các buổi điểm danh lớp {activeClass?.name}
@@ -444,7 +502,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
           </div>
 
           {uniqueDates.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs">
+            <div className="p-8 text-center text-slate-500 text-xs">
               Chưa có dữ liệu điểm danh nào của lớp này.
             </div>
           ) : (
@@ -463,12 +521,12 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                         <span className="text-xs font-bold text-slate-900">
                           📅 {dateStr}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-primary-50 text-primary-700">
                           {sessionPresent}/{sessionTotal} có mặt ({sessionRate}%)
                         </span>
                       </div>
                       {sessionAbsent.length > 0 && (
-                        <p className="text-[11px] text-rose-600 mt-1">
+                        <p className="text-xs text-danger-600 mt-1">
                           Vắng: {sessionAbsent.map((a) => {
                             const st = students.find((s) => s.id === a.student_id);
                             return st ? `${st.full_name}${a.notes ? ` (${a.notes})` : ''}` : '';
@@ -482,7 +540,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                         setSelectedDate(dateStr);
                         setViewMode('take_attendance');
                       }}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-xl text-xs font-bold transition-colors self-start sm:self-auto cursor-pointer"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-primary-50 hover:text-primary-700 text-slate-700 rounded-xl text-xs font-bold transition-colors self-start sm:self-auto cursor-pointer"
                     >
                       Xem & Sửa buổi này →
                     </button>
@@ -496,29 +554,25 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
 
       {/* Dynamic QR Live Projector Modal */}
       {isQROpen && activeClass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md border border-blue-200 shadow-2xl space-y-4 animate-in zoom-in-95 text-center relative">
-            <button
-              onClick={() => setIsQROpen(false)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+        <Modal
+          title={activeClass.name}
+          description={
+            <>
+              Học viên mở ứng dụng <strong>EduScan Student</strong> trên điện thoại để quét mã bên dưới.
+            </>
+          }
+          onClose={closeQr}
+          size="md"
+          overlayClassName="bg-slate-950/85 backdrop-blur-md"
+        >
+          <div className="space-y-4 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-primary-100 text-primary-800">
+              <span className="w-2 h-2 rounded-full bg-success-500 animate-ping motion-reduce:animate-none" />
               PHIÊN ĐIỂM DANH ĐỘNG LIVE
             </div>
 
-            <h3 className="text-xl font-extrabold text-slate-900">
-              {activeClass.name}
-            </h3>
-            <p className="text-xs text-slate-500">
-              Học viên mở ứng dụng <strong>EduScan Student</strong> trên điện thoại để quét mã bên dưới.
-            </p>
-
             {/* QR Code Container */}
-            <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-blue-300 inline-block mx-auto relative shadow-inner">
+            <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-primary-300 inline-block mx-auto relative shadow-inner">
               {qrCodeUrl ? (
                 <img
                   src={qrCodeUrl}
@@ -526,33 +580,40 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                   className="w-64 h-64 mx-auto rounded-xl shadow-md"
                 />
               ) : (
-                <div className="w-64 h-64 flex items-center justify-center text-slate-400 text-xs">
-                  Đang khởi tạo mã QR...
+                <div
+                  role={qrError ? 'alert' : 'status'}
+                  className="w-64 h-64 flex items-center justify-center text-center px-4 text-xs text-slate-500"
+                >
+                  {qrError ? `Không lấy được mã QR (${qrError}). Đang thử lại...` : 'Đang khởi tạo mã QR...'}
                 </div>
               )}
 
               {/* Countdown badge */}
-              <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-bold text-blue-700">
+              <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-bold text-primary-700">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                Mã làm mới tự động sau: <span className="font-mono text-sm font-black text-rose-600">{countdown}s</span>
+                Mã làm mới tự động sau: <span className="font-mono text-sm font-black text-danger-600">{countdown}s</span>
               </div>
             </div>
 
             {/* Session code fallback for students without camera */}
             <div className="bg-slate-100 p-3 rounded-2xl flex items-center justify-between text-xs">
               <span className="text-slate-600 font-medium">Mã nhập thủ công:</span>
-              <span className="font-mono text-sm font-black text-blue-700 tracking-wider">
+              <span className="font-mono text-sm font-black text-primary-700 tracking-wider">
                 {sessionCode || '—'}
               </span>
             </div>
 
-            {/* Live Count */}
-            <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 py-2 rounded-xl border border-emerald-200">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Hiện tại: {checkedStudentIds.size}/{classStudents.length} học viên có mặt
+            {/* Live Count: số học viên đã quét thật, không phải danh sách tick tay bên dưới */}
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center justify-center gap-2 text-xs font-bold text-success-700 bg-success-50 py-2 rounded-xl border border-success-200"
+            >
+              <CheckCircle2 className="w-4 h-4 text-success-600" aria-hidden="true" />
+              Đã điểm danh: {liveCheckedIn}/{classStudents.length} học viên
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
     </div>

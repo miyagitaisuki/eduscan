@@ -1,5 +1,20 @@
-// Chuyển bản ghi DB (camelCase) sang dạng JSON mà frontend đang dùng (snake_case).
+import type {
+  Assignment,
+  AttendanceRecord,
+  AttendanceSession,
+  ClassItem,
+  NotificationItem,
+  Submission,
+  TuitionRecord,
+  User,
+} from '../../src/shared/types';
+
+// Chuyển bản ghi DB (camelCase) sang dạng JSON mà frontend dùng (snake_case).
+// Kiểu trả về lấy từ src/shared/types, là nguồn kiểu duy nhất của cả client và server:
+// đổi DTO mà không đổi kiểu (hoặc ngược lại) sẽ bị tsc báo lỗi.
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
+// Cột thời gian NOT NULL luôn có giá trị
+const isoRequired = (d: Date | string) => new Date(d).toISOString();
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
 export const GENDERS = ['male', 'female'] as const;
@@ -11,7 +26,7 @@ export function parseGender(v: unknown): Gender | null | undefined {
   return (GENDERS as readonly unknown[]).includes(v) ? (v as Gender) : undefined;
 }
 
-export function userDto(u: any) {
+export function userDto(u: any): User {
   return {
     id: u.id,
     email: u.email,
@@ -23,11 +38,11 @@ export function userDto(u: any) {
     phone: u.phone ?? '',
     status: u.status,
     must_change_password: !!u.mustChangePassword,
-    created_at: iso(u.createdAt),
+    created_at: iso(u.createdAt) ?? undefined,
   };
 }
 
-export function classDto(c: any, extra: Record<string, unknown> = {}) {
+export function classDto(c: any, extra: Partial<ClassItem> = {}): ClassItem {
   return {
     id: c.id,
     name: c.name,
@@ -38,12 +53,14 @@ export function classDto(c: any, extra: Record<string, unknown> = {}) {
     schedule: c.schedule ?? '',
     level: c.level,
     monthly_fee: Number(c.monthlyFee),
-    created_at: iso(c.createdAt),
+    room: c.room ?? '',
+    start_date: c.startDate ?? '',
+    created_at: isoRequired(c.createdAt),
     ...extra,
   };
 }
 
-export function assignmentDto(a: any, extra: Record<string, unknown> = {}) {
+export function assignmentDto(a: any, extra: Partial<Assignment> = {}): Assignment {
   return {
     id: a.id,
     class_id: a.classId,
@@ -51,14 +68,14 @@ export function assignmentDto(a: any, extra: Record<string, unknown> = {}) {
     description: a.description ?? '',
     sample_solution: a.sampleSolution ?? '',
     rubric: a.rubric ?? '',
-    deadline: iso(a.deadline),
+    deadline: isoRequired(a.deadline),
     created_by: a.createdBy,
-    created_at: iso(a.createdAt),
+    created_at: isoRequired(a.createdAt),
     ...extra,
   };
 }
 
-export function submissionDto(s: any, extra: Record<string, unknown> = {}) {
+export function submissionDto(s: any, extra: Partial<Submission> = {}): Submission {
   return {
     id: s.id,
     assignment_id: s.assignmentId,
@@ -81,34 +98,38 @@ export function submissionDto(s: any, extra: Record<string, unknown> = {}) {
   };
 }
 
-export function sessionDto(s: any, extra: Record<string, unknown> = {}) {
+export function sessionDto(s: any, extra: Partial<AttendanceSession> = {}): AttendanceSession {
   return {
     id: s.id,
     class_id: s.classId,
     qr_code: s.qrCode,
     session_code: s.sessionCode,
     session_date: s.sessionDate,
-    start_time: iso(s.startTime),
+    start_time: isoRequired(s.startTime),
     end_time: iso(s.endTime),
     is_active: s.isActive,
-    created_at: iso(s.createdAt),
+    created_at: isoRequired(s.createdAt),
     ...extra,
   };
 }
 
-export function attendanceDto(r: any, extra: Record<string, unknown> = {}) {
+// class_id và date (ngày của buổi học) là bắt buộc: lấy từ phiên điểm danh của bản ghi
+export function attendanceDto(
+  r: any,
+  extra: Partial<AttendanceRecord> & Pick<AttendanceRecord, 'class_id' | 'date'>
+): AttendanceRecord {
   return {
     id: r.id,
     session_id: r.sessionId,
     student_id: r.studentId,
     status: r.status,
-    check_in_time: iso(r.checkInTime),
+    check_in_time: isoRequired(r.checkInTime),
     notes: r.notes ?? '',
     ...extra,
   };
 }
 
-export function tuitionDto(t: any, extra: Record<string, unknown> = {}) {
+export function tuitionDto(t: any, extra: Partial<TuitionRecord> = {}): TuitionRecord {
   return {
     id: t.id,
     student_id: t.studentId,
@@ -124,7 +145,7 @@ export function tuitionDto(t: any, extra: Record<string, unknown> = {}) {
   };
 }
 
-export function notificationDto(n: any) {
+export function notificationDto(n: any): NotificationItem {
   return {
     id: n.id,
     user_id: n.userId,
@@ -132,6 +153,6 @@ export function notificationDto(n: any) {
     message: n.message,
     type: n.type,
     is_read: n.isRead,
-    created_at: iso(n.createdAt),
+    created_at: isoRequired(n.createdAt),
   };
 }
