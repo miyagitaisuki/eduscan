@@ -1,4 +1,5 @@
 import React from 'react';
+import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { 
   BookOpen, 
   Users, 
@@ -43,8 +44,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   submissions,
   onNavigateTab,
 }) => {
-  // Current month string: "10/2026"
-  const currentMonth = '10/2026';
+  // Tháng hiện tại, ví dụ "10/2026"
+  const currentMonth = currentTuitionMonth();
   
   // 1. Total active classes
   const totalClasses = classes.length;

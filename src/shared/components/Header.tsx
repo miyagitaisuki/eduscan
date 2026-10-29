@@ -185,6 +185,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={onExportData}
                   title="Sao lưu toàn bộ dữ liệu (JSON)"
+                  aria-label="Sao lưu toàn bộ dữ liệu"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-slate-200"
                 >
                   <Download className="w-3.5 h-3.5" />
@@ -194,6 +195,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   title="Nạp dữ liệu từ tệp tin JSON"
+                  aria-label="Phục hồi dữ liệu từ tệp JSON"
                   className="flex items-center gap-1 px-2.5 py-1.5 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-slate-200"
                 >
                   <Upload className="w-3.5 h-3.5" />

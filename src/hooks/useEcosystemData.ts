@@ -380,7 +380,13 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!window.confirm('Khôi phục sẽ THAY THẾ TOÀN BỘ dữ liệu hiện tại bằng file sao lưu. Tiếp tục?')) return;
+    const typed = window.prompt(
+      'Khôi phục sẽ THAY THẾ TOÀN BỘ dữ liệu hiện tại bằng file sao lưu và không thể hoàn tác.\n\nGõ KHOI PHUC để xác nhận:',
+    );
+    if (typed?.trim() !== 'KHOI PHUC') {
+      if (typed !== null) notify?.('warning', 'Chưa khôi phục', 'Nội dung xác nhận không khớp.');
+      return;
+    }
     try {
       const data = JSON.parse(await file.text());
       await adminService.restore(data);

@@ -13,6 +13,7 @@ import {
 import confetti from 'canvas-confetti';
 import { Student, ClassItem } from '../../../shared/types';
 import { Payment } from '../types';
+import { currentTuitionMonth, tuitionMonthOptions } from '../../../shared/utils/tuitionMonth';
 
 interface TuitionManagementViewProps {
   payments: Payment[];
@@ -33,7 +34,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   onCreatePaymentRecord,
   onSetAmount,
 }) => {
-  const [selectedMonth, setSelectedMonth] = useState('10/2026');
+  const [selectedMonth, setSelectedMonth] = useState(currentTuitionMonth());
   const [selectedClassFilter, setSelectedClassFilter] = useState(initialClassId || 'all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid'>('unpaid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,7 +44,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   const [editorValue, setEditorValue] = useState('');
 
   // Month options
-  const monthOptions = ['08/2026', '09/2026', '10/2026', '11/2026', '12/2026'];
+  const monthOptions = tuitionMonthOptions();
 
   // All student-payment rows for selected month
   const rows = students.map((st) => {
@@ -342,7 +343,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
                       {row.amount.toLocaleString('vi-VN')} đ
                     </div>
                     <span className={`inline-block text-[10px] font-bold ${isPaid ? 'text-emerald-700' : 'text-rose-600 font-extrabold'}`}>
-                      {isPaid ? `Đã đóng (${row.paidDate || 'Hôm nay'})` : 'Chưa đóng'}
+                      {isPaid ? (row.paidDate ? `Đã đóng (${row.paidDate})` : 'Đã đóng') : 'Chưa đóng'}
                     </span>
                     {isPaid && row.payment?.paid_amount !== undefined && row.payment.paid_amount !== row.amount && (
                       <p className="text-[10px] text-slate-500 font-semibold">

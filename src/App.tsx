@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 
 // Shared UI Components
 import { Header, BottomNav, ToastNotification } from './shared/components';
+import { currentTuitionMonth } from './shared/utils/tuitionMonth';
 import { EcosystemViewMode, EcosystemTeacherTab } from './shared/components/Header';
 
 // Feature Modules: Teacher App
@@ -165,7 +166,11 @@ export default function App() {
     return <ChangePasswordModal required onClose={logout} onDone={() => window.location.reload()} />;
   }
 
-  const unpaidTuitionCount = tuitionRecords.filter((t) => t.status === 'unpaid').length;
+  // Số học viên chưa đóng học phí tháng hiện tại (kể cả chưa có hồ sơ)
+  const currentMonth = currentTuitionMonth();
+  const unpaidTuitionCount = formattedStudents.filter(
+    (s) => !formattedPayments.some((p) => p.student_id === s.id && p.month === currentMonth && p.status === 'paid')
+  ).length;
   const ungradedHomeworkCount = submissions.filter((s) => s.status === 'submitted' && s.score === null).length;
 
   return (
@@ -290,7 +295,7 @@ export default function App() {
                 onUpdateStudent={(st) => handleUpdateStudent(st.id, st)}
                 onDeleteStudent={handleDeleteStudent}
                 onTransferClass={(stId, newClassId) => handleUpdateStudent(stId, { class_id: newClassId })}
-                onChangeTuition={(stId, amount) => handleSetTuitionAmount(stId, '10/2026', amount)}
+                onChangeTuition={(stId, amount) => handleSetTuitionAmount(stId, currentTuitionMonth(), amount)}
               />
             )}
 
