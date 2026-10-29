@@ -67,6 +67,7 @@ export default function App() {
     handleUpdateStudent,
     handleStudentCheckin,
     handleBatchAttendance,
+    handleCreateAttendanceSession,
     handleCreateAssignment,
     handleDeleteAssignment,
     handleSubmitHomework,
@@ -279,6 +280,7 @@ export default function App() {
                 students={formattedStudents}
                 attendance={formattedAttendance}
                 initialClassId={preselectedClassId}
+                onOpenSession={handleCreateAttendanceSession}
                 onSaveAttendance={(classId, date, presentStudentIds, notesMap) => {
                   handleBatchAttendance(classId, date, presentStudentIds, notesMap);
                 }}

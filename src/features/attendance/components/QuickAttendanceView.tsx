@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
-import { ClassItem, Student } from '../../../shared/types';
+import { AttendanceSession, ClassItem, Student } from '../../../shared/types';
 import { Attendance } from '../types';
 
 interface QuickAttendanceViewProps {
@@ -21,6 +21,7 @@ interface QuickAttendanceViewProps {
   students: Student[];
   attendance: Attendance[];
   initialClassId?: string;
+  onOpenSession: (classId: string) => Promise<AttendanceSession | undefined>;
   onSaveAttendance: (classId: string, date: string, presentStudentIds: string[], notesMap: Record<string, string>) => void;
 }
 
@@ -29,6 +30,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   students,
   attendance,
   initialClassId,
+  onOpenSession,
   onSaveAttendance,
 }) => {
   // Selected class
@@ -55,7 +57,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   const [isQROpen, setIsQROpen] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [countdown, setCountdown] = useState(15);
-  const [sessionCode, setSessionCode] = useState('ES-8921');
+  const [sessionCode, setSessionCode] = useState('');
 
   // Sync when initialClassId changes
   useEffect(() => {
@@ -66,7 +68,8 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
 
   // Current class students
   const activeClass = classes.find((c) => c.id === selectedClassId) || classes[0];
-  const classStudents = students.filter((s) => s.class_id === activeClass?.id);
+  const activeClassId = activeClass?.id;
+  const classStudents = students.filter((s) => s.class_id === activeClassId);
 
   // Load existing attendance for this class and date
   useEffect(() => {
@@ -96,13 +99,13 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
     setIsSavedFeedback(false);
   }, [selectedClassId, selectedDate, activeClass, attendance, classStudents.length]);
 
-  // Dynamic QR Code generation with 15s refresh
+  // Dynamic QR Code generation with 15s refresh (must match QR_WINDOW_SECONDS on the server)
   useEffect(() => {
     let timer: any;
-    if (isQROpen && activeClass) {
+    if (isQROpen && activeClassId) {
       const generateQR = async () => {
         const timestamp = Math.floor(Date.now() / 15000);
-        const payload = `EDUSCAN_QR:${activeClass.id}:${timestamp}:${selectedDate}`;
+        const payload = `EDUSCAN_QR:${activeClassId}:${timestamp}:${selectedDate}`;
         try {
           const url = await QRCode.toDataURL(payload, {
             width: 340,
@@ -129,7 +132,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isQROpen, activeClass, selectedDate]);
+  }, [isQROpen, activeClassId, selectedDate]);
 
   // Toggle student present / absent
   const handleToggleStudent = (studentId: string) => {
@@ -222,8 +225,12 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               Lịch sử ({uniqueDates.length})
             </button>
             <button
-              onClick={() => {
-                setSessionCode(`ES-${Math.floor(1000 + Math.random() * 9000)}`);
+              onClick={async () => {
+                if (!activeClass) return;
+                // Phải mở phiên trên server trước, nếu không học viên quét sẽ bị báo "chưa mở"
+                const session = await onOpenSession(activeClass.id);
+                if (!session) return;
+                setSessionCode(session.session_code ?? '');
                 setIsQROpen(true);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
@@ -535,7 +542,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
             <div className="bg-slate-100 p-3 rounded-2xl flex items-center justify-between text-xs">
               <span className="text-slate-600 font-medium">Mã nhập thủ công:</span>
               <span className="font-mono text-sm font-black text-blue-700 tracking-wider">
-                {sessionCode}
+                {sessionCode || '—'}
               </span>
             </div>
 
