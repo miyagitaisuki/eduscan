@@ -504,7 +504,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                       <input
                         type="number"
                         required
-                        min={1}
+                        min={0}
                         step={1000}
                         value={tuitionEditAmount}
                         onChange={(e) => setTuitionEditAmount(e.target.value)}
