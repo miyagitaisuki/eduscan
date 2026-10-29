@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'self'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EduScan</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --primary: #2563eb;
+        --primary-text: #ffffff;
+        --border: #e2e8f0;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f172a;
+          --card: #1e293b;
+          --text: #f1f5f9;
+          --muted: #94a3b8;
+          --primary: #3b82f6;
+          --border: #334155;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      }
+      .card {
+        width: 100%;
+        max-width: 420px;
+        padding: 32px 24px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--card);
+        text-align: center;
+      }
+      img { width: 72px; height: 72px; border-radius: 16px; }
+      h1 { margin: 16px 0 8px; font-size: 20px; }
+      p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+      .server { margin-top: 12px; font-size: 12px; word-break: break-all; }
+      .spinner {
+        width: 28px;
+        height: 28px;
+        margin: 20px auto 0;
+        border: 3px solid var(--border);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      button {
+        margin-top: 20px;
+        padding: 10px 24px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--primary);
+        color: var(--primary-text);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:focus-visible { outline: 3px solid var(--border); outline-offset: 2px; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <img src="../assets/icon.png" alt="" />
+      <section id="loading">
+        <h1>Đang kết nối EduScan</h1>
+        <p>Máy chủ có thể đang khởi động lại sau thời gian không dùng, việc này mất khoảng một phút.</p>
+        <div class="spinner" role="status" aria-label="Đang kết nối"></div>
+      </section>
+      <section id="offline" hidden>
+        <h1>Không kết nối được máy chủ</h1>
+        <p>Kiểm tra kết nối Internet rồi thử lại. Nếu vẫn lỗi, máy chủ có thể đang bảo trì.</p>
+        <button id="retry" type="button">Thử lại</button>
+      </section>
+      <p class="server" id="server"></p>
+    </main>
+    <script src="status.js"></script>
+  </body>
+</html>

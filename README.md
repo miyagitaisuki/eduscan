@@ -42,6 +42,17 @@ docker run -p 3000:3000 --env-file .env eduscan
 
 Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc** để quét QR bằng camera trên điện thoại hoạt động, vì trình duyệt chỉ cho phép camera trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
 
+## App Windows (`desktop/`)
+
+Bộ cài `.exe` mở EduScan trong cửa sổ riêng, giống Zalo PC: app chỉ là phần giao diện, kết nối tới máy chủ đã deploy (mặc định `https://eduscan-28hk.onrender.com`). Dữ liệu, mật khẩu database và phân quyền nằm hết trên máy chủ, nên phát bộ cài cho giáo viên và học viên đều an toàn.
+
+- Tải bộ cài: tab **Actions** > workflow **Build app Windows** > lượt chạy mới nhất > mục **Artifacts** > `EduScan-Windows`. Workflow tự chạy khi `desktop/` thay đổi, hoặc bấm **Run workflow**.
+- Bộ cài chưa ký số nên Windows SmartScreen sẽ cảnh báo lần đầu: bấm **More info** > **Run anyway**.
+- Máy chủ đang ngủ (Render gói miễn phí) thì app hiện màn hình chờ trong lúc đánh thức; mất mạng thì hiện nút **Thử lại**. Liên kết ngoài và tệp đính kèm mở bằng trình duyệt mặc định.
+- Camera quét QR cần bật quyền camera cho ứng dụng desktop trong Windows (Settings > Privacy & security > Camera).
+- Đổi máy chủ: tạo `%APPDATA%\EduScan\config.json` với nội dung `{"serverUrl": "https://..."}`, hoặc đặt biến môi trường `EDUSCAN_URL`.
+- Chạy thử trên máy: `cd desktop && npm ci && npm start`. Phiên bản bộ cài lấy từ `version` trong `desktop/package.json`.
+
 ## Cấu trúc frontend
 
 - Địa chỉ trang: giáo viên `/dashboard`, `/attendance`, `/classes`, `/students`, `/tuition` (admin), `/homework`, `/stats`, `/teachers` (admin); học viên `/home`, `/assignments`, `/attendance`, `/tuition`, `/notifications`. Lớp chọn sẵn đi kèm tham số, VD `/attendance?class=<id>`. Đường dẫn sai hoặc không đủ quyền chuyển về trang mặc định. Định nghĩa ở `src/app/routes.ts`.

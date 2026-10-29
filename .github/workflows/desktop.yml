@@ -1,0 +1,34 @@
+name: Build app Windows
+
+# Đóng gói desktop/ thành bộ cài EduScan-Setup-<version>.exe trên máy Windows.
+# Tải bộ cài ở tab Actions > lượt chạy > mục Artifacts. Chạy tay bằng nút "Run workflow".
+on:
+  push:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Đóng gói bộ cài
+        run: npm run dist:win
+      - name: Lưu bộ cài
+        uses: actions/upload-artifact@v4
+        with:
+          name: EduScan-Windows
+          path: desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 30

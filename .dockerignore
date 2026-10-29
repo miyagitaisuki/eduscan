@@ -7,3 +7,4 @@ dist
 .git
 tests
 *.log
+desktop

@@ -1,0 +1,47 @@
+{
+  "name": "eduscan-desktop",
+  "productName": "EduScan",
+  "version": "1.0.0",
+  "description": "Ứng dụng EduScan cho Windows: cửa sổ riêng kết nối tới máy chủ EduScan",
+  "author": "EduScan",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --publish never",
+    "dist:dir": "electron-builder --dir --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "vn.edu.eduscan.desktop",
+    "productName": "EduScan",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "pages/**",
+      "assets/**"
+    ],
+    "icon": "assets/icon.png",
+    "win": {
+      "target": "nsis",
+      "artifactName": "EduScan-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "EduScan"
+    },
+    "linux": {
+      "target": "dir"
+    }
+  }
+}
