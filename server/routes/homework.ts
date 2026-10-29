@@ -4,6 +4,7 @@ import { assignments, classes, enrollments, notifications, submissions, users } 
 import { assignmentDto, submissionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
+import { StorageError, uploadHomeworkAttachment } from '../lib/storage';
 import { canManageClass, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
@@ -205,6 +206,17 @@ export function homeworkRoutes({ db, auth }: Deps) {
       const ids = await enrolledClassIds(db, req.user.id);
       if (!ids.includes(asg.classId)) return res.status(403).json({ error: 'Bạn không thuộc lớp của bài tập này.' });
 
+      // Tệp mới (data URL) được đưa lên Storage; chỉ lưu đường dẫn ngắn vào database.
+      let attachmentPath = attachment_url || '';
+      if (typeof attachmentPath === 'string' && attachmentPath.startsWith('data:')) {
+        try {
+          attachmentPath = await uploadHomeworkAttachment(attachmentPath, `${asg.id}/${req.user.id}`);
+        } catch (err) {
+          if (err instanceof StorageError) return res.status(err.status).json({ error: err.message });
+          throw err;
+        }
+      }
+
       const [row] = await db
         .insert(submissions)
         .values({
@@ -212,7 +224,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
           assignmentId: asg.id,
           studentId: req.user.id,
           content: content || '',
-          attachmentUrl: attachment_url || '',
+          attachmentUrl: attachmentPath,
           status: 'submitted',
           submittedAt: new Date(),
         })
@@ -220,7 +232,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
           target: [submissions.assignmentId, submissions.studentId],
           set: {
             content: content || '',
-            attachmentUrl: attachment_url || '',
+            attachmentUrl: attachmentPath,
             status: 'submitted',
             score: null,
             feedback: '',
