@@ -269,6 +269,7 @@ export default function App() {
                 onOpenCreateClass={() => setActiveTab('classes')}
                 onOpenCreateStudent={() => setActiveTab('students')}
                 teacherName={currentUser?.full_name}
+                teacherGender={currentUser?.gender}
               />
             )}
 

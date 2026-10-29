@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { User } from '../shared/types';
+import { Gender, User } from '../shared/types';
 
 // Tài khoản giáo viên kèm số lớp đang phụ trách (chỉ admin xem được)
 export type TeacherAccount = User & { class_count?: number };
@@ -15,6 +15,7 @@ export const teacherService = {
     email: string;
     full_name: string;
     phone?: string;
+    gender?: Gender | null;
     password?: string;
     generate?: boolean;
   }): Promise<TeacherAccount & { temporary_password?: string }> {
@@ -22,7 +23,7 @@ export const teacherService = {
   },
 
   // Đổi họ tên, SĐT hoặc tên đăng nhập (email)
-  async updateTeacher(id: string, data: { full_name?: string; phone?: string; email?: string }): Promise<TeacherAccount> {
+  async updateTeacher(id: string, data: { full_name?: string; phone?: string; gender?: Gender | null; email?: string }): Promise<TeacherAccount> {
     return apiClient.put<TeacherAccount>(`/teachers/${id}`, data);
   },
 

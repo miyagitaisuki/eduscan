@@ -31,6 +31,7 @@ import {
 } from '../../../shared/types';
 import { CameraQRScanner } from '../../../shared/components/CameraQRScanner';
 import { compressImage } from '../../../shared/utils/compressImage';
+import { studentGreeting } from '../../../shared/utils/greeting';
 
 interface StudentPortalViewProps {
   currentUser: User;
@@ -196,7 +197,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               />
               <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-blue-900/70 to-blue-900/30 pointer-events-none" />
               <div className="relative z-10">
-                <h3 className="text-xl font-black tracking-tight">Xin chào {currentUser.full_name} 👋</h3>
+                <h3 className="text-xl font-black tracking-tight">{studentGreeting(currentUser.full_name, currentUser.gender)} 👋</h3>
                 <p className="text-xs text-blue-100/90 mt-1">Chúc bạn một buổi học hiệu quả hôm nay.</p>
               </div>
             </div>

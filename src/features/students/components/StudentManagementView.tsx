@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { GenderSelect } from '../../../shared/components/GenderSelect';
+import { Gender } from '../../../shared/types';
 import { 
   Users, 
   Plus, 
@@ -91,6 +93,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   // Form State
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<Gender | null>(null);
   const [level, setLevel] = useState<JlptLevel>('N5');
   const [classId, setClassId] = useState<string>(classes[0]?.id || '');
   const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0]);
@@ -100,6 +103,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     setEditingStudent(null);
     setFullName('');
     setPhone('');
+    setGender(null);
     setLevel('N5');
     setClassId(classes[0]?.id || '');
     setJoinDate(new Date().toISOString().split('T')[0]);
@@ -111,6 +115,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     setEditingStudent(st);
     setFullName(st.full_name);
     setPhone(st.phone);
+    setGender(st.gender ?? null);
     setLevel(st.level);
     setClassId(st.class_id);
     setJoinDate(st.join_date);
@@ -127,6 +132,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
         ...editingStudent,
         full_name: fullName.trim(),
         phone: phone.trim(),
+        gender,
         level,
         class_id: classId,
         join_date: joinDate,
@@ -136,6 +142,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       onCreateStudent({
         full_name: fullName.trim(),
         phone: phone.trim(),
+        gender,
         level,
         class_id: classId,
         join_date: joinDate,
@@ -691,6 +698,11 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
+                <GenderSelect value={gender} onChange={setGender} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-white" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

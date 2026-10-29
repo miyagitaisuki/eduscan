@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { User } from '../../shared/types';
+import { Gender, User } from '../../shared/types';
+import { GenderSelect } from '../../shared/components/GenderSelect';
 import { authService } from '../../services/authService';
 import { errorDetail } from '../../shared/utils/errorMessage';
 
@@ -15,13 +16,14 @@ interface ProfileModalProps {
 export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSaved, onError }) => {
   const [fullName, setFullName] = useState(user.full_name);
   const [phone, setPhone] = useState(user.phone ?? '');
+  const [gender, setGender] = useState<Gender | null>(user.gender ?? null);
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const updated = await authService.updateProfile({ full_name: fullName.trim(), phone: phone.trim() });
+      const updated = await authService.updateProfile({ full_name: fullName.trim(), phone: phone.trim(), gender });
       onSaved(updated);
       onClose();
     } catch (err) {
@@ -48,6 +50,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSav
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Số điện thoại</label>
           <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
+          <GenderSelect value={gender} onChange={setGender} />
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1">Tên đăng nhập</label>

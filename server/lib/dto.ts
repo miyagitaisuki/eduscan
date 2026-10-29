@@ -2,6 +2,15 @@
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
+export const GENDERS = ['male', 'female'] as const;
+export type Gender = (typeof GENDERS)[number];
+
+// Chuẩn hóa giới tính từ request: 'male' | 'female' | null (xóa); undefined nếu giá trị không hợp lệ
+export function parseGender(v: unknown): Gender | null | undefined {
+  if (v === null || v === '') return null;
+  return (GENDERS as readonly unknown[]).includes(v) ? (v as Gender) : undefined;
+}
+
 export function userDto(u: any) {
   return {
     id: u.id,
@@ -9,6 +18,7 @@ export function userDto(u: any) {
     full_name: u.fullName,
     role: u.role,
     student_code: u.studentCode ?? '',
+    gender: u.gender ?? null,
     avatar: u.avatar ?? '',
     phone: u.phone ?? '',
     status: u.status,

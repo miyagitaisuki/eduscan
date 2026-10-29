@@ -1,5 +1,7 @@
 import React from 'react';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
+import { teacherGreeting } from '../../../shared/utils/greeting';
+import type { Gender } from '../../../shared/types';
 import { 
   BookOpen, 
   Users, 
@@ -37,6 +39,7 @@ interface DashboardViewProps {
   onOpenCreateStudent: () => void;
   /** Họ tên giáo viên đang đăng nhập, dùng cho lời chào */
   teacherName?: string;
+  teacherGender?: Gender | null;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -49,6 +52,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateTab,
   isAdmin = false,
   teacherName,
+  teacherGender,
 }) => {
   // Tháng hiện tại, ví dụ "10/2026"
   const currentMonth = currentTuitionMonth();
@@ -102,7 +106,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Quản lý lớp học cá nhân{teacherName ? ` • ${teacherName}` : ''}
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              {teacherName ? `Xin chào ${teacherName}` : 'Xin chào'} 👋
+              {teacherGreeting(teacherName, teacherGender)} 👋
             </h2>
             <p className="text-xs sm:text-sm text-blue-100/90 mt-1 max-w-xl leading-relaxed">
               Hôm nay là <span className="font-bold text-white">{todayName}</span>. 
