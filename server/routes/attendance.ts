@@ -219,6 +219,7 @@ export function attendanceRoutes({ db, auth }: Deps) {
         .from(enrollments)
         .where(and(eq(enrollments.classId, class_id), eq(enrollments.status, 'active')));
 
+      let updated = false;
       await db.transaction(async (tx) => {
         let [session] = await tx
           .select()
@@ -231,7 +232,9 @@ export function attendanceRoutes({ db, auth }: Deps) {
             )
           )
           .limit(1);
-        if (!session) {
+        if (session) {
+          updated = true;
+        } else {
           [session] = await tx
             .insert(attendanceSessions)
             .values({
@@ -263,7 +266,7 @@ export function attendanceRoutes({ db, auth }: Deps) {
         }
       });
 
-      return res.json({ success: true, count: students.length });
+      return res.json({ success: true, count: students.length, updated });
     })
   );
 

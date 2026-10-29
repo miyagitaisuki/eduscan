@@ -185,8 +185,12 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
 
   const handleBatchAttendance = async (classId: string, date: string, presentIds: string[], notesMap?: Record<string, string>) => {
     try {
-      await attendanceService.saveBatchAttendance(classId, date, presentIds, notesMap);
-      notify?.('success', 'Đã lưu điểm danh nhanh thành công!', `${presentIds.length} học viên có mặt.`);
+      const { updated } = await attendanceService.saveBatchAttendance(classId, date, presentIds, notesMap);
+      notify?.(
+        'success',
+        updated ? 'Đã cập nhật điểm danh' : 'Đã lưu điểm danh nhanh thành công!',
+        `${presentIds.length} học viên có mặt.`
+      );
       await refreshData();
     } catch (err: any) {
       notify?.('warning', 'Lỗi lưu điểm danh', errorDetail(err));
