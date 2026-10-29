@@ -115,6 +115,48 @@ describe('điểm danh QR và mã phiên', () => {
     expect(res.status).toBe(400);
   });
 
+  it('giáo viên thấy số học viên đã điểm danh tăng khi học viên quét', async () => {
+    const s = await openSession();
+    const before = await ctx.api.get(`/api/attendance/session/${s.id}/checkins`).set('Authorization', `Bearer ${T}`);
+    expect(before.status).toBe(200);
+    expect(before.body.count).toBe(0);
+    expect(before.body.student_ids).toEqual([]);
+    await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${AN}`).send({ qr_payload: signedQr(ctx.config, s.id) });
+    await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({ qr_payload: s.session_code });
+    // điểm danh lại không làm tăng số đếm
+    await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${AN}`).send({ qr_payload: s.session_code });
+    const after = await ctx.api.get(`/api/attendance/session/${s.id}/checkins`).set('Authorization', `Bearer ${T}`);
+    expect(after.body.count).toBe(2);
+    expect([...after.body.student_ids].sort()).toEqual([AN_ID, MAI_ID].sort());
+    expect(after.body.is_active).toBe(true);
+  });
+
+  it('học viên không xem được danh sách điểm danh của phiên; phiên không tồn tại trả 404', async () => {
+    const s = await openSession();
+    expect((await ctx.api.get(`/api/attendance/session/${s.id}/checkins`).set('Authorization', `Bearer ${AN}`)).status).toBe(403);
+    expect((await ctx.api.get('/api/attendance/session/ses-khong-co/checkins').set('Authorization', `Bearer ${T}`)).status).toBe(404);
+  });
+
+  it('đóng phiên: mã nhập tay, mã QR và session_id đều hết hiệu lực', async () => {
+    const s = await openSession();
+    const close = await ctx.api.post(`/api/attendance/session/${s.id}/close`).set('Authorization', `Bearer ${T}`);
+    expect(close.status).toBe(200);
+    // đóng lần hai vẫn ổn
+    expect((await ctx.api.post(`/api/attendance/session/${s.id}/close`).set('Authorization', `Bearer ${T}`)).status).toBe(200);
+    const byCode = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${DUNG}`).send({ qr_payload: s.session_code });
+    expect(byCode.status).toBe(400);
+    const byQr = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${DUNG}`).send({ qr_payload: signedQr(ctx.config, s.id) });
+    expect(byQr.status).toBe(400);
+    expect((await ctx.api.get(`/api/attendance/session/${s.id}/qr`).set('Authorization', `Bearer ${T}`)).status).toBe(409);
+    expect((await ctx.api.get(`/api/attendance/session/${s.id}/checkins`).set('Authorization', `Bearer ${T}`)).body.is_active).toBe(false);
+  });
+
+  it('học viên không đóng được phiên; phiên không tồn tại trả 404', async () => {
+    const s = await openSession();
+    expect((await ctx.api.post(`/api/attendance/session/${s.id}/close`).set('Authorization', `Bearer ${AN}`)).status).toBe(403);
+    expect((await ctx.api.post('/api/attendance/session/ses-khong-co/close').set('Authorization', `Bearer ${T}`)).status).toBe(404);
+  });
+
   it('học viên không lấy được mã QR của phiên', async () => {
     const s = await openSession();
     const res = await ctx.api.get(`/api/attendance/session/${s.id}/qr`).set('Authorization', `Bearer ${AN}`);

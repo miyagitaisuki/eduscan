@@ -25,6 +25,8 @@ interface QuickAttendanceViewProps {
   attendance: Attendance[];
   initialClassId?: string;
   onOpenSession: (classId: string) => Promise<AttendanceSession | undefined>;
+  /** Gọi khi đóng màn hình QR Live để tải lại điểm danh (các lượt học viên đã quét) */
+  onRefreshAttendance?: () => void | Promise<void>;
   onSaveAttendance: (classId: string, date: string, presentStudentIds: string[], notesMap: Record<string, string>) => void;
 }
 
@@ -34,6 +36,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   attendance,
   initialClassId,
   onOpenSession,
+  onRefreshAttendance,
   onSaveAttendance,
 }) => {
   // Selected class
@@ -63,6 +66,8 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   const [sessionCode, setSessionCode] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [qrError, setQrError] = useState('');
+  // Số học viên đã quét/nhập mã trong phiên QR Live, lấy từ server
+  const [liveCheckedIn, setLiveCheckedIn] = useState(0);
 
   // Sync when initialClassId changes
   useEffect(() => {
@@ -148,6 +153,38 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
       clearInterval(tickTimer);
     };
   }, [isQROpen, sessionId]);
+
+  // Cập nhật số học viên đã điểm danh khi đang chiếu QR (học viên quét trên điện thoại của họ)
+  useEffect(() => {
+    if (!isQROpen || !sessionId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const { count } = await attendanceService.getSessionCheckins(sessionId);
+        if (!cancelled) setLiveCheckedIn(count);
+      } catch {
+        // Lỗi mạng thoáng qua: giữ số cũ và thử lại ở lượt sau
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isQROpen, sessionId]);
+
+  // Đóng QR Live: kết thúc phiên trên server (mã nhập tay hết hiệu lực) rồi tải lại điểm danh
+  // để danh sách bên dưới phản ánh các lượt đã quét
+  const closeQr = async () => {
+    setIsQROpen(false);
+    try {
+      if (sessionId) await attendanceService.closeSession(sessionId);
+    } catch {
+      // Không đóng được (mạng): phiên sẽ tự đóng khi mở phiên mới
+    }
+    await onRefreshAttendance?.();
+  };
 
   // Toggle student present / absent
   const handleToggleStudent = (studentId: string) => {
@@ -247,6 +284,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                 if (!session) return;
                 setSessionCode(session.session_code ?? '');
                 setSessionId(session.id);
+                setLiveCheckedIn(0);
                 setQrCodeUrl('');
                 setQrError('');
                 setIsQROpen(true);
@@ -521,7 +559,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               Học viên mở ứng dụng <strong>EduScan Student</strong> trên điện thoại để quét mã bên dưới.
             </>
           }
-          onClose={() => setIsQROpen(false)}
+          onClose={closeQr}
           size="md"
           overlayClassName="bg-slate-950/85 backdrop-blur-md"
         >
@@ -563,10 +601,14 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               </span>
             </div>
 
-            {/* Live Count */}
-            <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 py-2 rounded-xl border border-emerald-200">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Hiện tại: {checkedStudentIds.size}/{classStudents.length} học viên có mặt
+            {/* Live Count: số học viên đã quét thật, không phải danh sách tick tay bên dưới */}
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 py-2 rounded-xl border border-emerald-200"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+              Đã điểm danh: {liveCheckedIn}/{classStudents.length} học viên
             </div>
           </div>
         </Modal>

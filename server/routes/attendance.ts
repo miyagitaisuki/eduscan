@@ -78,6 +78,53 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
     })
   );
 
+  // Kết thúc phiên: mã QR và mã nhập tay không còn dùng được. Gọi lại nhiều lần vẫn an toàn.
+  r.post(
+    '/session/:id/close',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const [session] = await db
+        .select()
+        .from(attendanceSessions)
+        .where(eq(attendanceSessions.id, req.params.id))
+        .limit(1);
+      if (!session) return res.status(404).json({ error: 'Không tìm thấy buổi điểm danh.' });
+      if (!(await canManageClass(db, req.user, session.classId))) {
+        return res.status(403).json({ error: 'Bạn chỉ được đóng điểm danh của lớp mình phụ trách.' });
+      }
+      if (session.isActive) {
+        await db
+          .update(attendanceSessions)
+          .set({ isActive: false, endTime: new Date() })
+          .where(eq(attendanceSessions.id, session.id));
+      }
+      return res.json({ success: true });
+    })
+  );
+
+  // Số học viên đã điểm danh trong phiên (để màn hình QR Live cập nhật khi học viên quét)
+  r.get(
+    '/session/:id/checkins',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const [session] = await db
+        .select()
+        .from(attendanceSessions)
+        .where(eq(attendanceSessions.id, req.params.id))
+        .limit(1);
+      if (!session) return res.status(404).json({ error: 'Không tìm thấy buổi điểm danh.' });
+      if (!(await canManageClass(db, req.user, session.classId))) {
+        return res.status(403).json({ error: 'Bạn chỉ được xem điểm danh của lớp mình phụ trách.' });
+      }
+      const rows = await db
+        .select({ studentId: attendanceRecords.studentId })
+        .from(attendanceRecords)
+        .where(and(eq(attendanceRecords.sessionId, session.id), eq(attendanceRecords.status, 'present')));
+      res.set('Cache-Control', 'no-store');
+      return res.json({ count: rows.length, student_ids: rows.map((row) => row.studentId), is_active: session.isActive });
+    })
+  );
+
   // Học viên điểm danh: QR động, hoặc mã phiên nhập tay (ES-xxxx)
   r.post(
     '/checkin',

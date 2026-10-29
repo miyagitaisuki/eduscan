@@ -155,7 +155,8 @@ export default function App() {
     id: s.id,
     assignment_id: s.assignment_id,
     student_id: s.student_id,
-    status: s.status as 'submitted' | 'unsubmitted',
+    // Server dùng thêm trạng thái 'graded' cho bài đã chấm; với giáo viên bài đã chấm vẫn là bài đã nộp (điểm cho biết đã chấm)
+    status: (s.status === 'unsubmitted' ? 'unsubmitted' : 'submitted') as 'submitted' | 'unsubmitted',
     score: s.score,
     comment: s.feedback || '',
     ai_draft: s.ai_draft ?? null,
@@ -284,6 +285,7 @@ export default function App() {
                 attendance={formattedAttendance}
                 initialClassId={preselectedClassId}
                 onOpenSession={handleCreateAttendanceSession}
+                onRefreshAttendance={refreshData}
                 onSaveAttendance={(classId, date, presentStudentIds, notesMap) => {
                   handleBatchAttendance(classId, date, presentStudentIds, notesMap);
                 }}

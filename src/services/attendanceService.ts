@@ -11,6 +11,16 @@ export const attendanceService = {
     return apiClient.get(`/attendance/session/${encodeURIComponent(sessionId)}/qr`);
   },
 
+  // Kết thúc phiên QR để mã không còn dùng được
+  async closeSession(sessionId: string): Promise<{ success: boolean }> {
+    return apiClient.post(`/attendance/session/${encodeURIComponent(sessionId)}/close`);
+  },
+
+  // Học viên đã điểm danh trong phiên (cập nhật theo thời gian thực cho màn hình QR Live)
+  async getSessionCheckins(sessionId: string): Promise<{ count: number; student_ids: string[]; is_active: boolean }> {
+    return apiClient.get(`/attendance/session/${encodeURIComponent(sessionId)}/checkins`);
+  },
+
   async checkIn(data: {
     student_id: string;
     session_id?: string;

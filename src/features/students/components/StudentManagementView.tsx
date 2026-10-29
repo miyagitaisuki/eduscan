@@ -21,6 +21,7 @@ import {
 } from '../../../shared/types';
 import { Student } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
+import { averageScore as averageScoreOf, formatScore } from '../../../shared/utils/score';
 import { todayLocal } from '../../../shared/utils/date';
 import { Modal, useConfirm } from '../../../shared/components/ui';
 import { StudentAccountPanel } from './StudentAccountPanel';
@@ -190,9 +191,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     const studentSubmissions = submissions.filter((s) => s.student_id === st.id);
     const submittedCount = studentSubmissions.filter((s) => s.status === 'submitted').length;
     const scoredSubmissions = studentSubmissions.filter((s) => s.score !== null);
-    const averageScore = scoredSubmissions.length > 0
-      ? Math.round(scoredSubmissions.reduce((sum, s) => sum + (s.score || 0), 0) / scoredSubmissions.length)
-      : null;
+    const averageScore = averageScoreOf(scoredSubmissions.map((s) => s.score));
 
     return {
       totalSessions,
@@ -351,7 +350,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     <div className="bg-slate-50 p-1.5 rounded-xl">
                       <span className="text-[9px] text-slate-400 uppercase font-bold block">Điểm TB</span>
                       <strong className="text-xs font-black text-purple-700">
-                        {metrics.averageScore ? `${metrics.averageScore}/100` : '--'}
+                        {formatScore(metrics.averageScore)}
                       </strong>
                     </div>
                   </div>
@@ -465,7 +464,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     {metrics.submittedCount} bài nộp
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    Điểm TB: {metrics.averageScore ? `${metrics.averageScore}/100` : 'Chưa có điểm'}
+                    Điểm TB: {formatScore(metrics.averageScore, 'Chưa có điểm')}
                   </p>
                 </div>
 
@@ -577,7 +576,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                         <div className="flex items-center justify-between">
                           <strong className="text-slate-800">{asg.title}</strong>
                           <span className={`font-bold ${sub?.status === 'submitted' ? 'text-emerald-700' : 'text-slate-400'}`}>
-                            {sub?.status === 'submitted' ? (sub.score !== null ? `${sub.score}/100` : 'Đã nộp') : 'Chưa nộp'}
+                            {sub?.status === 'submitted' ? (sub.score !== null ? formatScore(sub.score) : 'Đã nộp') : 'Chưa nộp'}
                           </span>
                         </div>
                         {sub?.comment && (

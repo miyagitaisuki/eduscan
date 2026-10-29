@@ -59,5 +59,5 @@ docker run -p 3000:3000 --env-file .env eduscan
 ## Giới hạn đã biết
 
 - Mã QR do server ký (HMAC-SHA256, khóa suy ra từ `JWT_SECRET`), đổi mỗi 15 giây, gắn với đúng một phiên và chấp nhận thêm chu kỳ liền trước. Học viên không thể tự dựng mã, nhưng vẫn có thể chụp màn hình gửi cho bạn đang ở xa trong tối đa 30 giây. Đổi `JWT_SECRET` thì mã đang hiển thị mất hiệu lực (giáo viên chỉ cần chờ chu kỳ kế tiếp).
-- Mã phiên nhập tay (`ES-xxxx`) dùng cho học viên không có camera và không đổi trong suốt phiên, nên ai nhìn thấy trên màn chiếu cũng có thể gửi đi. Nếu cần chặt hơn, hãy đóng phiên ngay khi bắt đầu giờ học.
+- Mã phiên nhập tay (`ES-xxxx`) dùng cho học viên không có camera và không đổi trong suốt phiên, nên ai nhìn thấy trên màn chiếu cũng có thể gửi đi. Phiên được đóng khi giáo viên tắt màn hình QR Live (hoặc mở phiên mới), sau đó mã nhập tay không dùng được nữa. Nếu cần chặt hơn, hãy tắt QR Live ngay khi bắt đầu giờ học.
 - RLS bật trên mọi bảng (migration 0002) và không có policy: Data API của Supabase (anon/authenticated) không đọc được dữ liệu; server dùng role postgres nên không bị ảnh hưởng.

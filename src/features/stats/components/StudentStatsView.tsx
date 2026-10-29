@@ -14,6 +14,7 @@ import {
   Assignment, 
   Submission 
 } from '../../../shared/types';
+import { averageScore, formatScore, scoreGrade } from '../../../shared/utils/score';
 
 interface StudentStatsViewProps {
   /** Học phí chỉ hiển thị với admin */
@@ -59,9 +60,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
   const studentSubmissions = submissions.filter((s) => s.student_id === activeStudent?.id);
   const submittedCount = studentSubmissions.filter((s) => s.status === 'submitted').length;
   const scoredSubmissions = studentSubmissions.filter((s) => s.score !== null);
-  const avgScore = scoredSubmissions.length > 0
-    ? Math.round(scoredSubmissions.reduce((sum, s) => sum + (s.score || 0), 0) / scoredSubmissions.length)
-    : null;
+  const avgScore = averageScore(scoredSubmissions.map((s) => s.score));
 
   // Comparison list for all students
   const studentStatsList = students.map((st) => {
@@ -76,7 +75,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
 
     const subs = submissions.filter((s) => s.student_id === st.id);
     const scored = subs.filter((s) => s.score !== null);
-    const avg = scored.length > 0 ? Math.round(scored.reduce((sum, s) => sum + (s.score || 0), 0) / scored.length) : null;
+    const avg = averageScore(scored.map((s) => s.score));
 
     return {
       student: st,
@@ -212,10 +211,10 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                 <Award className="w-4 h-4 text-amber-500" />
               </div>
               <div className="text-2xl font-black text-amber-600">
-                {avgScore ? `${avgScore}/100` : '--'}
+                {formatScore(avgScore)}
               </div>
               <p className="text-[10px] text-slate-500 mt-2 font-medium">
-                {avgScore && avgScore >= 90 ? 'Xếp loại: Xuất sắc (優)' : avgScore && avgScore >= 80 ? 'Xếp loại: Giỏi (良)' : 'Đạt yêu cầu'}
+                {scoreGrade(avgScore)}
               </p>
             </div>
 
@@ -293,7 +292,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                   </td>
                   )}
                   <td className="py-2.5 px-3 text-center font-black text-amber-600">
-                    {row.avgScore ? `${row.avgScore}/100` : '--'}
+                    {formatScore(row.avgScore)}
                   </td>
                 </tr>
               ))}
