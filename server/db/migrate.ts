@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { createPgDb } from './client';
 
-// Chạy migration: DIRECT_URL=... npm run db:migrate (rơi về DATABASE_URL nếu thiếu)
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 // Tìm thư mục migration: chạy bằng tsx (server/db), bản bundle (dist/), hoặc từ thư mục gốc (Docker)
@@ -20,24 +19,21 @@ export function resolveMigrationsFolder(): string {
   return found;
 }
 
+// Khóa advisory để hai instance khởi động cùng lúc (deploy chồng nhau) không chạy migration song song
+const MIGRATION_LOCK_ID = 727274;
+
 export async function runMigrations(connectionString: string) {
   const { db, pool } = createPgDb(connectionString);
+  // Kết nối riêng giữ khóa, để không chiếm chỗ của migration khi pool nhỏ
+  const { pool: lockPool } = createPgDb(connectionString);
+  const lock = await lockPool.connect();
   try {
+    await lock.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_ID]);
     await migrate(db, { migrationsFolder: resolveMigrationsFolder() });
     console.log('[db] Migration hoàn tất.');
   } finally {
-    await pool.end();
+    await lock.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_ID]).catch(() => {});
+    lock.release();
+    await Promise.all([lockPool.end(), pool.end()]);
   }
-}
-
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const url = process.env.DIRECT_URL || process.env.DATABASE_URL;
-  if (!url) {
-    console.error('Thiếu DIRECT_URL hoặc DATABASE_URL');
-    process.exit(1);
-  }
-  runMigrations(url).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
 }
