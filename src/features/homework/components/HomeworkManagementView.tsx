@@ -7,7 +7,6 @@ import {
   XCircle, 
   Trash2, 
   ChevronRight, 
-  X,
   Sparkles,
   Loader2,
   Paperclip
@@ -15,7 +14,7 @@ import {
 import { Student, ClassItem, AiDraft } from '../../../shared/types';
 import { Assignment, Submission } from '../types';
 import { todayLocal, addDaysLocal } from '../../../shared/utils/date';
-import { useConfirm } from '../../../shared/components/ui';
+import { Modal, useConfirm } from '../../../shared/components/ui';
 import { aiService } from '../../../services/aiService';
 import { SubmissionAttachmentsModal } from './SubmissionAttachmentsModal';
 
@@ -525,87 +524,73 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
       {/* Create Assignment Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md border border-slate-200 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                Giao bài tập mới
-              </h3>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+        <Modal title="Giao bài tập mới" onClose={() => setIsCreateModalOpen(false)} size="md" closeOnBackdrop={false}>
+          <form onSubmit={handleCreateSubmit} className="space-y-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Lớp giao bài tập</label>
+              <select
+                value={newClassId}
+                onChange={(e) => setNewClassId(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
               >
-                <X className="w-5 h-5" />
-              </button>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.level})
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Lớp giao bài tập</label>
-                <select
-                  value={newClassId}
-                  onChange={(e) => setNewClassId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
-                >
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.level})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Tên bài tập *</label>
+              <input
+                type="text"
+                required
+                placeholder="VD: Bài 12 Minna no Nihongo, Kanji Bài 5..."
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tên bài tập *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: Bài 12 Minna no Nihongo, Kanji Bài 5..."
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Nội dung yêu cầu</label>
+              <textarea
+                rows={3}
+                placeholder="Yêu cầu làm bài tập A, B sách bài tập, viết chữ Hán, dịch câu..."
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nội dung yêu cầu</label>
-                <textarea
-                  rows={3}
-                  placeholder="Yêu cầu làm bài tập A, B sách bài tập, viết chữ Hán, dịch câu..."
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Hạn nộp</label>
+              <input
+                type="date"
+                value={newDeadline}
+                onChange={(e) => setNewDeadline(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Hạn nộp</label>
-                <input
-                  type="date"
-                  value={newDeadline}
-                  onChange={(e) => setNewDeadline(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  Tạo & Giao bài
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
+              >
+                Tạo & Giao bài
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
     </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Paperclip, X, Loader2, ExternalLink, Search } from 'lucide-react';
+import { Paperclip, Loader2, ExternalLink, Search } from 'lucide-react';
+import { Modal } from '../../../shared/components/ui';
 import { homeworkService } from '../../../services/homeworkService';
 import { Submission } from '../../../shared/types';
 
@@ -52,22 +53,17 @@ export const SubmissionAttachmentsModal: React.FC<SubmissionAttachmentsModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-2xl max-h-[92dvh] flex flex-col border border-slate-200 shadow-2xl">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-          <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <Paperclip className="w-4 h-4 text-blue-600" />
-            Tệp nộp bài của học viên ({items.length})
-          </h3>
-          <button
-            onClick={onClose}
-            aria-label="Đóng"
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <Modal
+      title={
+        <span className="flex items-center gap-2">
+          <Paperclip className="w-4 h-4 text-blue-600" aria-hidden="true" />
+          Tệp nộp bài của học viên ({items.length})
+        </span>
+      }
+      onClose={onClose}
+      size="xl"
+    >
+      <div>
         <div className="relative mb-3">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -115,6 +111,6 @@ export const SubmissionAttachmentsModal: React.FC<SubmissionAttachmentsModalProp
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -8,11 +8,11 @@ import {
   QrCode,
   RefreshCw,
   Maximize2,
-  X,
   Users
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
+import { Modal } from '../../../shared/components/ui';
 import { attendanceService } from '../../../services/attendanceService';
 import { errorDetail } from '../../../shared/utils/errorMessage';
 import { AttendanceSession, ClassItem, Student } from '../../../shared/types';
@@ -514,26 +514,22 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
 
       {/* Dynamic QR Live Projector Modal */}
       {isQROpen && activeClass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md border border-blue-200 shadow-2xl space-y-4 animate-in zoom-in-95 text-center relative">
-            <button
-              onClick={() => setIsQROpen(false)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
+        <Modal
+          title={activeClass.name}
+          description={
+            <>
+              Học viên mở ứng dụng <strong>EduScan Student</strong> trên điện thoại để quét mã bên dưới.
+            </>
+          }
+          onClose={() => setIsQROpen(false)}
+          size="md"
+          overlayClassName="bg-slate-950/85 backdrop-blur-md"
+        >
+          <div className="space-y-4 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping motion-reduce:animate-none" />
               PHIÊN ĐIỂM DANH ĐỘNG LIVE
             </div>
-
-            <h3 className="text-xl font-extrabold text-slate-900">
-              {activeClass.name}
-            </h3>
-            <p className="text-xs text-slate-500">
-              Học viên mở ứng dụng <strong>EduScan Student</strong> trên điện thoại để quét mã bên dưới.
-            </p>
 
             {/* QR Code Container */}
             <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-blue-300 inline-block mx-auto relative shadow-inner">
@@ -573,7 +569,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               Hiện tại: {checkedStudentIds.size}/{classStudents.length} học viên có mặt
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
     </div>

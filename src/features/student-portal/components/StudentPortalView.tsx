@@ -13,7 +13,6 @@ import {
   Sparkles,
   ChevronRight,
   Send,
-  X,
   FileCheck,
   User as UserIcon,
   BookOpen,
@@ -30,6 +29,7 @@ import {
   ClassItem,
 } from '../../../shared/types';
 import { CameraQRScanner } from '../../../shared/components/CameraQRScanner';
+import { Modal } from '../../../shared/components/ui';
 import { compressImage } from '../../../shared/utils/compressImage';
 import { studentGreeting } from '../../../shared/utils/greeting';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
@@ -648,21 +648,17 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
 
       {/* Modal: Student Submit Assignment */}
       {isSubmitModalOpen && selectedAssignment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 text-slate-900 rounded-3xl p-5 w-full max-w-sm space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <span className="text-[10px] text-blue-600 font-bold">Nộp bài tập</span>
-                <h4 className="text-sm font-bold text-slate-900 truncate">{selectedAssignment.title}</h4>
-              </div>
-              <button
-                onClick={() => setIsSubmitModalOpen(false)}
-                className="p-1 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+        <Modal
+          title={
+            <>
+              <span className="block text-xs text-blue-600 font-bold">Nộp bài tập</span>
+              {selectedAssignment.title}
+            </>
+          }
+          onClose={() => setIsSubmitModalOpen(false)}
+          size="sm"
+          closeOnBackdrop={false}
+        >
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <label className="text-xs font-semibold text-slate-600 block mb-1">
@@ -717,26 +713,22 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Modal: View AI Feedback & Detailed Grading */}
       {viewFeedbackSubmission && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 text-slate-900 rounded-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
-                <h4 className="text-sm font-bold text-slate-900">Kết quả chấm & Nhận xét AI</h4>
-              </div>
-              <button
-                onClick={() => setViewFeedbackSubmission(null)}
-                className="p-1 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <Modal
+          title={
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-400" aria-hidden="true" />
+              Kết quả chấm & Nhận xét AI
+            </span>
+          }
+          onClose={() => setViewFeedbackSubmission(null)}
+          size="sm"
+        >
+          <div className="space-y-4">
 
             {/* Score Banner */}
             <div className="bg-gradient-to-r from-indigo-900/60 to-blue-900/60 border border-indigo-500/30 rounded-2xl p-4 text-center space-y-1">
@@ -792,7 +784,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               Đóng
             </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Live Camera QR Scanner Modal */}

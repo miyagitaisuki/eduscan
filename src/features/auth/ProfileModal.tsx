@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
 import { Gender, User } from '../../shared/types';
 import { GenderSelect } from '../../shared/components/GenderSelect';
+import { Modal } from '../../shared/components/ui';
 import { authService } from '../../services/authService';
 import { errorDetail } from '../../shared/utils/errorMessage';
 
@@ -34,15 +34,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSav
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 w-full max-w-md border border-slate-200 shadow-2xl space-y-3.5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-base font-extrabold text-slate-900">Hồ sơ cá nhân</h3>
-          <button type="button" onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <Modal title="Hồ sơ cá nhân" onClose={onClose} size="md" closeOnBackdrop={false}>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên *</label>
           <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500" />
@@ -70,6 +63,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSav
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 };

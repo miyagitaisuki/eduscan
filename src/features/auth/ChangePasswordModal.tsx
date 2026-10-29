@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { authService } from '../../services/authService';
+import { Modal } from '../../shared/components/ui';
 
 interface Props {
   /** Đóng modal. Khi required, nút này đăng xuất thay vì đóng */
@@ -41,16 +42,15 @@ export function ChangePasswordModal({ onClose, required = false, onDone }: Props
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="change-password-title"
+    // Khi bắt buộc đổi mật khẩu: chỉ thoát được bằng nút "Đăng xuất", không đóng bằng Esc/bấm nền
+    <Modal
+      title={required ? 'Đổi mật khẩu để tiếp tục' : 'Đổi mật khẩu'}
+      onClose={onClose}
+      size="md"
+      dismissible={!required}
+      closeOnBackdrop={false}
     >
-      <form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
-        <h2 id="change-password-title" className="text-lg font-extrabold text-slate-900">
-          {required ? 'Đổi mật khẩu để tiếp tục' : 'Đổi mật khẩu'}
-        </h2>
+      <form onSubmit={onSubmit} className="space-y-4">
         {required && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
             Mật khẩu của bạn được quản trị viên đặt. Vui lòng đặt mật khẩu mới để sử dụng hệ thống.
@@ -86,6 +86,6 @@ export function ChangePasswordModal({ onClose, required = false, onDone }: Props
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import jsQR from 'jsqr';
-import { Camera, X, RefreshCw, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Camera, RefreshCw, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Modal } from './ui';
 
 interface CameraQRScannerProps {
   isOpen: boolean;
@@ -130,22 +131,19 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="bg-slate-900 text-white rounded-3xl p-5 w-full max-w-sm border border-slate-700 shadow-2xl space-y-4">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-blue-400" />
-            <h3 className="text-sm font-bold">{title}</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Modal
+      title={
+        <span className="flex items-center gap-2 text-sm">
+          <Camera className="w-5 h-5 text-blue-400" aria-hidden="true" />
+          {title}
+        </span>
+      }
+      onClose={onClose}
+      size="sm"
+      variant="dark"
+      overlayClassName="bg-slate-950/80 backdrop-blur-md"
+    >
+      <div className="space-y-4">
 
         {/* Video Camera Container */}
         <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-black flex items-center justify-center border-2 border-dashed border-blue-500/50">
@@ -214,6 +212,6 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
         </div>
 
       </div>
-    </div>
+    </Modal>
   );
 };

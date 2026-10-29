@@ -8,14 +8,13 @@ import {
   Clock, 
   CreditCard, 
   CheckSquare, 
-  Search, 
-  X
+  Search
 } from 'lucide-react';
 import { Student, Attendance, Payment, JlptLevel, ActiveTab } from '../../../shared/types';
 import { ClassItem } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
-import { useConfirm } from '../../../shared/components/ui';
+import { Modal, useConfirm } from '../../../shared/components/ui';
 
 interface ClassManagementViewProps {
   /** Học phí và chọn giáo viên phụ trách chỉ dành cho admin */
@@ -314,147 +313,133 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
 
       {/* Create / Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-lg border border-slate-200 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {editingClass ? 'Chỉnh sửa Lớp học' : 'Tạo Lớp học tiếng Nhật mới'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Modal title={editingClass ? 'Chỉnh sửa Lớp học' : 'Tạo Lớp học tiếng Nhật mới'} onClose={() => setIsModalOpen(false)} size="lg" closeOnBackdrop={false}>
+          <form onSubmit={handleFormSubmit} className="space-y-3.5">
+            {isAdmin && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Giáo viên phụ trách</label>
+                <select
+                  value={teacherId}
+                  onChange={(e) => setTeacherId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
+                >
+                  {teachers.length === 0 && <option value="">Chưa có giáo viên</option>}
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Tên lớp *</label>
+              <input
+                type="text"
+                required
+                placeholder="VD: N5 Sơ cấp 1, N4 Cấp tốc..."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-3.5">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Trình độ JLPT</label>
+                <select
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value as JlptLevel)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
+                >
+                  <option value="N5">N5 (Sơ cấp 1)</option>
+                  <option value="N4">N4 (Sơ cấp 2 / Cấp tốc)</option>
+                  <option value="N3">N3 (Trung cấp)</option>
+                  <option value="N2">N2 (Trung - Cao cấp)</option>
+                  <option value="N1">N1 (Cao cấp)</option>
+                </select>
+              </div>
+
               {isAdmin && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Giáo viên phụ trách</label>
-                  <select
-                    value={teacherId}
-                    onChange={(e) => setTeacherId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
-                  >
-                    {teachers.length === 0 && <option value="">Chưa có giáo viên</option>}
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Học phí (VNĐ/tháng)</label>
+                <input
+                  type="number"
+                  step="50000"
+                  value={monthlyFee}
+                  onChange={(e) => setMonthlyFee(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700"
+                />
+              </div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Lịch học</label>
+              <input
+                type="text"
+                placeholder="VD: Thứ 2 - 4 - 6 (18:00 - 19:30)"
+                value={schedule}
+                onChange={(e) => setSchedule(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Ghi rõ thứ trong tuần (VD: Thứ 2 - 4 - 6, Chủ Nhật) để trang Tổng quan hiện đúng lớp học hôm nay.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Ngày bắt đầu</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+                />
+              </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tên lớp *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Địa điểm / Phòng học</label>
                 <input
                   type="text"
-                  required
-                  placeholder="VD: N5 Sơ cấp 1, N4 Cấp tốc..."
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
+                  placeholder="VD: Phòng 201 - Nhà Ngoại ngữ"
+                  value={room}
+                  onChange={(e) => setRoom(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
                 />
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Trình độ JLPT</label>
-                  <select
-                    value={level}
-                    onChange={(e) => setLevel(e.target.value as JlptLevel)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
-                  >
-                    <option value="N5">N5 (Sơ cấp 1)</option>
-                    <option value="N4">N4 (Sơ cấp 2 / Cấp tốc)</option>
-                    <option value="N3">N3 (Trung cấp)</option>
-                    <option value="N2">N2 (Trung - Cao cấp)</option>
-                    <option value="N1">N1 (Cao cấp)</option>
-                  </select>
-                </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú giáo trình / mục tiêu</label>
+              <textarea
+                rows={2}
+                placeholder="Minna no Nihongo, Kanji, chuẩn bị thi tháng 12..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+            </div>
 
-                {isAdmin && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Học phí (VNĐ/tháng)</label>
-                  <input
-                    type="number"
-                    step="50000"
-                    value={monthlyFee}
-                    onChange={(e) => setMonthlyFee(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700"
-                  />
-                </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Lịch học</label>
-                <input
-                  type="text"
-                  placeholder="VD: Thứ 2 - 4 - 6 (18:00 - 19:30)"
-                  value={schedule}
-                  onChange={(e) => setSchedule(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Ghi rõ thứ trong tuần (VD: Thứ 2 - 4 - 6, Chủ Nhật) để trang Tổng quan hiện đúng lớp học hôm nay.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Ngày bắt đầu</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Địa điểm / Phòng học</label>
-                  <input
-                    type="text"
-                    placeholder="VD: Phòng 201 - Nhà Ngoại ngữ"
-                    value={room}
-                    onChange={(e) => setRoom(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú giáo trình / mục tiêu</label>
-                <textarea
-                  rows={2}
-                  placeholder="Minna no Nihongo, Kanji, chuẩn bị thi tháng 12..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  {editingClass ? 'Lưu thay đổi' : 'Tạo lớp học'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
+              >
+                {editingClass ? 'Lưu thay đổi' : 'Tạo lớp học'}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
     </div>

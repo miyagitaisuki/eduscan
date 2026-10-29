@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { MoreHorizontal, X } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
+import { Modal } from './ui';
 import { ActiveTab } from '../types/common';
 import { getTeacherNavItems, TeacherNavItem } from '../config/teacherNav';
 
@@ -102,26 +103,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       </div>
 
       {isMoreOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
-          <button
-            type="button"
-            aria-label="Đóng menu"
-            onClick={() => setIsMoreOpen(false)}
-            className="absolute inset-0 bg-slate-900/40 cursor-default"
-          />
-          <div className="relative bg-white rounded-t-2xl shadow-2xl pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-            <div className="flex items-center justify-between px-4 pt-3 pb-2">
-              <h2 className="text-sm font-bold text-slate-900">Thêm mục</h2>
-              <button
-                type="button"
-                onClick={() => setIsMoreOpen(false)}
-                aria-label="Đóng"
-                className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-4 pb-2">
+        <Modal title="Thêm mục" onClose={() => setIsMoreOpen(false)} size="xl" placement="bottom">
+          <div className="grid grid-cols-3 gap-2">
               {overflowItems.map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;
@@ -143,9 +126,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </button>
                 );
               })}
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

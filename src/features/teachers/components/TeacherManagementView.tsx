@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { GraduationCap, Plus, Pencil, KeyRound, Lock, Unlock, Copy, Check, X } from 'lucide-react';
+import { GraduationCap, Plus, Pencil, KeyRound, Lock, Unlock, Copy, Check } from 'lucide-react';
 import { TeacherAccount } from '../../../services';
 import { Gender } from '../../../shared/types';
 import { GenderSelect } from '../../../shared/components/GenderSelect';
-import { useConfirm } from '../../../shared/components/ui';
+import { Modal, useConfirm } from '../../../shared/components/ui';
 
 interface TeacherManagementViewProps {
   teachers: TeacherAccount[];
@@ -220,17 +220,8 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
 
       {/* Form thêm / sửa giáo viên */}
       {form && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <form onSubmit={handleSubmitForm} className="bg-white rounded-3xl p-6 w-full max-w-md max-h-[92dvh] overflow-y-auto border border-slate-200 shadow-2xl space-y-3.5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {form.mode === 'create' ? 'Thêm giáo viên' : 'Sửa thông tin giáo viên'}
-              </h3>
-              <button type="button" onClick={() => setForm(null)} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+        <Modal title={form.mode === 'create' ? 'Thêm giáo viên' : 'Sửa thông tin giáo viên'} onClose={() => setForm(null)} size="md" closeOnBackdrop={false}>
+          <form onSubmit={handleSubmitForm} className="space-y-3.5">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên *</label>
               <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
@@ -278,19 +269,13 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {/* Đặt lại mật khẩu */}
       {passwordFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <form onSubmit={handleSubmitPassword} className="bg-white rounded-3xl p-6 w-full max-w-md border border-slate-200 shadow-2xl space-y-3.5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">Đặt lại mật khẩu: {passwordFor.teacher.full_name}</h3>
-              <button type="button" onClick={() => setPasswordFor(null)} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <Modal title={<>Đặt lại mật khẩu: {passwordFor.teacher.full_name}</>} onClose={() => setPasswordFor(null)} size="md" closeOnBackdrop={false}>
+          <form onSubmit={handleSubmitPassword} className="space-y-3.5">
             <div className="flex gap-2">
               <button type="button" onClick={() => setNewPasswordMode('generate')} className={`flex-1 py-2 rounded-xl text-xs font-bold cursor-pointer ${newPasswordMode === 'generate' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
                 Tự sinh
@@ -312,14 +297,14 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
       {/* Hiển thị mật khẩu tạm một lần */}
       {issued && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md border border-slate-200 shadow-2xl space-y-3.5">
-            <h3 className="text-base font-extrabold text-slate-900">Mật khẩu tạm cho {issued.name}</h3>
+        // Mật khẩu chỉ hiện một lần nên không cho đóng bằng Esc/bấm nền; phải bấm "Đã ghi nhận"
+        <Modal title={<>Mật khẩu tạm cho {issued.name}</>} onClose={() => setIssued(null)} size="md" dismissible={false}>
+          <div className="space-y-3.5">
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 text-xs">
               <p>Tên đăng nhập: <strong className="select-all">{issued.email}</strong></p>
               <p>Mật khẩu tạm: <strong className="select-all font-mono">{issued.password}</strong></p>
@@ -335,7 +320,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -9,7 +9,6 @@ import {
   Trash2, 
   Phone, 
   ArrowRightLeft, 
-  X,
   ChevronRight
 } from 'lucide-react';
 import { 
@@ -23,7 +22,7 @@ import {
 import { Student } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
-import { useConfirm } from '../../../shared/components/ui';
+import { Modal, useConfirm } from '../../../shared/components/ui';
 import { StudentAccountPanel } from './StudentAccountPanel';
 
 interface StudentManagementViewProps {
@@ -420,37 +419,20 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
         const studentAtt = attendance.filter((a) => a.student_id === activeProfileStudent.id);
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl p-5 sm:p-7 w-full max-w-lg border border-slate-200 shadow-2xl max-h-[92vh] overflow-y-auto">
-              
-              <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-md text-xs font-black bg-blue-600 text-white">
-                      {activeProfileStudent.level}
-                    </span>
-                    <span className="text-xs font-bold text-slate-500">
-                      {cls?.name}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-extrabold text-slate-900 mt-1">
-                    {activeProfileStudent.full_name}
-                  </h3>
-                  <a
-                    href={`tel:${activeProfileStudent.phone}`}
-                    className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    {activeProfileStudent.phone}
-                  </a>
-                </div>
-
-                <button
-                  onClick={() => setActiveProfileStudent(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+          <Modal title={activeProfileStudent.full_name} onClose={() => setActiveProfileStudent(null)} size="lg">
+            <div>
+              <div className="flex items-center gap-2 mb-5">
+                <span className="px-2 py-0.5 rounded-md text-xs font-black bg-blue-600 text-white">
+                  {activeProfileStudent.level}
+                </span>
+                <span className="text-xs font-bold text-slate-500">{cls?.name}</span>
+                <a
+                  href={`tel:${activeProfileStudent.phone}`}
+                  className="ml-auto text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                 >
-                  <X className="w-5 h-5" />
-                </button>
+                  <Phone className="w-3.5 h-3.5" />
+                  {activeProfileStudent.phone}
+                </a>
               </div>
 
               {/* 4 Summary Cards */}
@@ -629,21 +611,19 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
               </div>
 
             </div>
-          </div>
+          </Modal>
         );
       })()}
 
       {/* Transfer Class Modal */}
       {transferringStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md border border-slate-200 shadow-2xl">
-            <h3 className="text-base font-extrabold text-slate-900 mb-2">
-              Chuyển lớp cho học viên
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Học viên: <strong className="text-slate-900">{transferringStudent.full_name}</strong>
-            </p>
-
+        <Modal
+          title="Chuyển lớp cho học viên"
+          description={<>Học viên: <strong className="text-slate-900">{transferringStudent.full_name}</strong></>}
+          onClose={() => setTransferringStudent(null)}
+          size="md"
+          closeOnBackdrop={false}
+        >
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Chọn lớp mới:</label>
@@ -675,129 +655,114 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Create / Edit Student Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md max-h-[92dvh] overflow-y-auto border border-slate-200 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {editingStudent ? 'Chỉnh sửa thông tin học viên' : 'Thêm học viên mới'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Modal title={editingStudent ? 'Chỉnh sửa thông tin học viên' : 'Thêm học viên mới'} onClose={() => setIsModalOpen(false)} size="md" closeOnBackdrop={false}>
+          <form onSubmit={handleFormSubmit} className="space-y-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên học viên *</label>
+              <input
+                type="text"
+                required
+                placeholder="VD: Nguyễn Văn An"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Số điện thoại *</label>
+              <input
+                type="tel"
+                required
+                placeholder="VD: 0912345678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
+              <GenderSelect value={gender} onChange={setGender} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-white" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên học viên *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: Nguyễn Văn An"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Số điện thoại *</label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="VD: 0912345678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
-                <GenderSelect value={gender} onChange={setGender} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium bg-white" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Lớp học</label>
-                  <select
-                    value={classId}
-                    onChange={(e) => setClassId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
-                  >
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Trình độ</label>
-                  <select
-                    value={level}
-                    onChange={(e) => setLevel(e.target.value as JlptLevel)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
-                  >
-                    <option value="N5">N5</option>
-                    <option value="N4">N4</option>
-                    <option value="N3">N3</option>
-                    <option value="N2">N2</option>
-                    <option value="N1">N1</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Ngày tham gia lớp</label>
-                <input
-                  type="date"
-                  value={joinDate}
-                  onChange={(e) => setJoinDate(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú</label>
-                <textarea
-                  rows={2}
-                  placeholder="Mục tiêu thi JLPT, công việc, đặc điểm học viên..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-
-              {editingStudent && isAdmin && <StudentAccountPanel studentId={editingStudent.id} />}
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                <label className="block text-xs font-bold text-slate-700 mb-1">Lớp học</label>
+                <select
+                  value={classId}
+                  onChange={(e) => setClassId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
                 >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  {editingStudent ? 'Cập nhật' : 'Thêm học viên'}
-                </button>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </form>
-          </div>
-        </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Trình độ</label>
+                <select
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value as JlptLevel)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
+                >
+                  <option value="N5">N5</option>
+                  <option value="N4">N4</option>
+                  <option value="N3">N3</option>
+                  <option value="N2">N2</option>
+                  <option value="N1">N1</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Ngày tham gia lớp</label>
+              <input
+                type="date"
+                value={joinDate}
+                onChange={(e) => setJoinDate(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú</label>
+              <textarea
+                rows={2}
+                placeholder="Mục tiêu thi JLPT, công việc, đặc điểm học viên..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+              />
+            </div>
+
+            {editingStudent && isAdmin && <StudentAccountPanel studentId={editingStudent.id} />}
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
+              >
+                {editingStudent ? 'Cập nhật' : 'Thêm học viên'}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
     </div>
