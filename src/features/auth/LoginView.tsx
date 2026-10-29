@@ -45,7 +45,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-md border border-slate-200 p-6 space-y-5">
         <div className="text-center space-y-1">
-          <div className="mx-auto w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+          <div className="mx-auto w-11 h-11 rounded-xl bg-primary-600 text-white flex items-center justify-center">
             <LogIn className="w-5 h-5" />
           </div>
           <h1 className="text-lg font-extrabold text-slate-900">EduScan AI</h1>
@@ -61,7 +61,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:border-blue-500"
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:border-primary-500"
             />
           </label>
           <label className="block space-y-1">
@@ -72,20 +72,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:border-blue-500"
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:border-primary-500"
             />
           </label>
 
-          {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
+          {error && <p className="text-xs text-danger-600 font-medium">{error}</p>}
 
-          <button type="button" onClick={() => setShowForgot((v) => !v)} className="w-full text-xs font-semibold text-blue-600 hover:underline cursor-pointer">
+          <button type="button" onClick={() => setShowForgot((v) => !v)} className="w-full text-xs font-semibold text-primary-600 hover:underline cursor-pointer">
             Quên mật khẩu?
           </button>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
+            className="w-full py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
           >
             {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
@@ -99,9 +99,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
               required
               value={forgotEmail}
               onChange={(e) => setForgotEmail(e.target.value)}
-              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:border-blue-500"
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:border-primary-500"
             />
-            {forgotMsg && <p className="text-xs text-emerald-700 font-medium">{forgotMsg}</p>}
+            {forgotMsg && <p className="text-xs text-success-700 font-medium">{forgotMsg}</p>}
             <button type="submit" disabled={forgotBusy} className="w-full py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 cursor-pointer">
               {forgotBusy ? 'Đang gửi...' : 'Gửi liên kết đặt lại'}
             </button>
@@ -110,7 +110,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
 
         {onDevQuickLogin && (
           <div className="border-t border-slate-200 pt-4 space-y-2">
-            <p className="text-[11px] text-center text-amber-600 font-semibold">Chỉ hiển thị khi chạy dev</p>
+            <p className="text-xs text-center text-warning-600 font-semibold">Chỉ hiển thị khi chạy dev</p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"

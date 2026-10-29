@@ -1,3 +1,4 @@
+import { clickable } from '../../../shared/utils/a11y';
 import React, { useState } from 'react';
 import { 
   FileText, 
@@ -176,11 +177,11 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
     <div className="space-y-4">
       
       {/* Top Header & Actions */}
-      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-xs">
+      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-primary-100 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-600" />
+              <FileText className="w-5 h-5 text-primary-600" />
               Quản lý Bài tập & Chấm điểm
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -198,7 +199,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
             </button>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Tạo bài tập mới
@@ -212,7 +213,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
             onClick={() => setSelectedClassId('all')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               selectedClassId === 'all'
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-primary-600 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
@@ -224,7 +225,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
               onClick={() => setSelectedClassId(cls.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 selectedClassId === cls.id
-                  ? 'bg-blue-600 text-white shadow-xs'
+                  ? 'bg-primary-600 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -244,7 +245,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
           </span>
 
           {filteredAssignments.length === 0 ? (
-            <div className="p-6 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
+            <div className="p-6 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-slate-500 text-xs">
               Chưa có bài tập nào. Hãy bấm nút "Tạo bài tập mới" để giao bài tập cho lớp.
             </div>
           ) : (
@@ -257,18 +258,18 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
               return (
                 <div
                   key={asg.id}
-                  onClick={() => setActiveAssignmentId(asg.id)}
+                  {...clickable(() => setActiveAssignmentId(asg.id))}
                   className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-blue-50/70 border-blue-500 shadow-sm ring-1 ring-blue-500'
+                      ? 'bg-primary-50/70 border-primary-500 shadow-sm ring-1 ring-primary-500'
                       : 'bg-white border-slate-200/80 hover:border-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-primary-100 text-primary-800">
                       {cls?.name}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                    <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       Hạn: {localDateOf(asg.deadline)}
                     </span>
@@ -276,11 +277,11 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
                   <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{asg.title}</h4>
                   
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px]">
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-xs">
                     <span className="text-slate-500">
-                      Đã nộp: <strong className="text-blue-700">{submittedCount}/{asgStudents.length}</strong>
+                      Đã nộp: <strong className="text-primary-700">{submittedCount}/{asgStudents.length}</strong>
                     </span>
-                    <span className="text-blue-600 font-semibold flex items-center gap-0.5">
+                    <span className="text-primary-600 font-semibold flex items-center gap-0.5">
                       Chấm bài <ChevronRight className="w-3 h-3" />
                     </span>
                   </div>
@@ -291,17 +292,17 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
         </div>
 
         {/* Right Column: Active Assignment Roster & Grading Table */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-5 border border-blue-100 shadow-xs space-y-4">
+        <div className="lg:col-span-8 bg-white rounded-3xl p-5 border border-primary-100 shadow-xs space-y-4">
           {activeAssignment ? (
             <>
               {/* Assignment Detail Header */}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 pb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-blue-600 text-white">
+                    <span className="px-2 py-0.5 rounded text-xs font-black bg-primary-600 text-white">
                       {activeClass?.name} ({activeClass?.level})
                     </span>
-                    <span className="text-xs text-rose-600 font-bold">
+                    <span className="text-xs text-danger-600 font-bold">
                       Hạn nộp: {localDateOf(activeAssignment.deadline)}
                     </span>
                   </div>
@@ -325,7 +326,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                     });
                     if (ok) onDeleteAssignment(activeAssignment.id);
                   }}
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer self-start"
+                  className="p-2 text-slate-500 hover:text-danger-600 hover:bg-danger-50 rounded-xl transition-colors cursor-pointer self-start"
                   title="Xóa bài tập"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -334,7 +335,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
               {/* Quick Comment Chips */}
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
                   💡 Nhận xét nhanh mẫu (bấm để copy dán vào ô nhận xét):
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -344,7 +345,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                       type="button"
                       onClick={() => navigator.clipboard.writeText(chip)}
                       title="Bấm để sao chép nhận xét"
-                      className="px-2 py-1 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 text-slate-600 rounded-lg text-[10px] font-medium border border-slate-200 transition-colors cursor-pointer"
+                      className="px-2 py-1 bg-slate-50 hover:bg-primary-50 hover:text-primary-700 text-slate-600 rounded-lg text-xs font-medium border border-slate-200 transition-colors cursor-pointer"
                     >
                       {chip}
                     </button>
@@ -368,7 +369,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                     <div
                       key={st.id}
                       className={`p-3.5 rounded-2xl border transition-all ${
-                        isSubmitted ? 'bg-white border-blue-200 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-80'
+                        isSubmitted ? 'bg-white border-primary-200 shadow-xs' : 'bg-slate-50 border-slate-200'
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -379,7 +380,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                             onClick={() => handleToggleSubmission(st.id)}
                             className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                               isSubmitted
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                ? 'bg-success-100 text-success-800 border border-success-200'
                                 : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                             }`}
                           >
@@ -389,14 +390,14 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
                           <div>
                             <h5 className="text-xs font-bold text-slate-900">{st.full_name}</h5>
-                            <p className="text-[10px] text-slate-500">SĐT: {st.phone}</p>
+                            <p className="text-xs text-slate-500">SĐT: {st.phone}</p>
                           </div>
                         </div>
 
                         {/* Score Input */}
                         <div className="flex items-center gap-2">
-                          <label className="text-xs font-semibold text-slate-600">Điểm:</label>
-                          <input
+                          <label className="text-xs font-semibold text-slate-600" htmlFor="homework-management-field-1">Điểm:</label>
+                          <input id="homework-management-field-1"
                             type="number"
                             min="0"
                             max="10"
@@ -404,25 +405,25 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                             placeholder="0-10"
                             value={currentScore}
                             onChange={(e) => handleScoreChange(st.id, e.target.value)}
-                            className="w-16 px-2 py-1 border border-slate-200 rounded-lg text-xs font-black text-center text-blue-700 bg-white"
+                            className="w-16 px-2 py-1 border border-slate-200 rounded-lg text-xs font-black text-center text-primary-700 bg-white"
                           />
-                          <span className="text-xs text-slate-400 font-bold">/10</span>
+                          <span className="text-xs text-slate-500 font-bold">/10</span>
                           {isSubmitted && sub && (
                             <button
                               type="button"
                               disabled={aiDraftLoadingId === sub.id}
                               onClick={() => handleRequestDraft(sub.id)}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                              className="inline-flex items-center gap-1 text-xs font-bold text-accent-700 hover:text-accent-900 bg-accent-50 hover:bg-accent-100 px-2 py-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                               title="Gemini AI chấm thành bản nháp, giáo viên duyệt trước khi lưu điểm"
                             >
                               {aiDraftLoadingId === sub.id ? (
                                 <>
-                                  <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
+                                  <Loader2 className="w-3 h-3 animate-spin text-accent-600" />
                                   <span>AI đang chấm...</span>
                                 </>
                               ) : (
                                 <>
-                                  <Sparkles className="w-3 h-3 text-indigo-600" />
+                                  <Sparkles className="w-3 h-3 text-accent-600" />
                                   <span>{sub.ai_draft ? 'Chấm lại bằng AI' : 'Chấm bằng AI'}</span>
                                 </>
                               )}
@@ -434,24 +435,24 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                       {/* Comment Section with AI Assistance */}
                       <div className="mt-3 space-y-1.5 pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-slate-500">
+                          <span className="text-xs font-semibold text-slate-500">
                             Nhận xét giảng viên:
                           </span>
                           <button
                             type="button"
                             disabled={aiLoadingId === st.id}
                             onClick={() => handleAIGenerateFeedback(st, currentScore)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center gap-1 text-xs font-bold text-accent-700 hover:text-accent-900 bg-accent-50 hover:bg-accent-100 px-2 py-0.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                             title="Tự động tạo nhận xét sư phạm bằng Gemini AI"
                           >
                             {aiLoadingId === st.id ? (
                               <>
-                                <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
+                                <Loader2 className="w-3 h-3 animate-spin text-accent-600" />
                                 <span>AI đang viết...</span>
                               </>
                             ) : (
                               <>
-                                <Sparkles className="w-3 h-3 text-indigo-600" />
+                                <Sparkles className="w-3 h-3 text-accent-600" />
                                 <span>AI Gợi ý nhận xét</span>
                               </>
                             )}
@@ -462,24 +463,24 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                           placeholder="Nhập nhận xét (VD: Dùng ngữ pháp tốt, cần chú ý phân biệt trợ từ に và で...)"
                           value={currentComment}
                           onChange={(e) => handleCommentChange(st.id, e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-1 focus:ring-blue-500 transition-colors"
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary-500 transition-colors"
                         />
                       </div>
 
                       {/* Bản nháp AI: chỉ thành điểm khi giáo viên bấm duyệt */}
                       {sub?.ai_draft && (
-                        <div className="mt-3 p-3 rounded-xl border border-indigo-200 bg-indigo-50/60 space-y-2">
+                        <div className="mt-3 p-3 rounded-xl border border-accent-200 bg-accent-50/60 space-y-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-[11px] font-bold text-indigo-800">
+                            <span className="text-xs font-bold text-accent-800">
                               Bản nháp AI: {sub.ai_draft.score}/10 • {sub.ai_draft.gradeClassification}
                             </span>
-                            <span className="text-[10px] font-semibold text-indigo-600">
+                            <span className="text-xs font-semibold text-accent-600">
                               Chưa tính vào điểm, cần giáo viên duyệt
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-700 whitespace-pre-line">{sub.ai_draft.detailedFeedback}</p>
+                          <p className="text-xs text-slate-700 whitespace-pre-line">{sub.ai_draft.detailedFeedback}</p>
                           {sub.ai_draft.suggestions.length > 0 && (
-                            <ul className="text-[11px] text-slate-600 list-disc pl-4 space-y-0.5">
+                            <ul className="text-xs text-slate-600 list-disc pl-4 space-y-0.5">
                               {sub.ai_draft.suggestions.map((s, i) => (
                                 <li key={i}>{s}</li>
                               ))}
@@ -489,7 +490,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                             <button
                               type="button"
                               onClick={() => onDiscardAiDraft(sub.id)}
-                              className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                              className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
                             >
                               Bỏ bản nháp
                             </button>
@@ -503,7 +504,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                                   sub.ai_draft!
                                 )
                               }
-                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold shadow-sm cursor-pointer"
+                              className="px-3 py-1.5 bg-accent-600 hover:bg-accent-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer"
                             >
                               Duyệt & chấm {sub.ai_draft.score}/10
                             </button>
@@ -516,7 +517,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
               </div>
             </>
           ) : (
-            <div className="p-8 text-center text-slate-400 text-xs">
+            <div className="p-8 text-center text-slate-500 text-xs">
               Vui lòng chọn hoặc tạo bài tập mới.
             </div>
           )}
@@ -531,11 +532,11 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
         <Modal title="Giao bài tập mới" onClose={() => setIsCreateModalOpen(false)} size="md" closeOnBackdrop={false}>
           <form onSubmit={handleCreateSubmit} className="space-y-3.5">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Lớp giao bài tập</label>
-              <select
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-management-field-2">Lớp giao bài tập</label>
+              <select id="homework-management-field-2"
                 value={newClassId}
                 onChange={(e) => setNewClassId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-blue-700 bg-white"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-primary-700 bg-white"
               >
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -546,20 +547,20 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Tên bài tập *</label>
-              <input
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-management-field-3">Tên bài tập *</label>
+              <input id="homework-management-field-3"
                 type="text"
                 required
                 placeholder="VD: Bài 12 Minna no Nihongo, Kanji Bài 5..."
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Nội dung yêu cầu</label>
-              <textarea
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-management-field-4">Nội dung yêu cầu</label>
+              <textarea id="homework-management-field-4"
                 rows={3}
                 placeholder="Yêu cầu làm bài tập A, B sách bài tập, viết chữ Hán, dịch câu..."
                 value={newDesc}
@@ -569,8 +570,8 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Hạn nộp</label>
-              <input
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-management-field-5">Hạn nộp</label>
+              <input id="homework-management-field-5"
                 type="date"
                 value={newDeadline}
                 onChange={(e) => setNewDeadline(e.target.value)}
@@ -588,7 +589,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
+                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md shadow-primary-500/20 cursor-pointer"
               >
                 Tạo & Giao bài
               </button>

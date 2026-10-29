@@ -19,7 +19,7 @@ export const LoadingScreen: React.FC = () => {
       aria-live="polite"
       className="min-h-screen bg-slate-100/70 flex flex-col items-center justify-center gap-3 px-6 text-center"
     >
-      <Loader2 className="w-8 h-8 text-blue-600 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+      <Loader2 className="w-8 h-8 text-primary-600 animate-spin motion-reduce:animate-none" aria-hidden="true" />
       <p className="text-sm font-bold text-slate-800">Đang tải dữ liệu...</p>
       {isSlow && (
         <p className="text-xs text-slate-500 max-w-xs leading-relaxed">

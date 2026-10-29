@@ -21,7 +21,7 @@ const StudentApp = lazy(() => import('./app/StudentApp'));
 
 const PageFallback = () => (
   <div className="flex-1 flex items-center justify-center py-20" role="status" aria-label="Đang tải">
-    <Loader2 className="w-7 h-7 text-blue-600 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+    <Loader2 className="w-7 h-7 text-primary-600 animate-spin motion-reduce:animate-none" aria-hidden="true" />
   </div>
 );
 
@@ -63,7 +63,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans flex flex-col antialiased selection:bg-primary-600 selection:text-white">
       <Header
         // Giao diện theo vai trò đăng nhập; công tắc dev đổi vai trò bằng cách đăng nhập tài khoản demo khác
         viewMode={isStudent ? 'student' : 'teacher'}

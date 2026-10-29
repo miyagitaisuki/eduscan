@@ -48,6 +48,7 @@ docker run -p 3000:3000 --env-file .env eduscan
 - `src/App.tsx`: đăng nhập, khung trang, tải dữ liệu. `src/app/TeacherApp.tsx` và `src/app/StudentApp.tsx` là hai giao diện theo vai trò, tải riêng (lazy) nên học viên không tải mã của giáo viên.
 - Dữ liệu: `src/hooks/data/` mỗi tính năng một hook (lớp, học viên, điểm danh, bài tập, học phí, giáo viên, thông báo, sao lưu); `src/hooks/useEcosystemData.ts` ghép chúng lại, lo tải lần đầu, làm mới và các thao tác chạm nhiều tính năng.
 - Kiểu dữ liệu: `src/shared/types/index.ts` là nguồn duy nhất, dùng chung cho giao diện và server (DTO trong `server/lib/dto.ts` khai báo kiểu trả về theo đó nên lệch nhau là tsc báo lỗi). Giao diện dùng thẳng dữ liệu API, không có lớp chuyển đổi. Dữ liệu biểu mẫu gửi lên là `ClassInput`, `StudentInput`, `AssignmentInput`, `GradeInput`.
+- Giao diện: màu theo ngữ nghĩa `primary`, `success`, `warning`, `danger`, `accent` (và `slate` cho trung tính) khai báo một chỗ trong `src/index.css`; không dùng tên màu thô như `blue-600`. Chữ tối thiểu 12px (`text-xs`). Phần tử bấm được không phải `<button>` dùng `clickable()` (`src/shared/utils/a11y.tsx`). `tests/unit/design-rules.test.ts` kiểm tra các quy ước này.
 - Máy chủ phải trả `index.html` cho mọi đường dẫn không bắt đầu bằng `/api` (server.ts đã làm). Nếu đặt frontend trên static host riêng, cần cấu hình rewrite tương tự.
 
 ## Sao lưu

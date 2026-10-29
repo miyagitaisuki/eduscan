@@ -37,28 +37,28 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSav
     <Modal title="Hồ sơ cá nhân" onClose={onClose} size="md" closeOnBackdrop={false}>
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên *</label>
-          <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500" />
+          <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="profile-field-1">Họ và tên *</label>
+          <input id="profile-field-1" type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary-500" />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Số điện thoại</label>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500" />
+          <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="profile-field-2">Số điện thoại</label>
+          <input id="profile-field-2" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary-500" />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Giới tính</label>
-          <GenderSelect value={gender} onChange={setGender} />
+          <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="profile-field-3">Giới tính</label>
+          <GenderSelect id="profile-field-3" value={gender} onChange={setGender} />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1">Tên đăng nhập</label>
+          <span className="block text-xs font-bold text-slate-500 mb-1">Tên đăng nhập</span>
           <p className="px-3.5 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium text-slate-600">{user.email}</p>
-          <p className="text-[11px] text-slate-500 mt-1">Tên đăng nhập và mật khẩu do quản trị viên quản lý. Liên hệ admin nếu cần đổi.</p>
+          <p className="text-xs text-slate-500 mt-1">Tên đăng nhập và mật khẩu do quản trị viên quản lý. Liên hệ admin nếu cần đổi.</p>
         </div>
 
         <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">
             Hủy
           </button>
-          <button type="submit" disabled={saving} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold cursor-pointer">
+          <button type="submit" disabled={saving} className="px-5 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold cursor-pointer">
             {saving ? 'Đang lưu...' : 'Lưu'}
           </button>
         </div>

@@ -42,7 +42,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       <form onSubmit={submit} className="space-y-4">
         <div className="flex gap-3">
           {isDanger && (
-            <div className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0" aria-hidden="true">
+            <div className="w-9 h-9 rounded-full bg-danger-50 text-danger-600 flex items-center justify-center shrink-0" aria-hidden="true">
               <AlertTriangle className="w-5 h-5" />
             </div>
           )}
@@ -59,7 +59,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               autoComplete="off"
               spellCheck={false}
               data-autofocus
-              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono focus:outline-hidden focus:border-blue-500"
+              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono focus:outline-hidden focus:border-primary-500"
             />
           </label>
         )}
@@ -79,7 +79,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             disabled={!canConfirm}
             data-autofocus={!isDanger && !requireText ? '' : undefined}
             className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-              isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'
+              isDanger ? 'bg-danger-600 hover:bg-danger-700' : 'bg-primary-600 hover:bg-primary-700'
             }`}
           >
             {confirmLabel}

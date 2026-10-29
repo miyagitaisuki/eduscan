@@ -13,7 +13,7 @@ interface BottomNavProps {
 }
 
 const badgeClass = (tone: 'rose' | 'amber') =>
-  `absolute -top-1 -right-2 ${tone === 'rose' ? 'bg-rose-500' : 'bg-amber-500'} text-white text-[9px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center`;
+  `absolute -top-1 -right-2 ${tone === 'rose' ? 'bg-danger-600' : 'bg-warning-600'} text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center`;
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
@@ -50,10 +50,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     return (
       <>
         <div className="relative">
-          <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110 text-blue-600' : ''}`} />
+          <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110 text-primary-600' : ''}`} />
           {badge && <span className={badgeClass(badge.tone)}>{formatCount(badge.count)}</span>}
         </div>
-        <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-bold text-blue-600' : 'font-medium'}`}>
+        <span className={`text-xs mt-0.5 tracking-tighter whitespace-nowrap ${isActive ? 'font-semibold text-primary-600' : 'font-medium'}`}>
           {tab.shortLabel}
         </span>
       </>
@@ -62,7 +62,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   const itemClass = (isActive: boolean) =>
     `flex flex-col items-center justify-center relative py-1 transition-colors cursor-pointer ${
-      isActive ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'
+      isActive ? 'text-primary-600' : 'text-slate-500 hover:text-slate-800'
     }`;
 
   return (
@@ -74,7 +74,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             return (
               <button key={tab.id} onClick={() => handleSelect(tab.id)} className={itemClass(isActive)}>
                 {renderItem(tab, isActive)}
-                {isActive && <span className="absolute top-0 w-8 h-0.5 bg-blue-600 rounded-full" />}
+                {isActive && <span className="absolute top-0 w-8 h-0.5 bg-primary-600 rounded-full" />}
               </button>
             );
           })}
@@ -93,10 +93,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   <span className={badgeClass('rose')}>{formatCount(overflowBadgeCount)}</span>
                 )}
               </div>
-              <span className={`text-[10px] mt-0.5 tracking-tight ${isOverflowActive ? 'font-bold text-blue-600' : 'font-medium'}`}>
+              <span className={`text-xs mt-0.5 tracking-tighter whitespace-nowrap ${isOverflowActive ? 'font-semibold text-primary-600' : 'font-medium'}`}>
                 Thêm
               </span>
-              {isOverflowActive && <span className="absolute top-0 w-8 h-0.5 bg-blue-600 rounded-full" />}
+              {isOverflowActive && <span className="absolute top-0 w-8 h-0.5 bg-primary-600 rounded-full" />}
             </button>
           )}
         </div>
@@ -116,7 +116,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                     onClick={() => handleSelect(tab.id)}
                     className={`relative flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border cursor-pointer transition-colors ${
                       isActive
-                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        ? 'border-primary-200 bg-primary-50 text-primary-700'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >

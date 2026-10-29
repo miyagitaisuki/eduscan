@@ -13,7 +13,7 @@ interface Props {
 
 const EMPTY = { current: '', next: '', confirm: '' };
 const inputCls =
-  'mt-1 w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+  'mt-1 w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500';
 
 export function ChangePasswordModal({ onClose, required = false, onDone }: Props) {
   const [form, setForm] = useState(EMPTY);
@@ -52,7 +52,7 @@ export function ChangePasswordModal({ onClose, required = false, onDone }: Props
     >
       <form onSubmit={onSubmit} className="space-y-4">
         {required && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+          <p className="text-xs text-warning-700 bg-warning-50 border border-warning-200 rounded-xl p-2.5">
             Mật khẩu của bạn được quản trị viên đặt. Vui lòng đặt mật khẩu mới để sử dụng hệ thống.
           </p>
         )}
@@ -70,8 +70,8 @@ export function ChangePasswordModal({ onClose, required = false, onDone }: Props
           <input type="password" autoComplete="new-password" minLength={8} className={inputCls} value={form.confirm} onChange={set('confirm')} required />
         </label>
 
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        {success && <p className="text-sm text-emerald-600">{success}</p>}
+        {error && <p role="alert" className="text-sm text-danger-600">{error}</p>}
+        {success && <p className="text-sm text-success-600">{success}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer">
@@ -80,7 +80,7 @@ export function ChangePasswordModal({ onClose, required = false, onDone }: Props
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 cursor-pointer"
+            className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-60 cursor-pointer"
           >
             {loading ? 'Đang lưu...' : 'Lưu mật khẩu'}
           </button>
