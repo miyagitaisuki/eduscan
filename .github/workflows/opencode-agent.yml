@@ -1,0 +1,38 @@
+name: OpenCode AI Agent
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  opencode-fix:
+    if: startsWith(github.event.comment.body, '@opencode')
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write      # Bắt buộc để AI có quyền push lên main
+      issues: write        # Để AI đọc được yêu cầu từ Issue/Comment
+      pull-requests: write
+
+    steps:
+      - name: Checkout mã nguồn
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Thiết lập Node.js (Cho dự án TypeScript)
+        uses: actions/setup-node@v4
+        with:
+          node-node-version: '20'
+
+      - name: Khởi chạy OpenCode Agent
+        uses: opencode-ai/agent-action@v2
+        with:
+          # Truyền nội dung câu lệnh bạn gõ trên GitHub vào AI
+          instruction: ${{ github.event.comment.body }}
+          # Cấu hình đẩy thẳng lên nhánh main
+          branch: 'main'
+          # Sử dụng mô hình AI miễn phí mặc định của OpenCode
+          model: 'opencode/free-coder' 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
