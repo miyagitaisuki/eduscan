@@ -18,6 +18,7 @@ import {
   JlptLevel 
 } from '../../../shared/types';
 import { Student } from '../types';
+import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { StudentAccountPanel } from './StudentAccountPanel';
 
 interface StudentManagementViewProps {
@@ -169,7 +170,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
 
     // Payments
     const studentPayments = payments.filter((p) => p.student_id === st.id);
-    const currentMonthPayment = studentPayments.find((p) => p.month === '10/2026');
+    const currentMonthPayment = studentPayments.find((p) => p.month === currentTuitionMonth());
     const isPaidOctober = currentMonthPayment?.status === 'paid';
 
     // Assignments
@@ -472,12 +473,12 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   {tuitionEditAmount === null ? (
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold text-slate-700">
-                        Học phí tháng 10/2026: {(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === '10/2026')?.amount ?? cls?.monthly_fee ?? 800000).toLocaleString('vi-VN')} đ
+                        Học phí tháng {currentTuitionMonth()}: {(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === currentTuitionMonth())?.amount ?? cls?.monthly_fee ?? 800000).toLocaleString('vi-VN')} đ
                       </span>
                       <button
                         type="button"
                         onClick={() =>
-                          setTuitionEditAmount(String(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === '10/2026')?.amount ?? cls?.monthly_fee ?? 800000))
+                          setTuitionEditAmount(String(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === currentTuitionMonth())?.amount ?? cls?.monthly_fee ?? 800000))
                         }
                         className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
                       >

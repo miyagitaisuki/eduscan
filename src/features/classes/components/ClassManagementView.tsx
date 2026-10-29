@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Student, Attendance, Payment, JlptLevel, ActiveTab } from '../../../shared/types';
 import { ClassItem } from '../types';
+import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 
 interface ClassManagementViewProps {
   classes: ClassItem[];
@@ -179,9 +180,9 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
         {filteredClasses.map((cls) => {
           const classStudents = students.filter((s) => s.class_id === cls.id);
 
-          // Fee collection status for 10/2026
+          // Tình trạng thu học phí tháng hiện tại
           const classStudentIds = new Set(classStudents.map((s) => s.id));
-          const monthPayments = payments.filter((p) => p.month === '10/2026' && classStudentIds.has(p.student_id));
+          const monthPayments = payments.filter((p) => p.month === currentTuitionMonth() && classStudentIds.has(p.student_id));
           const paidCount = monthPayments.filter((p) => p.status === 'paid').length;
 
           return (
