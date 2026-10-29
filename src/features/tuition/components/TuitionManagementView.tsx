@@ -15,6 +15,7 @@ import { Student, ClassItem } from '../../../shared/types';
 import { Payment } from '../types';
 import { currentTuitionMonth, tuitionMonthOptions } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
+import { useConfirm } from '../../../shared/components/ui';
 
 interface TuitionManagementViewProps {
   payments: Payment[];
@@ -46,6 +47,8 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   // Ô nhập số tiền đang mở: thu tiền ('pay') hoặc đổi học phí ('fee') cho một học viên
   const [editor, setEditor] = useState<{ studentId: string; mode: 'pay' | 'fee' } | null>(null);
   const [editorValue, setEditorValue] = useState('');
+  const [editorError, setEditorError] = useState('');
+  const confirm = useConfirm();
 
   // Month options
   const monthOptions = tuitionMonthOptions();
@@ -91,6 +94,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   const openEditor = (row: typeof rows[0], mode: 'pay' | 'fee') => {
     setEditor({ studentId: row.student.id, mode });
     setEditorValue(String(row.amount));
+    setEditorError('');
   };
 
   // Xác nhận ô nhập: kiểm tra số tiền rồi thu tiền hoặc đổi học phí
@@ -98,9 +102,10 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
     if (!editor) return;
     const value = Number(editorValue);
     if (!Number.isInteger(value) || value <= 0) {
-      alert('Số tiền phải là số nguyên dương.');
+      setEditorError('Số tiền phải là số nguyên dương.');
       return;
     }
+    setEditorError('');
     if (editor.mode === 'pay') {
       handleMarkPaid(row, value);
     } else {
@@ -125,9 +130,15 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   };
 
   // Hoàn tác trạng thái đã thu, có xác nhận để tránh bấm nhầm
-  const handleUndoPaid = (row: typeof rows[0]) => {
+  const handleUndoPaid = async (row: typeof rows[0]) => {
     if (!row.payment) return;
-    if (!window.confirm(`Hoàn tác trạng thái đã thu học phí tháng ${selectedMonth} của ${row.student.full_name}?`)) return;
+    const ok = await confirm({
+      title: 'Hoàn tác khoản đã thu?',
+      message: `Học phí tháng ${selectedMonth} của ${row.student.full_name} sẽ chuyển về trạng thái chưa đóng.`,
+      confirmLabel: 'Hoàn tác',
+      tone: 'danger',
+    });
+    if (!ok) return;
     onUpdatePayment(row.payment.id, {
       status: 'unpaid',
       paid_date: null,
@@ -427,8 +438,13 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
                     min={0}
                     step={1000}
                     value={editorValue}
-                    onChange={(e) => setEditorValue(e.target.value)}
+                    onChange={(e) => {
+                      setEditorValue(e.target.value);
+                      setEditorError('');
+                    }}
                     autoFocus
+                    aria-invalid={!!editorError}
+                    aria-describedby={editorError ? 'tuition-editor-error' : undefined}
                     className="w-36 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500"
                   />
                   <span className="text-xs text-slate-500">đ</span>
@@ -445,6 +461,11 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
                   >
                     Hủy
                   </button>
+                  {editorError && (
+                    <p id="tuition-editor-error" role="alert" className="w-full text-xs font-semibold text-rose-600">
+                      {editorError}
+                    </p>
+                  )}
                 </form>
               )}
               </React.Fragment>

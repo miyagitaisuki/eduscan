@@ -3,6 +3,7 @@ import { GraduationCap, Plus, Pencil, KeyRound, Lock, Unlock, Copy, Check, X } f
 import { TeacherAccount } from '../../../services';
 import { Gender } from '../../../shared/types';
 import { GenderSelect } from '../../../shared/components/GenderSelect';
+import { useConfirm } from '../../../shared/components/ui';
 
 interface TeacherManagementViewProps {
   teachers: TeacherAccount[];
@@ -38,6 +39,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
   onSetStatus,
   onSetPassword,
 }) => {
+  const confirm = useConfirm();
   const [form, setForm] = useState<FormState>(null);
   const [passwordFor, setPasswordFor] = useState<PasswordState>(null);
   const [issued, setIssued] = useState<IssuedPassword | null>(null);
@@ -189,8 +191,16 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                   </button>
                   {!isSelf && (
                     <button
-                      onClick={() => {
-                        if (active && !window.confirm(`Khóa tài khoản của ${t.full_name}? Giáo viên sẽ bị đăng xuất ngay.`)) return;
+                      onClick={async () => {
+                        if (active) {
+                          const ok = await confirm({
+                            title: `Khóa tài khoản của ${t.full_name}?`,
+                            message: 'Giáo viên sẽ bị đăng xuất ngay và không đăng nhập lại được cho đến khi bạn mở khóa.',
+                            confirmLabel: 'Khóa tài khoản',
+                            tone: 'danger',
+                          });
+                          if (!ok) return;
+                        }
                         onSetStatus(t.id, active ? 'inactive' : 'active');
                       }}
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer ${

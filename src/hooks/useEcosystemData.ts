@@ -2,6 +2,7 @@ import type { Gender } from '../shared/types';
 import { useState, useEffect, useCallback } from 'react';
 import { errorDetail } from '../shared/utils/errorMessage';
 import { todayLocal } from '../shared/utils/date';
+import { useConfirm } from '../shared/components/ui';
 import {
   ClassItem,
   User,
@@ -33,6 +34,7 @@ interface UseEcosystemDataOptions {
 
 export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const notify = options?.onNotify;
+  const confirm = useConfirm();
   const currentUserId = options?.currentUserId;
   const isAdmin = options?.isAdmin ?? false;
 
@@ -455,13 +457,14 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const typed = window.prompt(
-      'Khôi phục sẽ THAY THẾ TOÀN BỘ dữ liệu hiện tại bằng file sao lưu và không thể hoàn tác.\n\nGõ KHOI PHUC để xác nhận:',
-    );
-    if (typed?.trim() !== 'KHOI PHUC') {
-      if (typed !== null) notify?.('warning', 'Chưa khôi phục', 'Nội dung xác nhận không khớp.');
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Khôi phục dữ liệu từ file sao lưu?',
+      message: `Khôi phục sẽ THAY THẾ TOÀN BỘ dữ liệu hiện tại bằng nội dung file "${file.name}" và không thể hoàn tác.`,
+      confirmLabel: 'Khôi phục',
+      tone: 'danger',
+      requireText: 'KHOI PHUC',
+    });
+    if (!confirmed) return;
     try {
       const data = JSON.parse(await file.text());
       await adminService.restore(data);

@@ -15,6 +15,7 @@ import {
 import { Student, ClassItem, AiDraft } from '../../../shared/types';
 import { Assignment, Submission } from '../types';
 import { todayLocal, addDaysLocal } from '../../../shared/utils/date';
+import { useConfirm } from '../../../shared/components/ui';
 import { aiService } from '../../../services/aiService';
 import { SubmissionAttachmentsModal } from './SubmissionAttachmentsModal';
 
@@ -48,6 +49,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
   onDiscardAiDraft,
   onApproveAiDraft,
 }) => {
+  const confirm = useConfirm();
   const [selectedClassId, setSelectedClassId] = useState<string>(initialClassId || classes[0]?.id || 'all');
   const [activeAssignmentId, setActiveAssignmentId] = useState<string>(assignments[0]?.id || '');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -311,10 +313,14 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                 </div>
 
                 <button
-                  onClick={() => {
-                    if (window.confirm(`Xóa bài tập "${activeAssignment.title}"?`)) {
-                      onDeleteAssignment(activeAssignment.id);
-                    }
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: `Xóa bài tập "${activeAssignment.title}"?`,
+                      message: 'Các bài nộp và điểm của bài tập này cũng sẽ bị xóa. Không thể hoàn tác.',
+                      confirmLabel: 'Xóa bài tập',
+                      tone: 'danger',
+                    });
+                    if (ok) onDeleteAssignment(activeAssignment.id);
                   }}
                   className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer self-start"
                   title="Xóa bài tập"

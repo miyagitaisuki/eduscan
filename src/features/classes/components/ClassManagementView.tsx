@@ -15,6 +15,7 @@ import { Student, Attendance, Payment, JlptLevel, ActiveTab } from '../../../sha
 import { ClassItem } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
+import { useConfirm } from '../../../shared/components/ui';
 
 interface ClassManagementViewProps {
   /** Học phí và chọn giáo viên phụ trách chỉ dành cho admin */
@@ -53,6 +54,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   // Form State
   const [name, setName] = useState('');
   const [level, setLevel] = useState<JlptLevel>('N5');
+  const confirm = useConfirm();
   const [schedule, setSchedule] = useState('Thứ 2 - 4 - 6 (18:00 - 19:30)');
   const [monthlyFee, setMonthlyFee] = useState<number>(800000);
   const [teacherId, setTeacherId] = useState<string>('');
@@ -212,10 +214,14 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Bạn có chắc chắn muốn xóa lớp "${cls.name}"?`)) {
-                          onDeleteClass(cls.id);
-                        }
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: `Xóa lớp "${cls.name}"?`,
+                          message: 'Học viên, điểm danh và bài tập của lớp có thể bị ảnh hưởng. Không thể hoàn tác.',
+                          confirmLabel: 'Xóa lớp',
+                          tone: 'danger',
+                        });
+                        if (ok) onDeleteClass(cls.id);
                       }}
                       className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                       title="Xóa lớp"

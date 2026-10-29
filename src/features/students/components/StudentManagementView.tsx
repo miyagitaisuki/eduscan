@@ -23,6 +23,7 @@ import {
 import { Student } from '../types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
+import { useConfirm } from '../../../shared/components/ui';
 import { StudentAccountPanel } from './StudentAccountPanel';
 
 interface StudentManagementViewProps {
@@ -58,6 +59,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   onChangeTuition,
   isAdmin = false,
 }) => {
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>(initialClassId || 'all');
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>('all');
@@ -70,9 +72,11 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   const [activeProfileStudent, setActiveProfileStudent] = useState<Student | null>(null);
   // Số tiền đang nhập khi admin đổi học phí; null = đang đóng form
   const [tuitionEditAmount, setTuitionEditAmount] = useState<string | null>(null);
+  const [tuitionEditError, setTuitionEditError] = useState('');
 
   useEffect(() => {
     setTuitionEditAmount(null);
+    setTuitionEditError('');
   }, [activeProfileStudent]);
 
   const handleSaveTuitionAmount = (e: React.FormEvent) => {
@@ -80,9 +84,10 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
     if (!activeProfileStudent || !onChangeTuition || tuitionEditAmount === null) return;
     const amount = Number(tuitionEditAmount);
     if (!Number.isInteger(amount) || amount <= 0) {
-      alert('Số tiền học phí phải là số nguyên dương.');
+      setTuitionEditError('Số tiền học phí phải là số nguyên dương.');
       return;
     }
+    setTuitionEditError('');
     onChangeTuition(activeProfileStudent.id, amount);
     setTuitionEditAmount(null);
   };
@@ -386,10 +391,14 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     </button>
 
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Xóa học viên "${st.full_name}"?`)) {
-                          onDeleteStudent(st.id);
-                        }
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: `Xóa học viên "${st.full_name}"?`,
+                          message: 'Toàn bộ điểm danh, học phí và bài nộp của học viên này cũng sẽ bị xóa. Không thể hoàn tác.',
+                          confirmLabel: 'Xóa học viên',
+                          tone: 'danger',
+                        });
+                        if (ok) onDeleteStudent(st.id);
                       }}
                       title="Xóa học viên"
                       className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -508,14 +517,19 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <form onSubmit={handleSaveTuitionAmount} className="flex items-center gap-2">
+                    <form onSubmit={handleSaveTuitionAmount} className="flex flex-wrap items-center gap-2">
                       <input
                         type="number"
                         required
                         min={0}
                         step={1000}
                         value={tuitionEditAmount}
-                        onChange={(e) => setTuitionEditAmount(e.target.value)}
+                        onChange={(e) => {
+                          setTuitionEditAmount(e.target.value);
+                          setTuitionEditError('');
+                        }}
+                        aria-invalid={!!tuitionEditError}
+                        aria-describedby={tuitionEditError ? 'tuition-edit-error' : undefined}
                         className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold"
                       />
                       <span className="text-xs text-slate-500">đ</span>
@@ -532,6 +546,11 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                       >
                         Hủy
                       </button>
+                      {tuitionEditError && (
+                    <p id="tuition-edit-error" role="alert" className="w-full text-xs font-semibold text-rose-600">
+                      {tuitionEditError}
+                    </p>
+                  )}
                     </form>
                   )}
                 </div>
