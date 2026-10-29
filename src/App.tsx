@@ -101,18 +101,18 @@ export default function App() {
     schedule: c.schedule || 'Thứ 2 - 4 - 6',
     start_date: c.created_at?.split('T')[0] || '2026-09-01',
     notes: c.description || '',
-    room: 'Phòng Lab 304',
+    room: c.room || '',
     teacher_id: c.teacher_id,
   }));
 
   const formattedStudents = students.map((s) => ({
     id: s.id,
     full_name: s.full_name,
-    phone: s.phone || '0905.000.000',
+    phone: s.phone || '',
     class_id: (s as any).class_id || classes[0]?.id || 'cls-n5-01',
     level: (s as any).level || 'N5',
     join_date: s.created_at?.split('T')[0] || '2026-09-01',
-    notes: `MSSV: ${s.student_code || '225101001'}`,
+    notes: s.student_code ? `MSSV: ${s.student_code}` : '',
   }));
 
   const formattedAttendance = attendanceRecords.map((r) => ({
@@ -210,11 +210,13 @@ export default function App() {
            EDUSCAN STUDENT (ANDROID APP / WEB)
            ========================================================================= */
         <div className="py-4 px-2 sm:px-4 flex-1 flex flex-col items-center">
-          <div className="mb-2 text-center">
-            <span className="text-[11px] font-bold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs">
-              📱 Mô phỏng Giao diện EduScan Student Android (React + Capacitor)
-            </span>
-          </div>
+          {import.meta.env.DEV && (
+            <div className="mb-2 text-center">
+              <span className="text-[11px] font-bold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs">
+                📱 Mô phỏng Giao diện EduScan Student Android (React + Capacitor)
+              </span>
+            </div>
+          )}
           <StudentPortalView
             currentUser={
               currentUser || {
@@ -223,7 +225,7 @@ export default function App() {
                 full_name: 'Nguyễn Văn An',
                 role: 'student',
                 status: 'active',
-                student_code: '225101001',
+                student_code: '',
               }
             }
             classes={classes}
@@ -266,6 +268,7 @@ export default function App() {
                 onNavigateTab={(tab, classId) => navigateToTab(tab as EcosystemTeacherTab, classId)}
                 onOpenCreateClass={() => setActiveTab('classes')}
                 onOpenCreateStudent={() => setActiveTab('students')}
+                teacherName={currentUser?.full_name}
               />
             )}
 
@@ -334,6 +337,7 @@ export default function App() {
                 onUpdatePayment={(id, updates) => handleUpdateTuition(id, updates)}
                 onCreatePaymentRecord={handleRecordPayment}
                 onSetAmount={handleSetTuitionAmount}
+                teacherName={currentUser?.full_name}
               />
             )}
 

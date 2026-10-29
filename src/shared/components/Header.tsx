@@ -68,9 +68,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="font-extrabold tracking-wide text-slate-200">
               EDUSCAN ECOSYSTEM
             </span>
-            <span className="hidden sm:inline-block text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
-              REST API • JWT Auth • PostgreSQL Ready
-            </span>
           </div>
 
           {/* App Switcher (Teacher Web vs Student Mobile) - chỉ ở chế độ dev */}
@@ -174,7 +171,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 font-medium">
-                    {currentUser?.full_name || 'ThS. Nguyễn Thanh Quang'} • ĐH Quy Nhơn
+                    {currentUser?.full_name || 'Giáo viên'} • ĐH Quy Nhơn
                   </p>
                 </div>
               </div>
