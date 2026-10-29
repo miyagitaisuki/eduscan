@@ -1,0 +1,24 @@
+name: Giữ server không ngủ
+
+# Render gói miễn phí tự ngủ sau khoảng 15 phút không có truy cập. Workflow này gọi /api/health
+# mỗi 10 phút để server luôn thức, nhờ đó việc dọn tệp hết hạn chạy đúng lịch.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gọi /api/health
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -m 60 "$APP_URL/api/health" || echo 000)
+            echo "HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 20
+          done
+          exit 1
+        env:
+          APP_URL: https://eduscan-28hk.onrender.com
