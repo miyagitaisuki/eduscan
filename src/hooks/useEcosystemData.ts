@@ -257,7 +257,8 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     try {
       const updated = await homeworkService.gradeSubmission(submissionId, gradeData);
       setSubmissions((prev) => prev.map((s) => (s.id === submissionId ? updated : s)));
-      notify?.('success', 'Đã lưu kết quả chấm điểm', `Điểm: ${gradeData.score}/10`);
+      // Lưu nhận xét không kèm điểm thì updated.score vẫn là điểm cũ, nên lấy từ kết quả server
+      notify?.('success', 'Đã lưu kết quả chấm điểm', updated.score == null ? 'Đã lưu nhận xét' : `Điểm: ${updated.score}/10`);
       return updated;
     } catch (err: any) {
       notify?.('warning', 'Lỗi lưu điểm', errorDetail(err));
