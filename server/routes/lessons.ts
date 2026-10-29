@@ -226,10 +226,14 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
       }
 
       const overwrite = req.body?.overwrite === true;
+      // Mặc định chỉ gán từ hôm nay: lớp đang học dở dán giáo trình mới không được rơi vào buổi đã qua
+      const includePast = req.body?.include_past === true;
+      const conds = [eq(lessons.classId, cls.id), ne(lessons.status, 'cancelled')];
+      if (!includePast) conds.push(gte(lessons.lessonDate, todayStr()));
       const rows = await db
         .select()
         .from(lessons)
-        .where(and(eq(lessons.classId, cls.id), ne(lessons.status, 'cancelled')))
+        .where(and(...conds))
         .orderBy(asc(lessons.lessonDate));
       const targets = overwrite ? rows : rows.filter((l) => !l.title);
       const n = Math.min(targets.length, titles.length);

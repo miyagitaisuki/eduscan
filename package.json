@@ -9,6 +9,7 @@
     "start": "NODE_ENV=production node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx server/db/migrate-cli.ts",
+    "db:check": "drizzle-kit check && drizzle-kit generate && git diff --exit-code --stat -- drizzle && test -z \"$(git ls-files --others --exclude-standard drizzle)\"",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

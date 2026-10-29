@@ -71,3 +71,25 @@ describe('giáo viên nhập học viên', () => {
     expect(res.body.valid).toBe(1);
   });
 });
+
+describe('dán nội dung hàng loạt giữa khóa', () => {
+  it('mặc định chỉ gán từ hôm nay; include_past mới gán vào buổi đã qua', async () => {
+    const today = todayStr();
+    const res = await ctx.api
+      .post('/api/classes/cls-n5-01/lessons/titles')
+      .set(auth(T))
+      .send({ titles: ['Bài mới 1', 'Bài mới 2'] });
+    expect(res.status).toBe(200);
+    let lessons = (await ctx.api.get('/api/classes/cls-n5-01/lessons').set(auth(ADM))).body as any[];
+    expect(lessons.filter((l) => l.lesson_date < today).every((l) => l.title === '')).toBe(true);
+    expect(lessons.find((l) => l.title === 'Bài mới 1').lesson_date >= today).toBe(true);
+
+    await ctx.api
+      .post('/api/classes/cls-n5-01/lessons/titles')
+      .set(auth(T))
+      .send({ titles: ['Bài cũ'], include_past: true });
+    lessons = (await ctx.api.get('/api/classes/cls-n5-01/lessons').set(auth(ADM))).body as any[];
+    expect(lessons.find((l) => l.title === 'Bài cũ').lesson_date < today).toBe(true);
+  });
+});
+

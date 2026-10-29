@@ -34,8 +34,8 @@ export const lessonService = {
   },
 
   /** Gán nội dung lần lượt cho các buổi (mỗi phần tử một buổi) */
-  assignTitles(classId: string, titles: string[], overwrite: boolean): Promise<{ assigned: number; unassigned: number }> {
-    return apiClient.post(`/classes/${classId}/lessons/titles`, { titles, overwrite });
+  assignTitles(classId: string, titles: string[], overwrite: boolean, includePast = false): Promise<{ assigned: number; unassigned: number }> {
+    return apiClient.post(`/classes/${classId}/lessons/titles`, { titles, overwrite, include_past: includePast });
   },
 
   /** Gợi ý nội dung bằng AI. Không ghi gì: giáo viên xem và sửa trước khi gán */

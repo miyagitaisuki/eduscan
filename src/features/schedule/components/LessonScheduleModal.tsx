@@ -75,6 +75,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [bulkOverwrite, setBulkOverwrite] = useState(false);
+  const [bulkIncludePast, setBulkIncludePast] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [aiHint, setAiHint] = useState('');
@@ -240,7 +241,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
     if (titles.length === 0) return;
     setBulkBusy(true);
     try {
-      const res = await lessonService.assignTitles(cls.id, titles, bulkOverwrite);
+      const res = await lessonService.assignTitles(cls.id, titles, bulkOverwrite, bulkIncludePast);
       notify?.(
         res.unassigned > 0 ? 'warning' : 'success',
         `Đã gán nội dung cho ${res.assigned} buổi`,
@@ -259,7 +260,9 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
   const visible = (lessons ?? []).filter((l) =>
     filter === 'all' ? true : filter === 'upcoming' ? l.lesson_date >= today : l.lesson_date < today
   );
-  const untitledCount = (lessons ?? []).filter((l) => l.status !== 'cancelled' && !l.title).length;
+  const untitledCount = (lessons ?? []).filter(
+    (l) => l.status !== 'cancelled' && !l.title && (bulkIncludePast || l.lesson_date >= today)
+  ).length;
 
   return (
     <Modal
@@ -470,7 +473,7 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
 
           {canEditContent && bulkOpen && (
             <div className="p-3 bg-accent-50/50 border border-accent-200 rounded-2xl space-y-2">
-              <label className={labelClass} htmlFor={`${uid}-bulk`}>Mỗi dòng là nội dung một buổi, gán lần lượt theo ngày (bỏ qua buổi đã hủy)</label>
+              <label className={labelClass} htmlFor={`${uid}-bulk`}>Mỗi dòng là nội dung một buổi, gán lần lượt theo ngày từ hôm nay (bỏ qua buổi đã hủy)</label>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex-1 min-w-48">
                   <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor={`${uid}-ai-hint`}>Ghi chú cho AI (tùy chọn)</label>
@@ -495,10 +498,16 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
                 className={inputClass}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                  <input type="checkbox" checked={bulkOverwrite} onChange={(e) => setBulkOverwrite(e.target.checked)} />
-                  Ghi đè cả buổi đã có nội dung
-                </label>
+                <div className="flex flex-col gap-1">
+                  <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                    <input type="checkbox" checked={bulkOverwrite} onChange={(e) => setBulkOverwrite(e.target.checked)} />
+                    Ghi đè cả buổi đã có nội dung
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                    <input type="checkbox" checked={bulkIncludePast} onChange={(e) => setBulkIncludePast(e.target.checked)} />
+                    Tính cả các buổi đã qua (mặc định chỉ gán từ hôm nay)
+                  </label>
+                </div>
                 <button
                   type="button"
                   onClick={submitBulk}
