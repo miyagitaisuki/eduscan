@@ -281,6 +281,24 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     }
   };
 
+  // Admin đặt học phí tháng cho học viên: sửa hồ sơ cùng tháng nếu có, không thì tạo mới
+  const handleSetTuitionAmount = async (studentId: string, month: string, amount: number) => {
+    try {
+      const existing = tuitionRecords.find((t) => t.student_id === studentId && t.month === month);
+      if (existing) {
+        const updated = await tuitionService.updatePayment(existing.id, { amount });
+        setTuitionRecords((prev) => prev.map((t) => (t.id === existing.id ? updated : t)));
+      } else {
+        const classId = (students.find((s) => s.id === studentId) as { class_id?: string } | undefined)?.class_id;
+        const created = await tuitionService.createTuitionRecord({ student_id: studentId, class_id: classId, month, amount });
+        setTuitionRecords((prev) => [...prev, created]);
+      }
+      notify?.('success', 'Đã cập nhật học phí', `Tháng ${month}: ${amount.toLocaleString('vi-VN')} đ`);
+    } catch (err: any) {
+      notify?.('warning', 'Lỗi cập nhật học phí', err.message);
+    }
+  };
+
   // 6. Notification Handlers
   const handleMarkNotificationRead = async (id: string) => {
     try {
@@ -422,6 +440,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     handleRequestAiDraft,
     handleDiscardAiDraft,
     handleUpdateTuition,
+    handleSetTuitionAmount,
     handleMarkNotificationRead,
     handleDeleteStudent,
     handleRecordPayment,
