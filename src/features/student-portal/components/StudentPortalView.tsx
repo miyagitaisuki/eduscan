@@ -99,8 +99,13 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const myClass = classes[0] ?? null;
 
   // Calculations
-  const presentCount = myAttendance.filter((r) => r.status === 'present').length;
-  const attendanceRate = myAttendance.length > 0 ? Math.round((presentCount / myAttendance.length) * 100) : 100;
+  // Tỷ lệ = (tổng buổi trong lịch lớp − số buổi vắng) / tổng buổi trong lịch.
+  // Buổi chưa điểm danh không bị tính vắng; buổi đã hủy không nằm trong lịch.
+  const scheduledLessons = myClass ? lessons.filter((l) => l.class_id === myClass.id && l.status !== 'cancelled') : [];
+  const totalLessons = scheduledLessons.length;
+  const absentCount = myAttendance.filter((r) => r.status === 'absent').length;
+  const attendanceRate =
+    totalLessons > 0 ? Math.max(0, Math.round(((totalLessons - absentCount) / totalLessons) * 100)) : 100;
 
   // Học phí của tháng hiện tại; null nếu giáo viên chưa lập hồ sơ học phí tháng này
   const tuitionMonth = currentTuitionMonth();
@@ -260,7 +265,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 </div>
                 <div className="text-2xl font-black text-slate-900">{attendanceRate}%</div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Có mặt {presentCount}/{myAttendance.length} buổi
+                  Vắng {absentCount}/{totalLessons} buổi
                 </p>
               </div>
 
@@ -513,7 +518,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               <span className="text-xs font-semibold text-slate-500">Tỷ lệ chuyên cần học kỳ</span>
               <div className="text-4xl font-black text-primary-600">{attendanceRate}%</div>
               <p className="text-xs text-slate-600">
-                Bạn đã có mặt <strong className="text-success-700">{presentCount}</strong> trên tổng số {myAttendance.length} buổi học.
+                Bạn vắng <strong className="text-danger-700">{absentCount}</strong> trên tổng số {totalLessons} buổi học trong lịch.
               </p>
 
               <button
