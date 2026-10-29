@@ -64,6 +64,7 @@ export default function App() {
     handleRequestAiDraft,
     handleDiscardAiDraft,
     handleUpdateTuition,
+    handleSetTuitionAmount,
     handleMarkNotificationRead,
     handleDeleteStudent,
     handleRecordPayment,
@@ -288,6 +289,7 @@ export default function App() {
                 onUpdateStudent={(st) => handleUpdateStudent(st.id, st)}
                 onDeleteStudent={handleDeleteStudent}
                 onTransferClass={(stId, newClassId) => handleUpdateStudent(stId, { class_id: newClassId })}
+                onChangeTuition={(stId, amount) => handleSetTuitionAmount(stId, '10/2026', amount)}
               />
             )}
 

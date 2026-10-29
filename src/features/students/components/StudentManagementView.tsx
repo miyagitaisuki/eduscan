@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Users, 
   Plus, 
@@ -32,6 +32,8 @@ interface StudentManagementViewProps {
   onUpdateStudent: (student: Student) => void;
   onDeleteStudent: (studentId: string) => void;
   onTransferClass: (studentId: string, newClassId: string) => void;
+  /** Đổi học phí tháng hiện tại của học viên (chỉ admin) */
+  onChangeTuition?: (studentId: string, amount: number) => void;
   /** Admin mới thấy khối quản lý tài khoản đăng nhập */
   isAdmin?: boolean;
 }
@@ -48,6 +50,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
   onUpdateStudent,
   onDeleteStudent,
   onTransferClass,
+  onChangeTuition,
   isAdmin = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +63,24 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
 
   // Student Profile Detail Drawer
   const [activeProfileStudent, setActiveProfileStudent] = useState<Student | null>(null);
+  // Số tiền đang nhập khi admin đổi học phí; null = đang đóng form
+  const [tuitionEditAmount, setTuitionEditAmount] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTuitionEditAmount(null);
+  }, [activeProfileStudent]);
+
+  const handleSaveTuitionAmount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeProfileStudent || !onChangeTuition || tuitionEditAmount === null) return;
+    const amount = Number(tuitionEditAmount);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      alert('Số tiền học phí phải là số nguyên dương.');
+      return;
+    }
+    onChangeTuition(activeProfileStudent.id, amount);
+    setTuitionEditAmount(null);
+  };
 
   // Transfer Class Modal
   const [transferringStudent, setTransferringStudent] = useState<Student | null>(null);
@@ -444,6 +465,54 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   </p>
                 </div>
               </div>
+
+              {/* Admin: đổi học phí tháng hiện tại */}
+              {isAdmin && onChangeTuition && (
+                <div className="mb-5 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  {tuitionEditAmount === null ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-700">
+                        Học phí tháng 10/2026: {(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === '10/2026')?.amount ?? cls?.monthly_fee ?? 800000).toLocaleString('vi-VN')} đ
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTuitionEditAmount(String(payments.find((p) => p.student_id === activeProfileStudent.id && p.month === '10/2026')?.amount ?? cls?.monthly_fee ?? 800000))
+                        }
+                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                      >
+                        Thay đổi học phí
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSaveTuitionAmount} className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        step={1000}
+                        value={tuitionEditAmount}
+                        onChange={(e) => setTuitionEditAmount(e.target.value)}
+                        className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold"
+                      />
+                      <span className="text-xs text-slate-500">đ</span>
+                      <button
+                        type="submit"
+                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                      >
+                        Lưu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTuitionEditAmount(null)}
+                        className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
 
               {/* Attendance Log for this student */}
               <div className="mb-5">
