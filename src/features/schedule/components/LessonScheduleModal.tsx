@@ -72,6 +72,25 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
   const [bulkText, setBulkText] = useState('');
   const [bulkOverwrite, setBulkOverwrite] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [aiHint, setAiHint] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNote, setAiNote] = useState('');
+
+  // Gợi ý cho đúng số buổi còn trống (hoặc 10 nếu đã đủ nội dung); kết quả chỉ điền vào ô, chưa lưu
+  const suggestWithAi = async () => {
+    const wanted = Math.min(Math.max(untitledCount, 10), 60);
+    setAiBusy(true);
+    setAiNote('');
+    try {
+      const res = await lessonService.suggestTitles(cls.id, wanted, aiHint);
+      setBulkText(res.titles.join('\n'));
+      setAiNote(`AI gợi ý ${res.titles.length} nội dung. Hãy đọc lại và sửa trước khi gán.`);
+    } catch (err) {
+      setAiNote(errorDetail(err));
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const loadLessons = useCallback(async () => {
     try {
@@ -434,6 +453,21 @@ export const LessonScheduleModal: React.FC<LessonScheduleModalProps> = ({ cls, c
           {canEdit && bulkOpen && (
             <div className="p-3 bg-accent-50/50 border border-accent-200 rounded-2xl space-y-2">
               <label className={labelClass} htmlFor={`${uid}-bulk`}>Mỗi dòng là nội dung một buổi, gán lần lượt theo ngày (bỏ qua buổi đã hủy)</label>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-48">
+                  <label className="block text-xs font-medium text-slate-600 mb-1" htmlFor={`${uid}-ai-hint`}>Ghi chú cho AI (tùy chọn)</label>
+                  <input id={`${uid}-ai-hint`} type="text" maxLength={300} value={aiHint} onChange={(e) => setAiHint(e.target.value)} placeholder="VD: 25 bài Minna đầu, ưu tiên hội thoại" className={inputClass} />
+                </div>
+                <button
+                  type="button"
+                  onClick={suggestWithAi}
+                  disabled={aiBusy}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-accent-300 text-accent-700 hover:bg-accent-100 disabled:opacity-60 cursor-pointer"
+                >
+                  {aiBusy ? 'AI đang soạn...' : 'Gợi ý bằng AI'}
+                </button>
+              </div>
+              {aiNote && <p className="text-xs text-slate-600" aria-live="polite">{aiNote}</p>}
               <textarea
                 id={`${uid}-bulk`}
                 rows={5}

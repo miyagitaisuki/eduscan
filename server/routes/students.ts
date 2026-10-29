@@ -402,6 +402,8 @@ export function studentRoutes({ db, auth }: Deps) {
           phone: b.phone || '',
           gender: parseGender(b.gender) ?? null,
           status: 'active',
+          // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
+          mustChangePassword: true,
         })
         .returning();
 

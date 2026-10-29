@@ -15,7 +15,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SEED_PASSWORD = '123456';
 
 // Mỗi test dùng một Postgres trong bộ nhớ riêng (PGlite) với đầy đủ migration và dữ liệu demo.
-export async function createTestContext(configOverrides: Partial<AppConfig> = {}) {
+export async function createTestContext(configOverrides: Partial<AppConfig> = {}, ai: unknown = null) {
   const client = new PGlite();
   const drz = drizzle(client, { schema });
   await migrate(drz, { migrationsFolder: path.join(root, 'drizzle') });
@@ -24,7 +24,7 @@ export async function createTestContext(configOverrides: Partial<AppConfig> = {}
   await seedDatabase(db, { seedPassword: SEED_PASSWORD, demo: true, teacherName: 'ThS. Nguyễn Thanh Quang' });
 
   const config: AppConfig = { ...loadConfig({} as NodeJS.ProcessEnv), ...configOverrides };
-  const app = createApp({ db, config, ai: null });
+  const app = createApp({ db, config, ai: ai as any });
   const api = request(app);
 
   async function login(email: string, password = SEED_PASSWORD): Promise<string> {

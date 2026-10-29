@@ -59,6 +59,7 @@ docker run -p 3000:3000 --env-file .env eduscan
 - **Đồng bộ chỉ đụng buổi chưa chốt.** Buổi được giữ nguyên nếu đã qua (từ hôm nay trở về trước), đã có phiên điểm danh (QR hoặc nhanh, nối theo `class_id + session_date`, không cần `lesson_id`), đã bị hủy, hoặc admin đã sửa tay hay nhập nội dung (`manually_edited`).
 - **Ngày nghỉ chung** (`holidays`, admin quản lý): thêm hoặc xóa ngày nghỉ áp lại lịch của mọi lớp theo cùng quy tắc trên.
 - **Trùng lịch:** hai buổi cùng ngày, chồng giờ, và trùng giáo viên phụ trách hoặc phòng học (không phân biệt hoa thường) bị báo. Áp lịch bị chặn (409) trừ khi admin chọn "Vẫn áp dụng dù bị trùng".
+- **Gợi ý nội dung bằng AI** (cần `GEMINI_API_KEY`): trong khung dán nội dung hàng loạt, nút "Gợi ý bằng AI" điền danh sách nội dung theo cấp độ và giáo trình của lớp. Server không lưu gì; giáo viên đọc lại, sửa, rồi mới bấm "Gán nội dung". Lỗi AI báo 503, không bao giờ điền nội dung giả.
 - Quyền: chỉ admin tạo và sửa lịch, ngày nghỉ. Giáo viên xem lịch lớp mình phụ trách, học viên xem lịch lớp đang học. Tổng quan hiện nội dung buổi hôm nay; cổng học viên hiện các buổi sắp tới.
 
 ## Nhập / xuất học viên bằng CSV

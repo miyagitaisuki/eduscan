@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Type } from '@google/genai';
 import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
 import { attendanceSessions, classes, enrollments, holidays, lessons } from '../db/schema';
 import type { AppDb } from '../db/client';
@@ -27,6 +28,7 @@ import type { Deps } from './deps';
 
 const MAX_TITLE_LENGTH = 255;
 const MAX_BULK_TITLES = 400;
+const MAX_SUGGESTIONS = 60;
 const MAX_RANGE_DAYS = 400;
 
 // Admin xem mọi lớp, giáo viên xem lớp mình phụ trách, học viên xem lớp mình đang học
@@ -80,7 +82,7 @@ function parseRule(b: Record<string, any>): { rule: LessonRule } | { error: stri
   return { rule: { weekdays, startTime, endTime, startDate, endDate } };
 }
 
-export function lessonRoutes({ db, auth }: Deps) {
+export function lessonRoutes({ db, auth, ai, config }: Deps) {
   const r = Router();
 
   // ---- Lịch của một lớp ----
@@ -231,6 +233,55 @@ export function lessonRoutes({ db, auth }: Deps) {
         }
       });
       return res.json({ assigned: n, unassigned: titles.length - n });
+    })
+  );
+
+  // Gợi ý nội dung cho các buổi bằng Gemini. Chỉ trả về danh sách để giáo viên xem và sửa,
+  // không ghi vào DB. Lỗi AI trả 503 chứ không trả nội dung giả.
+  r.post(
+    '/classes/:id/lessons/suggest-titles',
+    auth.requireAdmin,
+    ah(async (req: AuthedRequest, res) => {
+      if (!ai) return res.status(503).json({ error: 'Chưa cấu hình GEMINI_API_KEY trên máy chủ.' });
+      const [cls] = await db.select().from(classes).where(eq(classes.id, req.params.id)).limit(1);
+      if (!cls) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });
+      const count = Number(req.body?.count);
+      if (!Number.isInteger(count) || count < 1 || count > MAX_SUGGESTIONS) {
+        return res.status(400).json({ error: `Số buổi cần gợi ý phải từ 1 đến ${MAX_SUGGESTIONS}.` });
+      }
+      const hint = String(req.body?.hint ?? '').trim().slice(0, 300);
+      const prompt = [
+        `Lớp tiếng Nhật trình độ JLPT ${cls.level}, tên lớp: "${cls.name}".`,
+        cls.description ? `Giáo trình / mục tiêu của lớp: ${cls.description}` : '',
+        hint ? `Ghi chú thêm từ giáo viên: ${hint}` : '',
+        `Hãy đề xuất đúng ${count} nội dung cho ${count} buổi học liên tiếp, đi từ dễ đến khó, ngắn gọn (dưới 80 ký tự mỗi nội dung), tiếng Việt.`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+      try {
+        const response = await ai.models.generateContent({
+          model: config.geminiModel,
+          contents: [prompt],
+          config: {
+            systemInstruction: 'Bạn là giáo viên tiếng Nhật có kinh nghiệm soạn kế hoạch giảng dạy. Chỉ trả về JSON đúng schema.',
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: { titles: { type: Type.ARRAY, items: { type: Type.STRING } } },
+              required: ['titles'],
+            },
+          },
+        });
+        const parsed = JSON.parse(response.text ?? '');
+        const titles = Array.isArray(parsed?.titles)
+          ? parsed.titles.map((t: unknown) => String(t ?? '').trim().slice(0, MAX_TITLE_LENGTH)).filter(Boolean).slice(0, count)
+          : [];
+        if (titles.length === 0) return res.status(502).json({ error: 'AI không trả về nội dung nào. Thử lại hoặc nhập tay.' });
+        return res.json({ titles });
+      } catch (err) {
+        console.error('[lessons] Gemini error:', (err as Error)?.message || err);
+        return res.status(503).json({ error: 'Không thể dùng AI lúc này. Vui lòng thử lại hoặc nhập nội dung thủ công.' });
+      }
     })
   );
 

@@ -38,6 +38,11 @@ export const lessonService = {
     return apiClient.post(`/classes/${classId}/lessons/titles`, { titles, overwrite });
   },
 
+  /** Gợi ý nội dung bằng AI. Không ghi gì: giáo viên xem và sửa trước khi gán */
+  suggestTitles(classId: string, count: number, hint: string): Promise<{ titles: string[] }> {
+    return apiClient.post<{ titles: string[] }>(`/classes/${classId}/lessons/suggest-titles`, { count, hint });
+  },
+
   getHolidays(): Promise<Holiday[]> {
     return apiClient.get<Holiday[]>('/holidays');
   },
