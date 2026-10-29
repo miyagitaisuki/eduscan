@@ -136,38 +136,40 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] font-bold text-amber-300">
                 {currentUser?.role === 'student' ? 'Sinh viên' : 'Giáo viên'}
               </span>
-              {onEditProfile && (
-                <button
-                  type="button"
-                  onClick={onEditProfile}
-                  className="ml-2 text-[11px] font-semibold text-slate-300 hover:text-white underline cursor-pointer"
-                >
-                  Hồ sơ
-                </button>
-              )}
-              {onChangePassword && (
-                <button
-                  type="button"
-                  onClick={onChangePassword}
-                  className="ml-2 text-[11px] font-semibold text-slate-300 hover:text-white underline cursor-pointer"
-                >
-                  Đổi mật khẩu
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Đăng xuất: hiển thị cho mọi vai trò, không phụ thuộc chế độ dev */}
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Đăng xuất</span>
-            </button>
-          )}
+          {/* Tài khoản & đăng xuất: hiển thị cho mọi vai trò, không phụ thuộc chế độ dev */}
+          <div className="flex items-center gap-2 shrink-0">
+            {onEditProfile && (
+              <button
+                type="button"
+                onClick={onEditProfile}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Hồ sơ
+              </button>
+            )}
+            {onChangePassword && (
+              <button
+                type="button"
+                onClick={onChangePassword}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Đổi mật khẩu
+              </button>
+            )}
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng xuất</span>
+              </button>
+            )}
+          </div>
 
         </div>
       </div>
