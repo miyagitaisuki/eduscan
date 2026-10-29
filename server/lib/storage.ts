@@ -80,3 +80,23 @@ export async function createAttachmentSignedUrl(attachmentPath: string, expiresI
   }
   return `${url}/storage/v1${data.signedURL}`;
 }
+
+// Xóa tệp khỏi bucket homework theo đường dẫn (không kèm tên bucket). Dùng API bulk delete của Storage.
+export async function deleteHomeworkObjects(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+  const url = process.env.SUPABASE_URL?.replace(/\/$/, '');
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new StorageError('Chưa cấu hình nơi lưu tệp đính kèm.', 503);
+
+  const res = await fetch(`${url}/storage/v1/object/${BUCKET}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefixes: paths }),
+  });
+  if (!res.ok) {
+    console.error('[storage] Xóa tệp thất bại:', res.status);
+    throw new StorageError('Không xóa được tệp hết hạn.', 502);
+  }
+}
+
+export const HOMEWORK_BUCKET_PREFIX = `${BUCKET}/`;
