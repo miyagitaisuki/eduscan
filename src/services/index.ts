@@ -8,3 +8,4 @@ export * from './tuitionService';
 export * from './notificationService';
 export * from './aiService';
 export * from './adminService';
+export * from './teacherService';

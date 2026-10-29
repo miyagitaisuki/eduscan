@@ -61,8 +61,9 @@ describe('phân quyền theo lớp', () => {
     expect(students.body).toEqual([]);
     const asg = await ctx.api.get('/api/assignments').set('Authorization', `Bearer ${OTHER}`);
     expect(asg.body).toEqual([]);
+    // Học phí chỉ dành cho admin: giáo viên bị từ chối, không phân biệt lớp
     const tuition = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${OTHER}`);
-    expect(tuition.body).toEqual([]);
+    expect(tuition.status).toBe(403);
   });
 
   it('giáo viên không phụ trách không giao bài hay chấm bài cho lớp khác', async () => {

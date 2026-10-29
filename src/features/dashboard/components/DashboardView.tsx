@@ -24,6 +24,8 @@ import {
 } from '../../../shared/types';
 
 interface DashboardViewProps {
+  /** Học phí chỉ hiển thị với admin */
+  isAdmin?: boolean;
   classes: ClassItem[];
   students: Student[];
   attendance: Attendance[];
@@ -43,6 +45,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   assignments,
   submissions,
   onNavigateTab,
+  isAdmin = false,
 }) => {
   // Tháng hiện tại, ví dụ "10/2026"
   const currentMonth = currentTuitionMonth();
@@ -93,7 +96,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Hôm nay là <span className="font-bold text-white">{todayName}</span>. 
               {todayClasses.length > 0 
                 ? ` Thầy có ${todayClasses.length} lớp học tiếng Nhật cần điểm danh.`
-                : ' Không có lịch học cố định hôm nay. Thầy có thể kiểm tra học phí và chấm bài tập.'}
+                : isAdmin ? ' Không có lịch học cố định hôm nay. Thầy có thể kiểm tra học phí và chấm bài tập.' : ' Không có lịch học cố định hôm nay. Thầy có thể chấm bài tập.'}
             </p>
           </div>
 
@@ -149,7 +152,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 3: Tuition Unpaid */}
+        {/* Card 3: Tuition Unpaid (chỉ admin) */}
+        {isAdmin && (
         <div 
           onClick={() => onNavigateTab('tuition')}
           className="bg-white p-4 sm:p-5 rounded-2xl border border-blue-100/80 shadow-xs hover:border-amber-300 transition-all cursor-pointer group active:scale-98"
@@ -173,6 +177,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
           </div>
         </div>
+
+        )}
 
         {/* Card 4: Assignments */}
         <div 
@@ -312,7 +318,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* 2-Column Section: Pending Tuition Alert & Quick Homework Status */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        {/* Tuition Debt Widget */}
+        {/* Tuition Debt Widget (chỉ admin) */}
+        {isAdmin && (
         <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -376,6 +383,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
         </div>
+
+        )}
 
         {/* Assignments & Homework Widget */}
         <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-xs flex flex-col justify-between">

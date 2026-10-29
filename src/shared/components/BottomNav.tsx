@@ -6,7 +6,8 @@ import {
   Users, 
   CreditCard,
   FileText,
-  GraduationCap
+  GraduationCap,
+  UserCog
 } from 'lucide-react';
 import { ActiveTab } from '../types/common';
 
@@ -15,6 +16,7 @@ interface BottomNavProps {
   onTabChange: (tab: ActiveTab) => void;
   unpaidCount: number;
   ungradedCount: number;
+  isAdmin?: boolean;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -22,20 +24,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
   unpaidCount,
   ungradedCount,
+  isAdmin = false,
 }) => {
-  const tabs: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  const allTabs: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
     { id: 'dashboard', label: 'Tổng quan', icon: BarChart3 },
     { id: 'attendance', label: 'Điểm danh', icon: CheckSquare },
     { id: 'classes', label: 'Lớp học', icon: BookOpen },
     { id: 'students', label: 'Học viên', icon: Users },
-    { id: 'tuition', label: 'Học phí', icon: CreditCard },
+    { id: 'tuition', label: 'Học phí', icon: CreditCard, adminOnly: true },
     { id: 'homework', label: 'Bài tập', icon: FileText },
     { id: 'stats', label: 'Báo cáo', icon: GraduationCap },
+    { id: 'teachers', label: 'Giáo viên', icon: UserCog, adminOnly: true },
   ];
+  const tabs = allTabs.filter((tab) => !tab.adminOnly || isAdmin);
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
-      <div className="grid grid-cols-7 h-15">
+      <div className="grid h-15" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

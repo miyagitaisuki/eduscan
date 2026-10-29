@@ -16,6 +16,8 @@ import {
 } from '../../../shared/types';
 
 interface StudentStatsViewProps {
+  /** Học phí chỉ hiển thị với admin */
+  isAdmin?: boolean;
   students: Student[];
   classes: ClassItem[];
   attendance: Attendance[];
@@ -25,6 +27,7 @@ interface StudentStatsViewProps {
 }
 
 export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
+  isAdmin = false,
   students,
   classes,
   attendance,
@@ -103,7 +106,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
           Thống kê kết quả & Dashboard từng học viên
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          Theo dõi tổng hợp chuyên cần, học phí, bài tập và điểm số cá nhân của học viên.
+          {isAdmin ? 'Theo dõi tổng hợp chuyên cần, học phí, bài tập và điểm số cá nhân của học viên.' : 'Theo dõi tổng hợp chuyên cần, bài tập và điểm số cá nhân của học viên.'}
         </p>
 
         {/* Student Dropdown Switcher */}
@@ -165,7 +168,8 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
               </p>
             </div>
 
-            {/* Metric 2: Unpaid Tuition */}
+            {/* Metric 2: Unpaid Tuition (chỉ admin) */}
+            {isAdmin && (
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
                 <span className="font-bold">Học phí còn thiếu</span>
@@ -178,6 +182,8 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                 Đã đóng: {paidAmount.toLocaleString('vi-VN')} đ
               </p>
             </div>
+
+            )}
 
             {/* Metric 3: Homework Submissions */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -254,7 +260,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                 <th className="py-2.5 px-3">Lớp</th>
                 <th className="py-2.5 px-3 text-center">Chuyên cần</th>
                 <th className="py-2.5 px-3 text-center">Số buổi vắng</th>
-                <th className="py-2.5 px-3 text-center">Học phí nợ</th>
+                {isAdmin && <th className="py-2.5 px-3 text-center">Học phí nợ</th>}
                 <th className="py-2.5 px-3 text-center">Điểm TB</th>
               </tr>
             </thead>
@@ -277,6 +283,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                     </span>
                   </td>
                   <td className="py-2.5 px-3 text-center text-slate-600">{row.absentCount} buổi</td>
+                  {isAdmin && (
                   <td className="py-2.5 px-3 text-center font-bold">
                     {row.unpaidDebt > 0 ? (
                       <span className="text-rose-600">{row.unpaidDebt.toLocaleString('vi-VN')} đ</span>
@@ -284,6 +291,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
                       <span className="text-emerald-700">Đã đủ</span>
                     )}
                   </td>
+                  )}
                   <td className="py-2.5 px-3 text-center font-black text-amber-600">
                     {row.avgScore ? `${row.avgScore}/100` : '--'}
                   </td>

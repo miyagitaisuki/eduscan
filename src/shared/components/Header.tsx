@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileText,
   GraduationCap,
+  UserCog,
   Download,
   Upload,
   Smartphone,
@@ -19,10 +20,13 @@ import {
 import { User, UserRole } from '../types';
 
 export type EcosystemViewMode = 'teacher' | 'student';
-export type EcosystemTeacherTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats';
+export type EcosystemTeacherTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats' | 'teachers';
 
 interface HeaderProps {
   onChangePassword?: () => void;
+  onEditProfile?: () => void;
+  /** Học phí và quản lý giáo viên chỉ dành cho admin */
+  isAdmin?: boolean;
   viewMode: EcosystemViewMode;
   onViewModeChange: (mode: EcosystemViewMode) => void;
   currentUser: User | null;
@@ -51,18 +55,22 @@ export const Header: React.FC<HeaderProps> = ({
   showAppSwitcher = false,
   onLogout,
   onChangePassword,
+  onEditProfile,
+  isAdmin = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const teacherNavItems: { id: EcosystemTeacherTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  const allNavItems: { id: EcosystemTeacherTab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'attendance', label: 'Điểm danh QR & Nhanh', icon: CheckSquare },
     { id: 'classes', label: 'Quản lý Lớp', icon: BookOpen },
     { id: 'students', label: 'Học viên', icon: Users },
-    { id: 'tuition', label: 'Học phí', icon: CreditCard },
+    { id: 'tuition', label: 'Học phí', icon: CreditCard, adminOnly: true },
     { id: 'homework', label: 'Bài tập & AI', icon: FileText },
     { id: 'stats', label: 'Báo cáo', icon: GraduationCap },
+    { id: 'teachers', label: 'Giáo viên', icon: UserCog, adminOnly: true },
   ];
+  const teacherNavItems = allNavItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
@@ -128,6 +136,15 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] font-bold text-amber-300">
                 {currentUser?.role === 'student' ? 'Sinh viên' : 'Giáo viên'}
               </span>
+              {onEditProfile && (
+                <button
+                  type="button"
+                  onClick={onEditProfile}
+                  className="ml-2 text-[11px] font-semibold text-slate-300 hover:text-white underline cursor-pointer"
+                >
+                  Hồ sơ
+                </button>
+              )}
               {onChangePassword && (
                 <button
                   type="button"

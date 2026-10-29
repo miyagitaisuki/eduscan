@@ -10,4 +10,5 @@ export interface ClassItem {
   start_date: string; // YYYY-MM-DD
   notes: string;
   room?: string;
+  teacher_id?: string; // giáo viên phụ trách
 }
