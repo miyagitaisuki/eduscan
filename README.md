@@ -52,6 +52,15 @@ docker run -p 3000:3000 --env-file .env eduscan
 - Hộp thoại dùng chung (`src/shared/components/ui`): `Modal`, `useConfirm()` thay cho `window.confirm`, và `useIssuedPassword()` hiện mật khẩu tạm vừa cấp (giáo viên, học viên) trong hộp thoại không tự tắt, có nút sao chép thông tin đăng nhập; đặt ở cấp ứng dụng nên không mất khi chuyển trang.
 - Máy chủ phải trả `index.html` cho mọi đường dẫn không bắt đầu bằng `/api` (server.ts đã làm). Nếu đặt frontend trên static host riêng, cần cấu hình rewrite tương tự.
 
+## Lịch giảng
+
+- Admin đặt lịch lặp cho từng lớp (nút **Lịch** trên thẻ lớp): chọn thứ, giờ học, ngày bắt đầu, và kết thúc theo số tuần hoặc ngày. Form tự xem trước (không ghi DB) số buổi sẽ thêm, bỏ, đổi giờ, các ngày nghỉ bị bỏ và xung đột giáo viên/phòng; bấm **Áp dụng lịch** mới ghi.
+- Mỗi lớp tối đa một buổi mỗi ngày (`lessons`, unique `class_id + lesson_date`). Ngày và giờ là `date`/`time` thuần, không có múi giờ. Chuỗi `classes.schedule` được server sinh lại từ lịch lặp nên Tổng quan và các màn hình cũ vẫn đọc được.
+- **Đồng bộ chỉ đụng buổi chưa chốt.** Buổi được giữ nguyên nếu đã qua (từ hôm nay trở về trước), đã có phiên điểm danh (QR hoặc nhanh, nối theo `class_id + session_date`, không cần `lesson_id`), đã bị hủy, hoặc admin đã sửa tay hay nhập nội dung (`manually_edited`).
+- **Ngày nghỉ chung** (`holidays`, admin quản lý): thêm hoặc xóa ngày nghỉ áp lại lịch của mọi lớp theo cùng quy tắc trên.
+- **Trùng lịch:** hai buổi cùng ngày, chồng giờ, và trùng giáo viên phụ trách hoặc phòng học (không phân biệt hoa thường) bị báo. Áp lịch bị chặn (409) trừ khi admin chọn "Vẫn áp dụng dù bị trùng".
+- Quyền: chỉ admin tạo và sửa lịch, ngày nghỉ. Giáo viên xem lịch lớp mình phụ trách, học viên xem lịch lớp đang học. Tổng quan hiện nội dung buổi hôm nay; cổng học viên hiện các buổi sắp tới.
+
 ## Sao lưu
 
 - **Lớp chính:** sao lưu tự động của Supabase (gói có sao lưu hằng ngày/PITR). Kiểm tra gói đang dùng có bật tính năng này.

@@ -51,8 +51,89 @@ export interface ClassItem {
   room: string;
   /** Ngày bắt đầu khóa (YYYY-MM-DD); rỗng nếu chưa đặt */
   start_date: string;
+  /** Lịch lặp hàng tuần (0 = Chủ Nhật ... 6 = Thứ Bảy); mảng rỗng nếu lớp chưa dùng lịch tự động */
+  weekdays: number[];
+  /** Giờ học HH:MM của lịch lặp; rỗng nếu chưa đặt */
+  lesson_start_time: string;
+  lesson_end_time: string;
+  /** Ngày kết thúc lịch lặp (YYYY-MM-DD); rỗng nếu chưa đặt */
+  end_date: string;
   created_at: string;
   student_count?: number;
+}
+
+/** Buổi học theo kế hoạch. Ngày YYYY-MM-DD và giờ HH:MM là giờ địa phương, không có múi giờ */
+export interface Lesson {
+  id: string;
+  class_id: string;
+  class_name?: string;
+  lesson_date: string;
+  start_time: string;
+  end_time: string;
+  /** Nội dung buổi học; rỗng nếu chưa nhập */
+  title: string;
+  notes: string;
+  status: 'planned' | 'cancelled';
+  /** Admin đã sửa tay nên đồng bộ lại lịch không ghi đè */
+  manually_edited: boolean;
+  has_attendance: boolean;
+  /** done: đã qua ngày học hoặc đã có điểm danh */
+  state: 'upcoming' | 'done' | 'cancelled';
+}
+
+export interface Holiday {
+  id: string;
+  name: string;
+  /** YYYY-MM-DD, bao gồm cả ngày đầu và ngày cuối */
+  start_date: string;
+  end_date: string;
+}
+
+export interface HolidayInput {
+  name: string;
+  start_date: string;
+  /** Bỏ trống = nghỉ một ngày */
+  end_date?: string;
+}
+
+export interface LessonConflictInfo {
+  date: string;
+  class_id: string;
+  class_name: string;
+  kind: 'teacher' | 'room';
+}
+
+/** Lịch lặp admin đặt cho một lớp. Cần một trong hai: weeks (số tuần kể từ start_date) hoặc end_date */
+export interface LessonPlanInput {
+  weekdays: number[];
+  start_time: string;
+  end_time: string;
+  start_date: string;
+  end_date?: string;
+  weeks?: number;
+}
+
+/** Kết quả xem trước hoặc áp lịch */
+export interface LessonSyncResult {
+  applied: boolean;
+  end_date: string;
+  total: number;
+  create: string[];
+  update: string[];
+  remove: string[];
+  keep: number;
+  kept_off_schedule: number;
+  skipped_holidays: { date: string; name: string }[];
+  conflicts: LessonConflictInfo[];
+}
+
+export interface LessonUpdateInput {
+  title?: string;
+  notes?: string;
+  lesson_date?: string;
+  start_time?: string;
+  end_time?: string;
+  status?: 'planned' | 'cancelled';
 }
 
 // Dữ liệu các biểu mẫu gửi lên server (khớp với trường server đọc trong server/routes)
@@ -64,7 +145,7 @@ export interface ClassInput {
   room: string;
   /** YYYY-MM-DD; chuỗi rỗng để xóa */
   start_date: string;
-  /** Chỉ admin được đặt học phí và giáo viên phụ trách */
+  /** Chỉ admin được đặt học phí và giáo viên phụ trách; lịch lặp đặt riêng qua LessonPlanInput */
   monthly_fee?: number;
   teacher_id?: string;
 }

@@ -33,6 +33,7 @@ export default function StudentApp({ data, currentUser }: StudentAppProps) {
       <StudentPortalView
         currentUser={currentUser}
         classes={data.classes}
+        lessons={data.lessons}
         assignments={data.assignments}
         submissions={data.submissions}
         attendanceRecords={data.attendanceRecords}

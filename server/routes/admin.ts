@@ -8,6 +8,8 @@ const TABLES = [
   ['users', s.users],
   ['classes', s.classes],
   ['enrollments', s.enrollments],
+  ['lessons', s.lessons],
+  ['holidays', s.holidays],
   ['assignments', s.assignments],
   ['submissions', s.submissions],
   ['attendance_sessions', s.attendanceSessions],

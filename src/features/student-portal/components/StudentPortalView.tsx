@@ -28,7 +28,10 @@ import {
   NotificationItem,
   StudentTab,
   ClassItem,
+  Lesson,
 } from '../../../shared/types';
+import { LessonScheduleModal } from '../../schedule';
+import { shortLessonDate } from '../../../shared/utils/lessonDates';
 import { CameraQRScanner } from '../../../shared/components/CameraQRScanner';
 import { Modal } from '../../../shared/components/ui';
 import { compressImage } from '../../../shared/utils/compressImage';
@@ -39,6 +42,8 @@ import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 interface StudentPortalViewProps {
   currentUser: User;
   classes: ClassItem[];
+  /** Buổi học sắp tới của lớp mình đang học */
+  lessons?: Lesson[];
   assignments: Assignment[];
   submissions: Submission[];
   attendanceRecords: AttendanceRecord[];
@@ -55,6 +60,7 @@ interface StudentPortalViewProps {
 export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   currentUser,
   classes,
+  lessons = [],
   assignments,
   submissions,
   attendanceRecords,
@@ -67,6 +73,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   onTabChange: setActiveTab,
 }) => {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
 
   // Selected assignment for viewing details or submitting
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
@@ -355,6 +362,33 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 <>
                   <p className="text-xs text-slate-900 font-semibold">{myClass.name}</p>
                   <p className="text-xs text-primary-600 font-medium">{myClass.schedule || 'Chưa có lịch học'}</p>
+                  {(() => {
+                    const upcoming = lessons.filter((l) => l.class_id === myClass.id && l.state === 'upcoming').slice(0, 3);
+                    return (
+                      <>
+                        {upcoming.length > 0 && (
+                          <ul className="space-y-1.5 pt-1">
+                            {upcoming.map((l) => (
+                              <li key={l.id} className="flex items-start gap-2 text-xs p-2 bg-white rounded-xl border border-slate-200">
+                                <span className="font-extrabold text-slate-800 w-16 shrink-0">{shortLessonDate(l.lesson_date)}</span>
+                                <span className="text-slate-600">
+                                  <span className="font-medium">{l.start_time} - {l.end_time}</span>
+                                  {l.title ? ` • ${l.title}` : ''}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsScheduleOpen(true)}
+                          className="text-xs font-bold text-primary-700 hover:text-primary-800 cursor-pointer"
+                        >
+                          Xem toàn bộ lịch học
+                        </button>
+                      </>
+                    );
+                  })()}
                 </>
               ) : (
                 <p className="text-xs text-slate-500">Bạn chưa được xếp vào lớp nào. Hãy liên hệ giáo viên.</p>
@@ -792,6 +826,10 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
             </button>
           </div>
         </Modal>
+      )}
+
+      {isScheduleOpen && myClass && (
+        <LessonScheduleModal cls={myClass} canEdit={false} onClose={() => setIsScheduleOpen(false)} onChanged={() => {}} />
       )}
 
       {/* Live Camera QR Scanner Modal */}

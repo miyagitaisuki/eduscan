@@ -7,6 +7,7 @@ import { useHomeworkData } from './data/useHomeworkData';
 import { useTuitionData } from './data/useTuitionData';
 import { useTeachersData } from './data/useTeachersData';
 import { useNotificationsData } from './data/useNotificationsData';
+import { useLessonsData } from './data/useLessonsData';
 import { useBackup } from './data/useBackup';
 import type { Notify } from './data/types';
 
@@ -42,6 +43,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const tuition = useTuitionData({ notify, enabled: isAdmin });
   const teachers = useTeachersData({ notify, enabled: isAdmin });
   const notifications = useNotificationsData(currentUserId);
+  const lessons = useLessonsData();
 
   const loadClasses = classes.load;
   const loadStudents = students.load;
@@ -50,6 +52,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const loadTuition = tuition.load;
   const loadTeachers = teachers.load;
   const loadNotifications = notifications.load;
+  const loadLessons = lessons.load;
 
   // Tải lại toàn bộ dữ liệu. Yêu cầu lỗi giữ nguyên dữ liệu cũ và hiện banner "Thử lại".
   const refreshData = useCallback(async () => {
@@ -61,12 +64,13 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       loadTuition(),
       loadTeachers(),
       loadNotifications(),
+      loadLessons(),
     ]);
     const ok = results.every(Boolean);
     setLoadError(ok ? null : 'Không tải được một phần dữ liệu. Có thể máy chủ đang khởi động hoặc mạng không ổn định.');
     setIsLoading(false);
     return ok;
-  }, [loadClasses, loadStudents, loadAttendance, loadHomework, loadTuition, loadTeachers, loadNotifications]);
+  }, [loadClasses, loadStudents, loadAttendance, loadHomework, loadTuition, loadTeachers, loadNotifications, loadLessons]);
   refreshRef.current = refreshData;
 
   // Chỉ tải khi đã đăng nhập; mỗi lần đổi tài khoản thì hiện lại màn hình đang tải
@@ -91,6 +95,11 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     return tuition.setAmount(studentId, month, amount, classId);
   };
 
+  // Sau khi admin đổi lịch hoặc ngày nghỉ: chỉ tải lại lớp (chuỗi lịch) và buổi học, không tải lại toàn bộ
+  const reloadSchedule = useCallback(async () => {
+    await Promise.all([loadClasses(), loadLessons()]);
+  }, [loadClasses, loadLessons]);
+
   const backup = useBackup(notify, refreshData);
 
   return {
@@ -103,6 +112,9 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     tuitionRecords: tuition.tuitionRecords as TuitionRecord[],
     teachers: teachers.teachers,
     notifications: notifications.notifications,
+    lessons: lessons.lessons,
+    notify,
+    reloadSchedule,
     isLoading,
     loadError,
     refreshData,

@@ -61,6 +61,7 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
             key={viewKey}
             isAdmin={isAdmin}
             classes={classes}
+            lessons={data.lessons}
             students={students}
             attendance={attendanceRecords}
             payments={tuitionRecords}
@@ -102,6 +103,8 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
             onUpdateClass={data.handleUpdateClass}
             onDeleteClass={(clsId) => data.handleDeleteClass(clsId)}
             onNavigateTab={goTo}
+            onScheduleChanged={data.reloadSchedule}
+            notify={data.notify}
           />
         )}
 

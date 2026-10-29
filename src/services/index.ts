@@ -1,6 +1,7 @@
 export * from './apiClient';
 export * from './authService';
 export * from './classService';
+export * from './lessonService';
 export * from './studentService';
 export * from './attendanceService';
 export * from './homeworkService';
