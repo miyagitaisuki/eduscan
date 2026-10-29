@@ -268,6 +268,8 @@ export function studentRoutes({ db, auth }: Deps) {
           cls = classRows.find((c) => c.id === defaultClassId) ?? null;
         }
         if (cls && !canUseClass(cls.id)) errors.push(`Bạn không phụ trách lớp "${cls.name}".`);
+        // Giáo viên chỉ thấy học viên trong lớp mình: học viên không lớp sẽ biến mất khỏi danh sách của họ
+        if (!cls && !className && owned !== null) errors.push('Chọn lớp cho học viên (cột Lớp hoặc lớp mặc định).');
 
         if (errors.length > 0) {
           results.push({ line, status: 'error', full_name: fullName, email, class_name: cls?.name ?? className, errors });

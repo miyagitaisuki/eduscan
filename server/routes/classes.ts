@@ -171,7 +171,7 @@ export function classRoutes({ db, auth }: Deps) {
         if (b[apiKey] !== undefined) set[col] = apiKey === 'monthly_fee' ? Number(b[apiKey]) : b[apiKey];
       }
       if (b.room !== undefined) set.room = extras.room;
-      if (b.start_date !== undefined) set.startDate = extras.startDate;
+      if (b.start_date !== undefined && !hasLessonPlan) set.startDate = extras.startDate;
       if (b.teacher_id !== undefined && isAdmin(req.user)) {
         if (!(await isTeacherAccount(db, String(b.teacher_id)))) {
           return res.status(400).json({ error: 'Giáo viên phụ trách không hợp lệ.' });

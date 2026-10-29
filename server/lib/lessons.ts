@@ -208,8 +208,13 @@ export async function planLessonSync(
       plan.keep++;
     }
   }
+  // Lần thiết lập đầu (lớp chưa có buổi nào) được tạo cả buổi đã qua để có đủ lịch sử khóa học.
+  // Các lần sau chỉ tạo buổi ở tương lai: đổi lịch giữa khóa không được sinh ra buổi "đã học" không có thật.
+  const firstSetup = existing.length === 0;
   for (const date of dates) {
-    if (!taken.has(date)) plan.create.push({ date, startTime: rule.startTime, endTime: rule.endTime });
+    if (!taken.has(date) && (firstSetup || date > today)) {
+      plan.create.push({ date, startTime: rule.startTime, endTime: rule.endTime });
+    }
   }
 
   plan.conflicts = await findLessonConflicts(db, cls, [...plan.create, ...plan.update]);
