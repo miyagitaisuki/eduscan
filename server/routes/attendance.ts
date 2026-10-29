@@ -11,12 +11,12 @@ import { attendanceDto, sessionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId, newSessionCode } from '../lib/security';
 import { canManageClass, manageableClassIds } from '../lib/access';
+import { createQrSigner, QR_PREFIX, QR_WINDOW_SECONDS } from '../lib/qr';
 import type { Deps } from './deps';
 
-const QR_WINDOW_SECONDS = 15;
-
-export function attendanceRoutes({ db, auth }: Deps) {
+export function attendanceRoutes({ db, auth, config }: Deps) {
   const r = Router();
+  const qr = createQrSigner(config.jwtSecret);
 
   // Giáo viên mở một buổi điểm danh QR (đóng các buổi đang mở của lớp)
   r.post(
@@ -32,7 +32,6 @@ export function attendanceRoutes({ db, auth }: Deps) {
       }
 
       const now = new Date();
-      const stamp = Math.floor(now.getTime() / (QR_WINDOW_SECONDS * 1000));
       const id = newId('ses');
       const session = await db.transaction(async (tx) => {
         await tx
@@ -44,7 +43,8 @@ export function attendanceRoutes({ db, auth }: Deps) {
           .values({
             id,
             classId,
-            qrCode: `EDUSCAN_QR:${classId}:${stamp}:${todayStr()}`,
+            // Chỉ là nhãn; mã QR thật được server ký lại mỗi chu kỳ qua GET /session/:id/qr
+            qrCode: `${QR_PREFIX}:${id}`,
             sessionCode: newSessionCode(),
             sessionDate: todayStr(),
             startTime: now,
@@ -54,6 +54,27 @@ export function attendanceRoutes({ db, auth }: Deps) {
         return row;
       });
       return res.status(201).json(sessionDto(session, { class_name: cls.name }));
+    })
+  );
+
+  // Mã QR hiện hành của phiên đang mở. Trình duyệt giáo viên chỉ hiển thị mã này và hỏi lại
+  // sau refresh_in_ms; mã do server ký nên không thể tự dựng ở phía client.
+  r.get(
+    '/session/:id/qr',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const [session] = await db
+        .select()
+        .from(attendanceSessions)
+        .where(eq(attendanceSessions.id, req.params.id))
+        .limit(1);
+      if (!session) return res.status(404).json({ error: 'Không tìm thấy buổi điểm danh.' });
+      if (!(await canManageClass(db, req.user, session.classId))) {
+        return res.status(403).json({ error: 'Bạn chỉ được xem mã QR của lớp mình phụ trách.' });
+      }
+      if (!session.isActive) return res.status(409).json({ error: 'Buổi điểm danh này đã kết thúc.' });
+      res.set('Cache-Control', 'no-store');
+      return res.json({ ...qr.build(session.id), window_seconds: QR_WINDOW_SECONDS });
     })
   );
 
@@ -71,27 +92,28 @@ export function attendanceRoutes({ db, auth }: Deps) {
       let session: typeof attendanceSessions.$inferSelect | undefined;
 
       if (session_id) {
+        // Đường tắt theo mã buổi chỉ dành cho giáo viên điểm danh hộ; học viên phải quét QR hoặc nhập mã phiên
+        if (isStudent(req)) return res.status(403).json({ error: 'Vui lòng quét mã QR hoặc nhập mã phiên để điểm danh.' });
         [session] = await db
           .select()
           .from(attendanceSessions)
           .where(and(eq(attendanceSessions.id, session_id), eq(attendanceSessions.isActive, true)))
           .limit(1);
         if (!session) return res.status(400).json({ error: 'Buổi học chưa mở hoặc đã kết thúc.' });
-      } else if (typeof qr_payload === 'string' && qr_payload.startsWith('EDUSCAN_QR:')) {
-        // Định dạng: EDUSCAN_QR:<classId>:<tokenStamp>:<date>
-        const parts = qr_payload.split(':');
-        if (parts.length !== 4) return res.status(400).json({ error: 'Mã QR không hợp lệ.' });
-        const [, classId, stampStr] = parts;
-        const stamp = Number(stampStr);
-        const nowStamp = Math.floor(Date.now() / (QR_WINDOW_SECONDS * 1000));
-        // Chỉ chấp nhận chu kỳ hiện tại hoặc chu kỳ trước (bù độ trễ mạng)
-        if (!Number.isInteger(stamp) || (stamp !== nowStamp && stamp !== nowStamp - 1)) {
-          return res.status(400).json({ error: 'Mã QR đã hết hạn. Vui lòng quét mã đang hiển thị trên màn hình.' });
+      } else if (typeof qr_payload === 'string' && qr_payload.startsWith(`${QR_PREFIX}:`)) {
+        const result = qr.verify(qr_payload);
+        if (!result.ok) {
+          return res.status(400).json({
+            error:
+              result.reason === 'expired'
+                ? 'Mã QR đã hết hạn. Vui lòng quét mã đang hiển thị trên màn hình.'
+                : 'Mã QR không hợp lệ.',
+          });
         }
         [session] = await db
           .select()
           .from(attendanceSessions)
-          .where(and(eq(attendanceSessions.classId, classId), eq(attendanceSessions.isActive, true)))
+          .where(and(eq(attendanceSessions.id, result.sessionId), eq(attendanceSessions.isActive, true)))
           .limit(1);
         if (!session) return res.status(400).json({ error: 'Buổi học chưa bắt đầu hoặc đã kết thúc.' });
       } else if (typeof qr_payload === 'string' && qr_payload.trim()) {

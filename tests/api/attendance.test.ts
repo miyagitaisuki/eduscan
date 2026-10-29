@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createTestContext, TEACHER, STUDENT_AN, STUDENT_MAI, STUDENT_DUNG, currentQr } from '../helpers';
+import { createTestContext, TEACHER, STUDENT_AN, STUDENT_MAI, STUDENT_DUNG, signedQr } from '../helpers';
 import { eq } from 'drizzle-orm';
 import { attendanceSessions, attendanceRecords } from '../../server/db/schema';
 
@@ -28,30 +28,112 @@ async function openSession(classId = 'cls-n5-01') {
 }
 
 describe('điểm danh QR và mã phiên', () => {
-  it('QR của chu kỳ hiện tại được chấp nhận', async () => {
-    await openSession();
-    const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${AN}`).send({
-      qr_payload: currentQr('cls-n5-01'),
-    });
+  it('giáo viên lấy mã QR do server ký, học viên quét được', async () => {
+    const s = await openSession();
+    const qr = await ctx.api.get(`/api/attendance/session/${s.id}/qr`).set('Authorization', `Bearer ${T}`);
+    expect(qr.status).toBe(200);
+    expect(qr.body.payload).toMatch(/^EDUSCAN_QR:/);
+    expect(qr.body.refresh_in_ms).toBeGreaterThan(0);
+    expect(qr.body.refresh_in_ms).toBeLessThanOrEqual(15000);
+    const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${AN}`).send({ qr_payload: qr.body.payload });
     expect([200, 201]).toContain(res.status);
     expect(res.body.success).toBe(true);
   });
 
+  it('QR của chu kỳ hiện tại và chu kỳ liền trước đều được chấp nhận', async () => {
+    const s = await openSession();
+    const now = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${AN}`).send({
+      qr_payload: signedQr(ctx.config, s.id),
+    });
+    expect([200, 201]).toContain(now.status);
+    const prev = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({
+      qr_payload: signedQr(ctx.config, s.id, 1),
+    });
+    expect([200, 201]).toContain(prev.status);
+  });
+
   it('QR đã quá 2 chu kỳ (30 giây) bị từ chối', async () => {
-    await openSession();
+    const s = await openSession();
     const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({
-      qr_payload: currentQr('cls-n5-01', 2),
+      qr_payload: signedQr(ctx.config, s.id, 2),
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/hết hạn/);
   });
 
   it('QR của tương lai bị từ chối', async () => {
-    await openSession();
+    const s = await openSession();
     const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({
-      qr_payload: currentQr('cls-n5-01', -1),
+      qr_payload: signedQr(ctx.config, s.id, -1),
     });
     expect(res.status).toBe(400);
+  });
+
+  it('QR tự dựng theo định dạng cũ (classId + stamp + ngày) bị từ chối', async () => {
+    await openSession();
+    const stamp = Math.floor(Date.now() / 15000);
+    const forged = `EDUSCAN_QR:cls-n5-01:${stamp}:${new Date().toISOString().split('T')[0]}`;
+    const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({ qr_payload: forged });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/không hợp lệ/);
+  });
+
+  it('QR tự dựng với sessionId đúng nhưng chữ ký giả bị từ chối', async () => {
+    const s = await openSession();
+    const stamp = Math.floor(Date.now() / 15000);
+    for (const sig of ['AAAAAAAAAAAAAAAAAAAAAA', '', 'x']) {
+      const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({
+        qr_payload: `EDUSCAN_QR:${s.id}:${stamp}:${sig}`,
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/không hợp lệ/);
+    }
+  });
+
+  it('sửa stamp của một mã hợp lệ làm chữ ký không còn khớp', async () => {
+    const s = await openSession();
+    const parts = signedQr(ctx.config, s.id).split(':');
+    parts[2] = String(Number(parts[2]) + 1);
+    const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({ qr_payload: parts.join(':') });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/không hợp lệ/);
+  });
+
+  it('mã QR của phiên cũ không dùng được sau khi giáo viên mở phiên mới', async () => {
+    const oldSession = await openSession();
+    const oldQr = signedQr(ctx.config, oldSession.id);
+    await openSession();
+    const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({ qr_payload: oldQr });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/kết thúc/);
+  });
+
+  it('mã QR ký bằng khóa khác (server khác) bị từ chối', async () => {
+    const s = await openSession();
+    const other = signedQr({ ...ctx.config, jwtSecret: 'khac-hoan-toan-' + ctx.config.jwtSecret }, s.id);
+    const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({ qr_payload: other });
+    expect(res.status).toBe(400);
+  });
+
+  it('học viên không lấy được mã QR của phiên', async () => {
+    const s = await openSession();
+    const res = await ctx.api.get(`/api/attendance/session/${s.id}/qr`).set('Authorization', `Bearer ${AN}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('không lấy được mã QR của phiên đã đóng hoặc không tồn tại', async () => {
+    const oldSession = await openSession();
+    await openSession();
+    const closed = await ctx.api.get(`/api/attendance/session/${oldSession.id}/qr`).set('Authorization', `Bearer ${T}`);
+    expect(closed.status).toBe(409);
+    const missing = await ctx.api.get('/api/attendance/session/ses-khong-co/qr').set('Authorization', `Bearer ${T}`);
+    expect(missing.status).toBe(404);
+  });
+
+  it('học viên không thể điểm danh bằng session_id, bỏ qua QR', async () => {
+    const s = await openSession();
+    const res = await ctx.api.post('/api/attendance/checkin').set('Authorization', `Bearer ${MAI}`).send({ session_id: s.id });
+    expect(res.status).toBe(403);
   });
 
   it('mã phiên nhập tay phải khớp đúng phiên đang mở (không phân biệt hoa thường)', async () => {

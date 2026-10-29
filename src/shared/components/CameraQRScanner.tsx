@@ -211,20 +211,6 @@ export const CameraQRScanner: React.FC<CameraQRScannerProps> = ({
               Check-in
             </button>
           </form>
-
-          {/* Demo scan: chỉ có ở chế độ dev, không có trong bản production */}
-          {import.meta.env.DEV && (
-            <button
-              type="button"
-              onClick={() => {
-                onScanSuccess('EDUSCAN_QR:cls-n5-01:LIVE:2026-10-28');
-                onClose();
-              }}
-              className="w-full py-2 text-center text-xs text-blue-400 hover:text-blue-300 underline cursor-pointer"
-            >
-              ⚡ Check-in nhanh mẫu (Demo Lớp N5 Sơ cấp)
-            </button>
-          )}
         </div>
 
       </div>

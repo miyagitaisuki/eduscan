@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
+import { attendanceService } from '../../../services/attendanceService';
+import { errorDetail } from '../../../shared/utils/errorMessage';
 import { AttendanceSession, ClassItem, Student } from '../../../shared/types';
 import { Attendance } from '../types';
 import { todayLocal } from '../../../shared/utils/date';
@@ -59,6 +61,8 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [countdown, setCountdown] = useState(15);
   const [sessionCode, setSessionCode] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [qrError, setQrError] = useState('');
 
   // Sync when initialClassId changes
   useEffect(() => {
@@ -100,40 +104,50 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
     setIsSavedFeedback(false);
   }, [selectedClassId, selectedDate, activeClass, attendance, classStudents.length]);
 
-  // Dynamic QR Code generation with 15s refresh (must match QR_WINDOW_SECONDS on the server)
+  // Mã QR do server ký và đổi mỗi chu kỳ; trình duyệt chỉ hiển thị, hỏi lại đúng lúc hết chu kỳ.
+  // Dùng thời gian còn lại do server trả về nên không phụ thuộc đồng hồ của máy giáo viên.
   useEffect(() => {
-    let timer: any;
-    if (isQROpen && activeClassId) {
-      const generateQR = async () => {
-        const timestamp = Math.floor(Date.now() / 15000);
-        const payload = `EDUSCAN_QR:${activeClassId}:${timestamp}:${selectedDate}`;
-        try {
-          const url = await QRCode.toDataURL(payload, {
-            width: 340,
-            margin: 2,
-            color: { dark: '#1e3a8a', light: '#ffffff' },
-          });
-          setQrCodeUrl(url);
-        } catch (err) {
-          console.error('QR gen error:', err);
-        }
-      };
+    if (!isQROpen || !sessionId) return;
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let tickTimer: ReturnType<typeof setInterval> | undefined;
 
-      generateQR();
-      setCountdown(15);
-
-      timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            generateQR();
-            return 15;
-          }
-          return prev - 1;
+    const loadQr = async () => {
+      try {
+        const { payload, refresh_in_ms } = await attendanceService.getSessionQr(sessionId);
+        const url = await QRCode.toDataURL(payload, {
+          width: 340,
+          margin: 2,
+          color: { dark: '#1e3a8a', light: '#ffffff' },
         });
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isQROpen, activeClassId, selectedDate]);
+        if (cancelled) return;
+        setQrCodeUrl(url);
+        setQrError('');
+        const deadline = Date.now() + refresh_in_ms;
+        setCountdown(Math.max(1, Math.ceil(refresh_in_ms / 1000)));
+        clearInterval(tickTimer);
+        tickTimer = setInterval(() => {
+          setCountdown(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+        }, 250);
+        // Chờ thêm một chút để chắc chắn đã sang chu kỳ mới
+        refreshTimer = setTimeout(loadQr, refresh_in_ms + 150);
+      } catch (err) {
+        if (cancelled) return;
+        // Mã cũ hết hạn sau tối đa 2 chu kỳ nên không để hiển thị mã không còn dùng được
+        setQrCodeUrl('');
+        setQrError(errorDetail(err));
+        clearInterval(tickTimer);
+        refreshTimer = setTimeout(loadQr, 3000);
+      }
+    };
+
+    loadQr();
+    return () => {
+      cancelled = true;
+      clearTimeout(refreshTimer);
+      clearInterval(tickTimer);
+    };
+  }, [isQROpen, sessionId]);
 
   // Toggle student present / absent
   const handleToggleStudent = (studentId: string) => {
@@ -232,6 +246,9 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                 const session = await onOpenSession(activeClass.id);
                 if (!session) return;
                 setSessionCode(session.session_code ?? '');
+                setSessionId(session.id);
+                setQrCodeUrl('');
+                setQrError('');
                 setIsQROpen(true);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
@@ -527,8 +544,11 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
                   className="w-64 h-64 mx-auto rounded-xl shadow-md"
                 />
               ) : (
-                <div className="w-64 h-64 flex items-center justify-center text-slate-400 text-xs">
-                  Đang khởi tạo mã QR...
+                <div
+                  role={qrError ? 'alert' : 'status'}
+                  className="w-64 h-64 flex items-center justify-center text-center px-4 text-xs text-slate-500"
+                >
+                  {qrError ? `Không lấy được mã QR (${qrError}). Đang thử lại...` : 'Đang khởi tạo mã QR...'}
                 </div>
               )}
 

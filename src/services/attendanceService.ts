@@ -6,6 +6,11 @@ export const attendanceService = {
     return apiClient.post<AttendanceSession>('/attendance/session', { class_id: classId });
   },
 
+  // Mã QR hiện hành của phiên (server ký); refresh_in_ms là thời gian còn lại trước khi phải lấy mã mới
+  async getSessionQr(sessionId: string): Promise<{ payload: string; refresh_in_ms: number; window_seconds: number }> {
+    return apiClient.get(`/attendance/session/${encodeURIComponent(sessionId)}/qr`);
+  },
+
   async checkIn(data: {
     student_id: string;
     session_id?: string;
