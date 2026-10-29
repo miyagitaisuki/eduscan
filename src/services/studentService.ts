@@ -32,4 +32,33 @@ export const studentService = {
   async sendPasswordReset(id: string): Promise<{ ok: boolean; message: string }> {
     return apiClient.post<{ ok: boolean; message: string }>(`/students/${id}/send-reset`);
   },
+
+  // Xuất CSV học viên trong phạm vi người dùng được xem; classId lọc theo một lớp
+  async exportStudents(classId?: string): Promise<{ blob: Blob; filename: string }> {
+    return apiClient.download(`/students/export${classId ? `?class_id=${encodeURIComponent(classId)}` : ''}`);
+  },
+
+  // Nhập hàng loạt. dry_run: chỉ kiểm tra, không ghi. Ghi thì trả mật khẩu tạm của các dòng đã tạo
+  async importStudents(data: { rows: unknown[]; class_id?: string; dry_run: boolean }): Promise<StudentImportResponse> {
+    return apiClient.post<StudentImportResponse>('/students/import', data);
+  },
 };
+
+export interface StudentImportLineResult {
+  line: number;
+  status: 'ok' | 'error';
+  full_name: string;
+  email: string;
+  class_name: string;
+  errors: string[];
+}
+
+export interface StudentImportResponse {
+  dry_run: boolean;
+  total: number;
+  valid?: number;
+  created?: number;
+  invalid: number;
+  results: StudentImportLineResult[];
+  credentials?: { line: number; full_name: string; email: string; class_name: string; temporary_password: string }[];
+}

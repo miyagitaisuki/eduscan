@@ -119,6 +119,8 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
             assignments={assignments}
             submissions={submissions}
             initialClassId={preselectedClassId}
+            onImported={data.refreshData}
+            notify={data.notify}
             onCreateStudent={(st) => data.handleCreateStudent({ ...st, student_code: st.phone })}
             onUpdateStudent={data.handleUpdateStudent}
             onDeleteStudent={data.handleDeleteStudent}
