@@ -19,16 +19,18 @@ export interface TeacherNavItem {
   shortLabel: string;
   icon: ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  /** Hiện trực tiếp trên bottom nav mobile; các mục còn lại nằm trong nút "Thêm" */
+  mobilePrimary?: boolean;
 }
 
 /** Nguồn duy nhất cho menu giáo viên: dùng chung bởi Header (desktop) và BottomNav (mobile) */
 export const TEACHER_NAV_ITEMS: TeacherNavItem[] = [
-  { id: 'dashboard', label: 'Tổng quan', shortLabel: 'Tổng quan', icon: BarChart3 },
-  { id: 'attendance', label: 'Điểm danh QR & Nhanh', shortLabel: 'Điểm danh', icon: CheckSquare },
-  { id: 'classes', label: 'Lớp học', shortLabel: 'Lớp', icon: BookOpen },
-  { id: 'students', label: 'Học viên', shortLabel: 'Học viên', icon: Users },
+  { id: 'dashboard', label: 'Tổng quan', shortLabel: 'Tổng quan', icon: BarChart3, mobilePrimary: true },
+  { id: 'attendance', label: 'Điểm danh QR & Nhanh', shortLabel: 'Điểm danh', icon: CheckSquare, mobilePrimary: true },
+  { id: 'classes', label: 'Lớp học', shortLabel: 'Lớp', icon: BookOpen, mobilePrimary: true },
+  { id: 'students', label: 'Học viên', shortLabel: 'Học viên', icon: Users, mobilePrimary: true },
   { id: 'tuition', label: 'Học phí', shortLabel: 'Học phí', icon: CreditCard, adminOnly: true },
-  { id: 'homework', label: 'Bài tập & AI', shortLabel: 'Bài tập', icon: FileText },
+  { id: 'homework', label: 'Bài tập & AI', shortLabel: 'Bài tập', icon: FileText, mobilePrimary: true },
   { id: 'stats', label: 'Báo cáo', shortLabel: 'Báo cáo', icon: GraduationCap },
   { id: 'teachers', label: 'Giáo viên', shortLabel: 'GV', icon: UserCog, adminOnly: true },
 ];
