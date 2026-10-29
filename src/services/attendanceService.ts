@@ -28,7 +28,7 @@ export const attendanceService = {
     date: string,
     presentStudentIds: string[],
     notesMap?: Record<string, string>
-  ): Promise<{ success: boolean; count: number }> {
+  ): Promise<{ success: boolean; count: number; updated: boolean }> {
     return apiClient.post('/attendance/batch', {
       class_id: classId,
       date,
