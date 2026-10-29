@@ -9,11 +9,13 @@ import {
   ChevronRight, 
   X,
   Sparkles,
-  Loader2
+  Loader2,
+  Paperclip
 } from 'lucide-react';
 import { Student, ClassItem, AiDraft } from '../../../shared/types';
 import { Assignment, Submission } from '../types';
 import { aiService } from '../../../services/aiService';
+import { SubmissionAttachmentsModal } from './SubmissionAttachmentsModal';
 
 interface HomeworkManagementViewProps {
   assignments: Assignment[];
@@ -48,6 +50,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
   const [selectedClassId, setSelectedClassId] = useState<string>(initialClassId || classes[0]?.id || 'all');
   const [activeAssignmentId, setActiveAssignmentId] = useState<string>(assignments[0]?.id || '');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false);
 
   // New Assignment Form State
   const [newTitle, setNewTitle] = useState('');
@@ -179,13 +182,22 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            Tạo bài tập mới
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setIsAttachmentsOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
+            >
+              <Paperclip className="w-4 h-4" />
+              Tệp nộp bài
+            </button>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Tạo bài tập mới
+            </button>
+          </div>
         </div>
 
         {/* Class Filter */}
@@ -501,6 +513,8 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
         </div>
 
       </div>
+
+      {isAttachmentsOpen && <SubmissionAttachmentsModal onClose={() => setIsAttachmentsOpen(false)} />}
 
       {/* Create Assignment Modal */}
       {isCreateModalOpen && (

@@ -406,7 +406,7 @@ export default function App() {
       {/* Footer */}
       <footer className="hidden md:block border-t border-slate-200 bg-white/70 py-4 text-center text-xs text-slate-500">
         <p>
-          EduScan AI Ecosystem © 2026 • Teacher Web & Student Android Platform • Trường Đại học Quy Nhơn
+          EduScan AI Ecosystem © 2026 • Teacher Web & Student Android Platform
         </p>
       </footer>
     </div>

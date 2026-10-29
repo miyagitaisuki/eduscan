@@ -11,6 +11,16 @@ export const homeworkService = {
     return apiClient.get<Assignment>(`/assignments/${id}`);
   },
 
+  // Mọi bài nộp có tệp đính kèm (giáo viên/admin)
+  async getAttachmentSubmissions(): Promise<Submission[]> {
+    return apiClient.get<Submission[]>('/submissions/attachments');
+  },
+
+  // Link tạm để mở tệp đính kèm của một bài nộp
+  async getAttachmentUrl(submissionId: string): Promise<{ url: string; expires_in: number }> {
+    return apiClient.get<{ url: string; expires_in: number }>(`/submissions/${submissionId}/attachment`);
+  },
+
   async createAssignment(data: Partial<Assignment>): Promise<Assignment> {
     return apiClient.post<Assignment>('/assignments', data);
   },

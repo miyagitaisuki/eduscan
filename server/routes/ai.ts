@@ -4,7 +4,7 @@ import { Type } from '@google/genai';
 import { assignments, submissions, users } from '../db/schema';
 import { submissionDto } from '../lib/dto';
 import { ah, AuthedRequest } from '../lib/http';
-import { canManageClass } from '../lib/access';
+import { canGradeSubmissions } from '../lib/access';
 import type { Deps } from './deps';
 
 // Lỗi AI được trả về rõ ràng (503). Không bao giờ trả điểm hay nhận xét giả thay cho kết quả AI.
@@ -99,8 +99,8 @@ export function aiRoutes({ auth, ai, config, db }: Deps) {
         .where(eq(submissions.id, req.params.submissionId))
         .limit(1);
       if (!row) return res.status(404).json({ error: 'Không tìm thấy bài nộp.' });
-      if (!(await canManageClass(db, req.user, row.a.classId))) {
-        return res.status(403).json({ error: 'Bạn chỉ được chấm bài của lớp mình phụ trách.' });
+      if (!canGradeSubmissions(req.user)) {
+        return res.status(403).json({ error: 'Bạn không có quyền chấm bài này.' });
       }
 
       try {
@@ -137,8 +137,8 @@ export function aiRoutes({ auth, ai, config, db }: Deps) {
         .where(eq(submissions.id, req.params.submissionId))
         .limit(1);
       if (!row) return res.status(404).json({ error: 'Không tìm thấy bài nộp.' });
-      if (!(await canManageClass(db, req.user, row.a.classId))) {
-        return res.status(403).json({ error: 'Bạn chỉ được chỉnh bài nộp của lớp mình phụ trách.' });
+      if (!canGradeSubmissions(req.user)) {
+        return res.status(403).json({ error: 'Bạn không có quyền chỉnh bài nộp này.' });
       }
       const [updated] = await db
         .update(submissions)

@@ -26,6 +26,9 @@ export async function canManageClass(db: AppDb, user: AuthUser, classId: string 
   return !!row;
 }
 
+// Chấm bài và nhận xét: mọi giáo viên/admin đều chấm được bài của mọi lớp.
+export const canGradeSubmissions = (user: AuthUser) => user.role === 'teacher' || user.role === 'admin';
+
 // Giáo viên chỉ quản lý học viên đang ghi danh (active) trong một lớp mình phụ trách.
 export async function canManageStudent(db: AppDb, user: AuthUser, studentId: string): Promise<boolean> {
   if (isAdmin(user)) return true;

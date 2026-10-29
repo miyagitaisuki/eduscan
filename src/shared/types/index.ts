@@ -90,6 +90,7 @@ export interface Submission {
   id: string;
   assignment_id: string;
   assignment_title?: string;
+  class_name?: string;
   ai_draft?: AiDraft | null;
   ai_draft_at?: string | null;
   student_id: string;
