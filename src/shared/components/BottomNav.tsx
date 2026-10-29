@@ -1,15 +1,6 @@
 import React from 'react';
-import { 
-  BarChart3, 
-  CheckSquare, 
-  BookOpen, 
-  Users, 
-  CreditCard,
-  FileText,
-  GraduationCap,
-  UserCog
-} from 'lucide-react';
 import { ActiveTab } from '../types/common';
+import { getTeacherNavItems } from '../config/teacherNav';
 
 interface BottomNavProps {
   activeTab: ActiveTab;
@@ -26,21 +17,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ungradedCount,
   isAdmin = false,
 }) => {
-  const allTabs: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
-    { id: 'dashboard', label: 'Tổng quan', icon: BarChart3 },
-    { id: 'attendance', label: 'Điểm danh', icon: CheckSquare },
-    { id: 'classes', label: 'Lớp học', icon: BookOpen },
-    { id: 'students', label: 'Học viên', icon: Users },
-    { id: 'tuition', label: 'Học phí', icon: CreditCard, adminOnly: true },
-    { id: 'homework', label: 'Bài tập', icon: FileText },
-    { id: 'stats', label: 'Báo cáo', icon: GraduationCap },
-    { id: 'teachers', label: 'Giáo viên', icon: UserCog, adminOnly: true },
-  ];
-  const tabs = allTabs.filter((tab) => !tab.adminOnly || isAdmin);
+  const tabs = getTeacherNavItems(isAdmin);
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
-      <div className="grid h-15" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+      <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -66,7 +47,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 )}
               </div>
               <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-bold text-blue-600' : 'font-medium'}`}>
-                {tab.label}
+                {tab.shortLabel}
               </span>
               {isActive && (
                 <span className="absolute top-0 w-8 h-0.5 bg-blue-600 rounded-full" />
