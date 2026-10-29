@@ -35,6 +35,8 @@ interface DashboardViewProps {
   onNavigateTab: (tab: ActiveTab, preselectedClassId?: string) => void;
   onOpenCreateClass: () => void;
   onOpenCreateStudent: () => void;
+  /** Họ tên giáo viên đang đăng nhập, dùng cho lời chào */
+  teacherName?: string;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -46,6 +48,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   submissions,
   onNavigateTab,
   isAdmin = false,
+  teacherName,
 }) => {
   // Tháng hiện tại, ví dụ "10/2026"
   const currentMonth = currentTuitionMonth();
@@ -78,7 +81,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const todayDateStr = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="space-y-5 pb-16 md:pb-6">
+    <div className="space-y-5">
       
       {/* Welcome Banner Card */}
       <div className="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white rounded-3xl p-5 sm:p-7 shadow-lg shadow-blue-900/15 relative overflow-hidden">
@@ -87,10 +90,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-blue-100 backdrop-blur-xs mb-2 border border-white/10">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              Quản lý lớp học cá nhân • ThS. Nguyễn Thanh Quang
+              Quản lý lớp học cá nhân{teacherName ? ` • ${teacherName}` : ''}
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Xin chào Thầy Quang 👋
+              {teacherName ? `Xin chào ${teacherName}` : 'Xin chào'} 👋
             </h2>
             <p className="text-xs sm:text-sm text-blue-100/90 mt-1 max-w-xl leading-relaxed">
               Hôm nay là <span className="font-bold text-white">{todayName}</span>. 

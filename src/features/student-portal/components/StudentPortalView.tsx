@@ -159,7 +159,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 Học viên
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">MSSV: {currentUser.student_code || '225101001'} • {myClass.name}</p>
+            <p className="text-[11px] text-slate-400">{currentUser.student_code ? `MSSV: ${currentUser.student_code} • ` : ''}{myClass.name}</p>
           </div>
         </div>
 
@@ -309,7 +309,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               </div>
               <p className="text-xs text-white font-semibold">{myClass.name}</p>
               <p className="text-xs text-blue-400 font-medium">{myClass.schedule}</p>
-              <p className="text-[11px] text-slate-400">Giảng viên: ThS. Nguyễn Thanh Quang • ĐH Quy Nhơn</p>
+              <p className="text-[11px] text-slate-400">Trường Đại học Quy Nhơn</p>
             </div>
 
           </div>
@@ -475,10 +475,10 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               {currentMonthTuition.status === 'unpaid' && (
                 <div className="mt-4 p-3 bg-slate-900/80 rounded-2xl border border-slate-700 space-y-2 text-xs">
                   <p className="font-bold text-slate-200">Thông tin chuyển khoản học phí:</p>
-                  <p className="text-slate-300">Ngân hàng: <strong>Vietcombank - Chi nhánh Quy Nhơn</strong></p>
-                  <p className="text-slate-300">Số tài khoản: <strong>0051000123456</strong></p>
+                  <p className="text-slate-300">Ngân hàng: <strong>Techcombank</strong></p>
+                  <p className="text-slate-300">Số tài khoản: <strong>4221498665197589</strong></p>
                   <p className="text-slate-300">Chủ tài khoản: <strong>NGUYEN THANH QUANG</strong></p>
-                  <p className="text-blue-400">Nội dung: <strong>HP {currentUser.student_code || '225101001'} {currentUser.full_name}</strong></p>
+                  <p className="text-blue-400">Nội dung: <strong>HP {currentUser.student_code ? `${currentUser.student_code} ` : ''}{currentUser.full_name}</strong></p>
                 </div>
               )}
             </div>

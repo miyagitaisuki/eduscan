@@ -1,23 +1,13 @@
 import React, { useRef } from 'react';
 import {
-  BarChart3,
-  CheckSquare,
-  BookOpen,
-  Users,
-  CreditCard,
-  FileText,
-  GraduationCap,
-  UserCog,
   Download,
   Upload,
   Smartphone,
   Laptop,
   LogOut,
-  QrCode,
-  ShieldCheck,
-  UserCheck
 } from 'lucide-react';
 import { User, UserRole } from '../types';
+import { getTeacherNavItems } from '../config/teacherNav';
 
 export type EcosystemViewMode = 'teacher' | 'student';
 export type EcosystemTeacherTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats' | 'teachers';
@@ -60,17 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const allNavItems: { id: EcosystemTeacherTab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'attendance', label: 'Điểm danh QR & Nhanh', icon: CheckSquare },
-    { id: 'classes', label: 'Quản lý Lớp', icon: BookOpen },
-    { id: 'students', label: 'Học viên', icon: Users },
-    { id: 'tuition', label: 'Học phí', icon: CreditCard, adminOnly: true },
-    { id: 'homework', label: 'Bài tập & AI', icon: FileText },
-    { id: 'stats', label: 'Báo cáo', icon: GraduationCap },
-    { id: 'teachers', label: 'Giáo viên', icon: UserCog, adminOnly: true },
-  ];
-  const teacherNavItems = allNavItems.filter((item) => !item.adminOnly || isAdmin);
+  const teacherNavItems = getTeacherNavItems(isAdmin);
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
@@ -87,9 +67,6 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
             <span className="font-extrabold tracking-wide text-slate-200">
               EDUSCAN ECOSYSTEM
-            </span>
-            <span className="hidden sm:inline-block text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
-              REST API • JWT Auth • PostgreSQL Ready
             </span>
           </div>
 
@@ -136,38 +113,40 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] font-bold text-amber-300">
                 {currentUser?.role === 'student' ? 'Sinh viên' : 'Giáo viên'}
               </span>
-              {onEditProfile && (
-                <button
-                  type="button"
-                  onClick={onEditProfile}
-                  className="ml-2 text-[11px] font-semibold text-slate-300 hover:text-white underline cursor-pointer"
-                >
-                  Hồ sơ
-                </button>
-              )}
-              {onChangePassword && (
-                <button
-                  type="button"
-                  onClick={onChangePassword}
-                  className="ml-2 text-[11px] font-semibold text-slate-300 hover:text-white underline cursor-pointer"
-                >
-                  Đổi mật khẩu
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Đăng xuất: hiển thị cho mọi vai trò, không phụ thuộc chế độ dev */}
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Đăng xuất</span>
-            </button>
-          )}
+          {/* Tài khoản & đăng xuất: hiển thị cho mọi vai trò, không phụ thuộc chế độ dev */}
+          <div className="flex items-center gap-2 shrink-0">
+            {onEditProfile && (
+              <button
+                type="button"
+                onClick={onEditProfile}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Hồ sơ
+              </button>
+            )}
+            {onChangePassword && (
+              <button
+                type="button"
+                onClick={onChangePassword}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Đổi mật khẩu
+              </button>
+            )}
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng xuất</span>
+              </button>
+            )}
+          </div>
 
         </div>
       </div>
@@ -175,7 +154,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Teacher Navigation Header (visible when in Teacher View Mode) */}
       {viewMode === 'teacher' && (
         <>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 pb-2.5">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2 pb-2 md:pt-3 md:pb-2.5">
             <div className="flex items-center justify-between gap-3">
               {/* Brand & User Info */}
               <div className="flex items-center gap-3">
@@ -192,7 +171,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 font-medium">
-                    {currentUser?.full_name || 'ThS. Nguyễn Thanh Quang'} • ĐH Quy Nhơn
+                    {currentUser?.full_name || 'Giáo viên'} • ĐH Quy Nhơn
                   </p>
                 </div>
               </div>
@@ -249,7 +228,7 @@ export const Header: React.FC<HeaderProps> = ({
                       <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                       {item.label}
                       {item.id === 'attendance' && (
-                        <span className="text-[10px] bg-amber-400 text-amber-950 px-1.5 py-0.2 rounded-md font-extrabold ml-0.5">
+                        <span className="text-[10px] bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded-md font-extrabold ml-0.5">
                           QR Live
                         </span>
                       )}

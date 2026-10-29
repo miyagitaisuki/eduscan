@@ -23,6 +23,8 @@ interface TuitionManagementViewProps {
   onUpdatePayment: (paymentId: string, updates: Partial<Payment>) => void;
   onCreatePaymentRecord: (studentId: string, month: string, amount: number) => void;
   onSetAmount: (studentId: string, month: string, amount: number) => void;
+  /** Họ tên giáo viên đang đăng nhập, ký dưới tin nhắn nhắc học phí */
+  teacherName?: string;
 }
 
 export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
@@ -33,6 +35,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
   onUpdatePayment,
   onCreatePaymentRecord,
   onSetAmount,
+  teacherName,
 }) => {
   const [selectedMonth, setSelectedMonth] = useState(currentTuitionMonth());
   const [selectedClassFilter, setSelectedClassFilter] = useState(initialClassId || 'all');
@@ -132,14 +135,15 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
 
   // Copy polite reminder message for Zalo / SMS
   const handleCopyReminder = (row: typeof rows[0]) => {
-    const message = `Chào bạn ${row.student.full_name}, Thầy Quang gửi thông báo học phí lớp tiếng Nhật ${row.classItem?.name || ''} tháng ${selectedMonth} là ${row.amount.toLocaleString('vi-VN')} đ. Bạn vui lòng hoàn thành sớm nhé. Cảm ơn bạn!`;
+    const sender = teacherName ? `${teacherName} gửi` : 'Giáo viên gửi';
+    const message = `Chào bạn ${row.student.full_name}, ${sender} thông báo học phí lớp tiếng Nhật ${row.classItem?.name || ''} tháng ${selectedMonth} là ${row.amount.toLocaleString('vi-VN')} đ. Bạn vui lòng hoàn thành sớm nhé. Cảm ơn bạn!`;
     navigator.clipboard.writeText(message);
     setCopiedMessageId(row.student.id);
     setTimeout(() => setCopiedMessageId(null), 3000);
   };
 
   return (
-    <div className="space-y-4 pb-16 md:pb-6">
+    <div className="space-y-4">
       
       {/* Top Banner & Month Selector */}
       <div className="bg-white rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-xs space-y-4">
