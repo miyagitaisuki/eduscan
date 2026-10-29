@@ -118,6 +118,7 @@ export default function App() {
     student_id: t.student_id,
     month: t.month,
     amount: t.amount,
+    paid_amount: t.paid_amount,
     paid_date: t.paid_date || null,
     status: t.status as 'paid' | 'unpaid',
     notes: t.notes || '',
@@ -301,6 +302,7 @@ export default function App() {
                 initialClassId={preselectedClassId}
                 onUpdatePayment={(id, updates) => handleUpdateTuition(id, updates)}
                 onCreatePaymentRecord={handleRecordPayment}
+                onSetAmount={handleSetTuitionAmount}
               />
             )}
 
