@@ -571,7 +571,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       {/* Create / Edit Student Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md border border-slate-200 shadow-2xl animate-in zoom-in-95">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md max-h-[92dvh] overflow-y-auto border border-slate-200 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-900">
                 {editingStudent ? 'Chỉnh sửa thông tin học viên' : 'Thêm học viên mới'}
