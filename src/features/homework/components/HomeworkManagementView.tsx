@@ -60,6 +60,8 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newClassId, setNewClassId] = useState(classes[0]?.id || '');
+  const [newKind, setNewKind] = useState<'homework' | 'minna'>('homework');
+  const [newLesson, setNewLesson] = useState(1);
   const [newDeadline, setNewDeadline] = useState(addDaysLocal(7));
 
   // Quick feedback template phrases
@@ -83,16 +85,21 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    const isMinna = newKind === 'minna';
+    const title = newTitle.trim() || (isMinna ? `Luyện tập Minna bài ${newLesson}` : '');
+    if (!title) return;
     onCreateAssignment({
       class_id: newClassId,
-      title: newTitle.trim(),
+      title,
+      kind: newKind,
+      minna_lesson: isMinna ? newLesson : undefined,
       description: newDesc.trim(),
       deadline: newDeadline,
     });
     setIsCreateModalOpen(false);
     setNewTitle('');
     setNewDesc('');
+    setNewKind('homework');
   };
 
   // Toggle submission status
@@ -547,10 +554,33 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-management-field-3">Tên bài tập *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-kind">Loại bài</label>
+              <select id="homework-kind"
+                value={newKind}
+                onChange={(e) => setNewKind(e.target.value as 'homework' | 'minna')}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold bg-white"
+              >
+                <option value="homework">Bài tập thường (học viên nộp bài)</option>
+                <option value="minna">Luyện tập Minna (tự ghi điểm)</option>
+              </select>
+              {newKind === 'minna' && (
+                <select aria-label="Bài Minna"
+                  value={newLesson}
+                  onChange={(e) => setNewLesson(Number(e.target.value))}
+                  className="mt-2 w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold bg-white"
+                >
+                  {Array.from({ length: 50 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>Bài {n}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-management-field-3">Tên bài tập {newKind === 'homework' ? '*' : '(tự đặt nếu để trống)'}</label>
               <input id="homework-management-field-3"
                 type="text"
-                required
+                required={newKind === 'homework'}
                 placeholder="VD: Bài 12 Minna no Nihongo, Kanji Bài 5..."
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}

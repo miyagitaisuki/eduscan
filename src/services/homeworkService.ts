@@ -50,6 +50,14 @@ export const homeworkService = {
     return apiClient.post<Submission>('/submissions', data);
   },
 
+  // Ghi kết quả một lượt luyện tập Minna của chính học viên đang đăng nhập
+  async submitMinnaResult(
+    assignmentId: string,
+    data: { lesson_no: number; game?: number; total: number; correct: number }
+  ): Promise<Submission> {
+    return apiClient.post<Submission>(`/assignments/${assignmentId}/minna-result`, data);
+  },
+
   // Giáo viên ghi nhận thủ công bài nộp/điểm của một học viên
   async recordSubmission(data: {
     assignment_id: string;

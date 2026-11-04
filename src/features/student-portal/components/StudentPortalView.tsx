@@ -29,6 +29,7 @@ import {
   ClassItem,
   Lesson,
 } from '../../../shared/types';
+import { MinnaPracticeModal } from './MinnaPracticeModal';
 import { LessonScheduleModal } from '../../schedule';
 import { shortLessonDate } from '../../../shared/utils/lessonDates';
 import { Modal } from '../../../shared/components/ui';
@@ -84,7 +85,13 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const [viewFeedbackSubmission, setViewFeedbackSubmission] = useState<Submission | null>(null);
 
   // Student specific records
-  const mySubmissions = submissions.filter((s) => s.student_id === currentUser.id);
+  const [minnaAssignment, setMinnaAssignment] = useState<Assignment | null>(null);
+  // Điểm vừa ghi trong phiên này, hiển thị ngay trước khi danh sách được tải lại
+  const [freshSubs, setFreshSubs] = useState<Submission[]>([]);
+  const mySubmissions = [
+    ...freshSubs,
+    ...submissions.filter((s) => s.student_id === currentUser.id && !freshSubs.some((f) => f.assignment_id === s.assignment_id)),
+  ];
   const myAttendance = attendanceRecords.filter((r) => r.student_id === currentUser.id);
   const myTuition = tuitionRecords.filter((t) => t.student_id === currentUser.id);
   const myNotifs = notifications.filter((n) => !n.user_id || n.user_id === currentUser.id);
@@ -304,7 +311,14 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                       <h5 className="text-xs font-bold text-slate-900 truncate">{asg.title}</h5>
                     </div>
 
-                    {isGraded ? (
+                    {asg.kind === 'minna' ? (
+                      <button
+                        onClick={() => setMinnaAssignment(asg)}
+                        className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold cursor-pointer shrink-0"
+                      >
+                        {isGraded ? `${sub?.score}đ • Luyện lại` : 'Luyện tập'}
+                      </button>
+                    ) : isGraded ? (
                       <button
                         onClick={() => setViewFeedbackSubmission(sub)}
                         className="px-2.5 py-1.5 bg-success-100 hover:bg-success-100 text-success-800 border border-success-200 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
@@ -456,7 +470,14 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                       <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200/50">
                         <span>Hạn nộp: <strong className="text-slate-800">{asg.deadline.split('T')[0]}</strong></span>
                         
-                        {isGraded ? (
+                        {asg.kind === 'minna' ? (
+                          <button
+                            onClick={() => setMinnaAssignment(asg)}
+                            className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-bold shadow-md cursor-pointer transition-all"
+                          >
+                            {isGraded ? `Điểm cao nhất: ${sub?.score}/10 • Luyện lại` : 'Làm bài luyện tập'}
+                          </button>
+                        ) : isGraded ? (
                           <button
                             onClick={() => setViewFeedbackSubmission(sub)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-success-100 hover:bg-success-200 text-success-800 border border-success-200 rounded-xl font-bold cursor-pointer transition-all"
@@ -479,6 +500,14 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               </div>
             )}
           </div>
+        )}
+
+        {minnaAssignment && (
+          <MinnaPracticeModal
+            assignment={minnaAssignment}
+            onClose={() => setMinnaAssignment(null)}
+            onResult={(sub) => setFreshSubs((prev) => [sub, ...prev.filter((p) => p.assignment_id !== sub.assignment_id)])}
+          />
         )}
 
         {/* 3. ATTENDANCE TAB */}

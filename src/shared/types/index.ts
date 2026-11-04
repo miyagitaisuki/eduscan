@@ -167,6 +167,9 @@ export interface AssignmentInput {
   description: string;
   /** YYYY-MM-DD */
   deadline: string;
+  /** 'minna' = bài luyện tập Minna no Nihongo (cần minna_lesson 1-50) */
+  kind?: 'homework' | 'minna';
+  minna_lesson?: number;
 }
 
 /** Chấm điểm / nhận xét một bài nộp; không có score thì chỉ lưu nhận xét */
@@ -188,6 +191,8 @@ export interface Assignment {
   description: string;
   sample_solution?: string;
   rubric?: string;
+  kind?: 'homework' | 'minna';
+  minna_lesson?: number | null;
   deadline: string;
   created_by?: string;
   created_at: string;

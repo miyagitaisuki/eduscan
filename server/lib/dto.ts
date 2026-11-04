@@ -74,6 +74,8 @@ export function assignmentDto(a: any, extra: Partial<Assignment> = {}): Assignme
     description: a.description ?? '',
     sample_solution: a.sampleSolution ?? '',
     rubric: a.rubric ?? '',
+    kind: a.kind ?? 'homework',
+    minna_lesson: a.minnaLesson ?? null,
     deadline: isoRequired(a.deadline),
     created_by: a.createdBy,
     created_at: isoRequired(a.createdAt),
