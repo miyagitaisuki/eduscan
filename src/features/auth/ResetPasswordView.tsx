@@ -39,7 +39,7 @@ export function ResetPasswordView() {
       {/* Nền mây dùng chung với màn hình đăng nhập */}
       <img src="/brand/clouds.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/35 to-slate-900/60 pointer-events-none" />
-      <div className="relative w-full max-w-sm glass-panel rounded-3xl shadow-pop p-6 space-y-4">
+      <div className="relative w-full max-w-sm glass-panel glass-panel--clear rounded-3xl shadow-pop p-6 space-y-4">
         <div className="flex items-center gap-3">
           <img src="/brand/logo.png" alt="Logo IMEJI日本語教室" width={40} height={40} className="w-10 h-10 object-contain" />
           <div>

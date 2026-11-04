@@ -160,9 +160,13 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center justify-between gap-3">
               {/* Brand & User Info */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-600 to-accent-700 text-white flex items-center justify-center shadow-md shadow-primary-500/20 shrink-0 font-black text-sm">
-                  ES
-                </div>
+                <img
+                  src="/brand/logo.png"
+                  alt="Logo IMEJI日本語教室"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 shrink-0 object-contain drop-shadow-md"
+                />
                 <div>
                   <div className="flex items-center gap-2">
                     <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
