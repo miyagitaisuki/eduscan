@@ -70,6 +70,8 @@ Màu, font, bo góc, bóng, nền chấm và thẻ kính mờ nằm trong `src/s
 
 Font được tự host bằng `@fontsource` (CSP production chặn Google Fonts, và PWA vẫn có font khi mất mạng).
 
+Header có **thanh chuyển 3 app** dùng chung với website và trang luyện tập (`src/shared/components/EcosystemSwitch.tsx`, kiểu `.imeji-switch`). Địa chỉ website, trang luyện tập và thông tin liên hệ nằm ở `src/shared/config/ecosystem.ts` (website đổi bằng `VITE_MINNA_ORIGIN`). Màn hình đăng nhập và đặt lại mật khẩu dùng nền mây và logo trong `public/brand/`; cổng học viên có chân trang chung (`SiteFooter`).
+
 ## Lịch giảng
 
 - Admin đặt lịch lặp cho từng lớp (nút **Lịch** trên thẻ lớp): chọn thứ, giờ học, ngày bắt đầu, và kết thúc theo số tuần hoặc ngày. Form tự xem trước (không ghi DB) số buổi sẽ thêm, bỏ, đổi giờ, các ngày nghỉ bị bỏ và xung đột giáo viên/phòng; bấm **Áp dụng lịch** mới ghi.

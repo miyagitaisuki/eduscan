@@ -33,6 +33,7 @@ import { MinnaPracticeModal } from './MinnaPracticeModal';
 import { LessonScheduleModal } from '../../schedule';
 import { shortLessonDate } from '../../../shared/utils/lessonDates';
 import { Modal } from '../../../shared/components/ui';
+import { SiteFooter } from '../../../shared/components/SiteFooter';
 import { compressImage } from '../../../shared/utils/compressImage';
 import { formatScore, scoreGrade } from '../../../shared/utils/score';
 import { studentGreeting } from '../../../shared/utils/greeting';
@@ -169,8 +170,8 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     <div className="w-full max-w-md lg:max-w-5xl mx-auto min-h-screen bg-white text-slate-900 flex flex-col shadow-2xl relative border-x border-slate-200">
       
       {/* Mobile App Bar */}
-      <header className="order-1 sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <header className="order-1 sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
           {currentUser.avatar ? (
             <img
               src={currentUser.avatar}
@@ -185,9 +186,9 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               {initials}
             </div>
           )}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h2 className="text-sm font-bold text-slate-900 tracking-tight">{currentUser.full_name}</h2>
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight truncate">{currentUser.full_name}</h2>
               <span className="text-xs font-black px-1.5 py-0.5 rounded bg-primary-50 text-primary-600 border border-primary-200">
                 Học viên
               </span>
@@ -659,6 +660,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
           </div>
         )}
 
+        <SiteFooter className="pt-6 mt-2 border-t border-slate-200" />
       </main>
 
       {/* Student App Bottom Navigation (Capacitor/Android Style) */}

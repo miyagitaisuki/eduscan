@@ -22,6 +22,16 @@
  *     Tương ứng Tailwind: rounded-lg · rounded-xl · rounded-2xl · rounded-3xl · rounded-full.
  *  4. Bóng: card (thẻ, kính mờ) · lift (thẻ khi rê chuột) · pop (hộp thoại, toast).
  *     Tương ứng Tailwind: shadow-card · shadow-lift · shadow-pop.
+ *  5. Chỉ có giao diện sáng (không có chế độ tối) ở cả 3 trang.
+ *  6. Thanh chuyển 3 app (.imeji-switch) đặt ở header của cả 3 trang, cùng markup:
+ *       <nav class="imeji-switch" aria-label="IMEJI日本語教室">
+ *         <a class="imeji-switch__item" href="https://imejiquynhon.com/" aria-current="page">
+ *           [icon house] <span class="imeji-switch__label">Trang chủ</span></a>
+ *         <a class="imeji-switch__item" href="https://imejiquynhon.com/luyen-tap/">[icon gamepad-2] ...Luyện tập</a>
+ *         <a class="imeji-switch__item" href="https://app.imejiquynhon.com/">[icon log-in] ...Học viên</a>
+ *       </nav>
+ *     aria-current="page" đánh dấu app đang ở. Thêm imeji-switch--on-dark khi đặt trên ảnh nền tối.
+ *     Màn hình hẹp (dưới 640px) chỉ hiện icon; mỗi mục cần aria-label hoặc title.
  * ============================================================================
  */
 
@@ -124,11 +134,6 @@ body {
   background-size: 24px 24px;
   background-position: 0 0, 12px 12px;
 }
-.dark .bg-japanese-pattern {
-  background-color: #0b0f19;
-  background-image: radial-gradient(rgb(96 165 250 / 0.08) 1px, transparent 1px),
-    radial-gradient(rgb(96 165 250 / 0.05) 1px, #0b0f19 1px);
-}
 
 /* Thẻ kính mờ */
 .glass-panel {
@@ -138,14 +143,81 @@ body {
   border: 1px solid rgb(226 232 240 / 0.8);
   box-shadow: var(--imeji-shadow-card);
 }
-.dark .glass-panel {
-  background: rgb(15 23 42 / 0.75);
-  border-color: rgb(51 65 85 / 0.65);
-  box-shadow: 0 4px 20px -2px rgb(0 0 0 / 0.35);
-}
 
 /* Viền focus rõ cho người dùng bàn phím (chuột và cảm ứng không bị ảnh hưởng) */
 :focus-visible {
   outline: 2px solid var(--imeji-primary-600);
   outline-offset: 2px;
+}
+
+/* ---- Thanh chuyển 3 app: Trang chủ · Luyện tập · Học viên ---- */
+.imeji-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--imeji-radius-full);
+  background: rgb(255 255 255 / 0.92);
+  border: 1px solid rgb(226 232 240);
+  box-shadow: var(--imeji-shadow-card);
+  font-family: var(--imeji-font-sans);
+  flex-shrink: 0;
+}
+.imeji-switch__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--imeji-radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  color: #334155;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.imeji-switch__item:hover {
+  background: #f1f5f9;
+  color: var(--imeji-primary-700);
+}
+.imeji-switch__item[aria-current="page"] {
+  background: var(--imeji-primary-600);
+  color: #fff;
+}
+.imeji-switch__item svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.imeji-switch--on-dark {
+  background: rgb(15 23 42 / 0.35);
+  border-color: rgb(255 255 255 / 0.25);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.imeji-switch--on-dark .imeji-switch__item {
+  color: #fff;
+}
+.imeji-switch--on-dark .imeji-switch__item:hover {
+  background: rgb(255 255 255 / 0.15);
+  color: #fff;
+}
+.imeji-switch--on-dark .imeji-switch__item[aria-current="page"] {
+  background: #fff;
+  color: var(--imeji-primary-700);
+}
+@media (max-width: 639px) {
+  .imeji-switch__item {
+    padding: 8px;
+  }
+  .imeji-switch__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }

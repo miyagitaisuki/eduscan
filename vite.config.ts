@@ -29,7 +29,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}', 'brand/*.jpg'],
           // Điều hướng trang không đi qua /api; API không bao giờ được cache trong service worker
           navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [],
