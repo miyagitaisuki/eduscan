@@ -26,6 +26,22 @@
   background-position: center;
 }
 
+/* Giao diện giáo viên và học viên: thẻ trong suốt kiểu kính như landing page, nền mây hiện qua.
+   Modal và ô nhập liệu vẫn đặc để dễ đọc. Không đổi các màu khác. */
+.app-glass .bg-white {
+  background-color: rgb(255 255 255 / 0.6) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.app-glass [role="dialog"] .bg-white,
+.app-glass input,
+.app-glass select,
+.app-glass textarea {
+  background-color: #ffffff !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* Nối Tailwind với bộ quy chuẩn thương hiệu (imeji-brand.css). Không khai báo giá trị màu ở đây. */
 @theme inline {
   --color-primary-50: var(--imeji-primary-50); --color-primary-100: var(--imeji-primary-100); --color-primary-200: var(--imeji-primary-200); --color-primary-300: var(--imeji-primary-300); --color-primary-400: var(--imeji-primary-400); --color-primary-500: var(--imeji-primary-500);

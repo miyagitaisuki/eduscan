@@ -63,7 +63,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative isolate min-h-screen text-slate-900 font-sans flex flex-col antialiased selection:bg-primary-600 selection:text-white">
+    <div className="app-glass relative isolate min-h-screen text-slate-900 font-sans flex flex-col antialiased selection:bg-primary-600 selection:text-white">
       {/* Nền mây dùng chung với màn hình đăng nhập, website và trang luyện tập */}
       <div aria-hidden="true" className="app-cloud-bg" />
       <Header
