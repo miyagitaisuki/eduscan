@@ -300,6 +300,8 @@ export const leads = pgTable(
     consentAt: timestamp('consent_at', { withTimezone: true }).notNull(),
     status: leadStatus('status').notNull().default('new'),
     adminNote: text('admin_note'),
+    // Tài khoản học viên đã tạo từ đăng ký này (chặn tạo hai lần)
+    studentId: text('student_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
   (t) => [index('idx_leads_status_created').on(t.status, t.createdAt), index('idx_leads_phone').on(t.phone)]

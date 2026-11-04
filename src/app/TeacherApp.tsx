@@ -142,7 +142,15 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
           />
         )}
 
-        {tab === 'leads' && <LeadsView leads={data.leads} onUpdate={data.handleUpdateLead} onRefresh={data.loadLeads} />}
+        {tab === 'leads' && (
+          <LeadsView
+            leads={data.leads}
+            classes={classes}
+            onUpdate={data.handleUpdateLead}
+            onConvert={data.handleConvertLead}
+            onRefresh={data.loadLeads}
+          />
+        )}
 
         {tab === 'tuition' && (
           <TuitionManagementView

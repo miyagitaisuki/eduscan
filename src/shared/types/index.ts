@@ -319,6 +319,8 @@ export interface Lead {
   consent_at: string;
   status: LeadStatus;
   admin_note: string;
+  /** Tài khoản học viên đã tạo từ đăng ký này; rỗng nếu chưa */
+  student_id: string;
   created_at: string;
 }
 export type StudentTab = 'home' | 'assignments' | 'attendance' | 'tuition' | 'notifications';
