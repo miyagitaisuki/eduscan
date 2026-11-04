@@ -137,6 +137,9 @@ export const assignments = pgTable(
     description: text('description'),
     sampleSolution: text('sample_solution'),
     rubric: text('rubric'),
+    // 'homework' = bài tập thường; 'minna' = luyện tập Minna no Nihongo (dominion), tự ghi điểm
+    kind: varchar('kind', { length: 20 }).notNull().default('homework'),
+    minnaLesson: integer('minna_lesson'),
     deadline: timestamp('deadline', { withTimezone: true }).notNull(),
     createdBy: text('created_by')
       .notNull()

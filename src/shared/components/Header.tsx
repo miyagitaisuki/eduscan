@@ -234,11 +234,6 @@ export const Header: React.FC<HeaderProps> = ({
                           {newLeadsCount > 9 ? '9+' : newLeadsCount}
                         </span>
                       )}
-                      {item.id === 'attendance' && (
-                        <span className="text-xs bg-warning-400 text-warning-950 px-1.5 py-0.5 rounded-md font-extrabold ml-0.5">
-                          QR Live
-                        </span>
-                      )}
                     </button>
                   );
                 })}

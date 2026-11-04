@@ -59,6 +59,7 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
               objectSrc: ["'none'"],
               baseUri: ["'self'"],
               formAction: ["'self'"],
+              frameSrc: ["'self'", config.minnaOrigin],
               frameAncestors: ["'none'"],
             },
           }

@@ -7,6 +7,8 @@ export interface AppConfig {
   /** true khi SEED_PASSWORD được sinh ngẫu nhiên (chỉ production, cần in ra một lần) */
   seedPasswordGenerated: boolean;
   corsOrigins: string[];
+  /** Nguồn của trang luyện tập (dominion) được nhúng bằng iframe */
+  minnaOrigin: string;
   trustProxy: boolean | number;
   geminiApiKey?: string;
   geminiModel: string;
@@ -32,6 +34,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    minnaOrigin: (env.MINNA_ORIGIN || 'https://imejiquynhon.com').replace(/\/+$/, ''),
     // Sau reverse proxy / nền tảng cloud (Cloud Run, Render...) để lấy đúng IP cho rate limit
     trustProxy: env.TRUST_PROXY ? (env.TRUST_PROXY === 'true' ? true : Number(env.TRUST_PROXY)) : isProd ? 1 : false,
     geminiApiKey: env.GEMINI_API_KEY || undefined,

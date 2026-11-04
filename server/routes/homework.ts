@@ -88,6 +88,11 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (!(await canManageClass(db, req.user, b.class_id))) {
         return res.status(403).json({ error: 'Bạn chỉ được giao bài cho lớp mình phụ trách.' });
       }
+      const isMinna = b.kind === 'minna';
+      const lessonNo = Number(b.minna_lesson);
+      if (isMinna && (!Number.isInteger(lessonNo) || lessonNo < 1 || lessonNo > 50)) {
+        return res.status(400).json({ error: 'Bài Minna phải là số nguyên từ 1 đến 50.' });
+      }
       const deadline = b.deadline ? new Date(b.deadline) : new Date(Date.now() + 7 * 86400000);
       if (Number.isNaN(deadline.getTime())) return res.status(400).json({ error: 'Hạn nộp không hợp lệ.' });
 
@@ -100,6 +105,8 @@ export function homeworkRoutes({ db, auth }: Deps) {
           description: b.description || '',
           sampleSolution: b.sample_solution || '',
           rubric: b.rubric || 'Thang điểm 10',
+          kind: isMinna ? 'minna' : 'homework',
+          minnaLesson: isMinna ? lessonNo : null,
           deadline,
           createdBy: req.user.id,
         })
@@ -122,6 +129,63 @@ export function homeworkRoutes({ db, auth }: Deps) {
         );
       }
       return res.status(201).json(assignmentDto(row));
+    })
+  );
+
+  // Học viên làm bài Minna trong iframe; trang cha gửi kết quả lên đây kèm JWT của học viên.
+  // Điểm do trình duyệt tính nên chỉ dùng cho luyện tập trong lớp: giữ điểm cao nhất, đếm số lượt.
+  r.post(
+    '/assignments/:id/minna-result',
+    auth.requireAuth,
+    ah(async (req: AuthedRequest, res) => {
+      if (!isStudent(req)) return res.status(403).json({ error: 'Chỉ học viên mới được ghi điểm.' });
+      const [asg] = await db.select().from(assignments).where(eq(assignments.id, req.params.id)).limit(1);
+      if (!asg || asg.kind !== 'minna') return res.status(404).json({ error: 'Không tìm thấy bài luyện tập.' });
+      const ids = await enrolledClassIds(db, req.user.id);
+      if (!ids.includes(asg.classId)) return res.status(403).json({ error: 'Bạn không thuộc lớp của bài tập này.' });
+
+      const total = Number(req.body?.total);
+      const correct = Number(req.body?.correct);
+      if (!Number.isInteger(total) || !Number.isInteger(correct) || total < 1 || total > 500 || correct < 0 || correct > total) {
+        return res.status(400).json({ error: 'Kết quả không hợp lệ.' });
+      }
+      if (Number(req.body?.lesson_no) !== asg.minnaLesson) {
+        return res.status(400).json({ error: 'Kết quả không thuộc bài được giao.' });
+      }
+      const score = Math.round((correct / total) * 1000) / 100; // thang 10, 2 chữ số
+
+      const [prev] = await db
+        .select()
+        .from(submissions)
+        .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
+        .limit(1);
+      let attempts = 1;
+      let best = score;
+      if (prev) {
+        try {
+          attempts = (JSON.parse(prev.content || '{}').attempts ?? 0) + 1;
+        } catch {
+          attempts = 1;
+        }
+        best = Math.max(score, Number(prev.score ?? 0));
+      }
+      const content = JSON.stringify({ attempts, last: { total, correct, score }, game: Number(req.body?.game) || null });
+      const now = new Date();
+      const values = {
+        content,
+        status: 'graded' as const,
+        score: String(best),
+        feedback: `Luyện tập Minna bài ${asg.minnaLesson}: ${attempts} lượt, điểm cao nhất ${best}/10.`,
+        gradedByAi: false,
+        gradedAt: now,
+        submittedAt: now,
+      };
+      const [row] = await db
+        .insert(submissions)
+        .values({ id: newId('sub'), assignmentId: asg.id, studentId: req.user.id, ...values })
+        .onConflictDoUpdate({ target: [submissions.assignmentId, submissions.studentId], set: values })
+        .returning();
+      return res.json(submissionDto(row));
     })
   );
 
