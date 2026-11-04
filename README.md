@@ -71,6 +71,14 @@ docker run -p 3000:3000 --env-file .env eduscan
 - Tên cột nhận tiếng Việt có hoặc không dấu, hoặc tiếng Anh. Dấu phân cách `,` hoặc `;` được nhận tự động. Email để trống sẽ tự sinh `student.<mã>@eduscan.edu.vn`.
 - Học viên nhập hàng loạt được đặt `must_change_password`. Mật khẩu tạm chỉ trả về một lần và được tải thành file CSV, không lưu ở đâu khác.
 
+## Đăng ký học thử từ website (leads)
+
+- `POST /api/leads/public` (công khai, không cần đăng nhập): website gửi JSON `{ fullName, phone, currentLevel, targetJlpt, notes, source, consent: true }` và nhận `{ ok: true }`. Số điện thoại được chuẩn hóa về dạng `0xxxxxxxxx`; thiếu họ tên, số sai hoặc `consent` khác `true` thì trả 400.
+- Chống lạm dụng: giới hạn 10 lần/giờ theo IP, body tối đa 8KB, ô ẩn `website` (bot điền thì trả OK nhưng không lưu), cùng số điện thoại trong 24 giờ không tạo bản ghi trùng.
+- Cần đặt `CORS_ORIGIN` gồm domain website (VD `https://imejiquynhon.com`) để trình duyệt được gọi từ site khác.
+- Admin: `GET /api/leads?status=` và `PATCH /api/leads/:id` (`status`: `new`, `contacted`, `trial`, `enrolled`, `declined`; `admin_note`). Mỗi lần sửa ghi `audit_logs`.
+- Bảng `leads` chưa nằm trong "Sao lưu/Phục hồi" JSON, nên phục hồi không xóa hay nạp lại đăng ký; dữ liệu này nằm trong sao lưu Supabase và `pg_dump`.
+
 ## Sao lưu
 
 - **Lớp chính:** sao lưu tự động của Supabase (gói có sao lưu hằng ngày/PITR). Kiểm tra gói đang dùng có bật tính năng này.

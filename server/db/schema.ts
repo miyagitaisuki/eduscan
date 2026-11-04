@@ -21,6 +21,7 @@ export const userStatus = pgEnum('user_status', ['active', 'suspended', 'inactiv
 export const enrollmentStatus = pgEnum('enrollment_status', ['active', 'dropped', 'completed']);
 export const submissionStatus = pgEnum('submission_status', ['unsubmitted', 'submitted', 'graded']);
 export const attendanceStatus = pgEnum('attendance_status', ['present', 'absent', 'late', 'excused']);
+export const leadStatus = pgEnum('lead_status', ['new', 'contacted', 'trial', 'enrolled', 'declined']);
 export const tuitionStatus = pgEnum('tuition_status', ['paid', 'unpaid', 'partial']);
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -280,4 +281,26 @@ export const auditLogs = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('idx_audit_target').on(t.targetId)]
+);
+
+// ---- Leads: đăng ký học thử từ website (gửi công khai, admin xử lý) ----
+export const leads = pgTable(
+  'leads',
+  {
+    id: text('id').primaryKey(),
+    fullName: varchar('full_name', { length: 150 }).notNull(),
+    // Số điện thoại đã chuẩn hóa (chỉ chữ số, dạng 0xxxxxxxxx)
+    phone: varchar('phone', { length: 20 }).notNull(),
+    currentLevel: varchar('current_level', { length: 100 }),
+    targetJlpt: varchar('target_jlpt', { length: 50 }),
+    notes: text('notes'),
+    // UTM / trang giới thiệu của lượt đăng ký
+    source: varchar('source', { length: 300 }),
+    // Bằng chứng đồng ý xử lý dữ liệu cá nhân
+    consentAt: timestamp('consent_at', { withTimezone: true }).notNull(),
+    status: leadStatus('status').notNull().default('new'),
+    adminNote: text('admin_note'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('idx_leads_status_created').on(t.status, t.createdAt), index('idx_leads_phone').on(t.phone)]
 );

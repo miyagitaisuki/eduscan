@@ -16,6 +16,7 @@ import { aiRoutes } from './routes/ai';
 import { adminRoutes } from './routes/admin';
 import { teacherRoutes } from './routes/teachers';
 import { lessonRoutes } from './routes/lessons';
+import { leadRoutes } from './routes/leads';
 
 export const PUBLIC_API_PATHS = new Set([
   '/api/health',
@@ -23,6 +24,7 @@ export const PUBLIC_API_PATHS = new Set([
   '/api/auth/register',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
+  '/api/leads/public',
 ]);
 
 export interface CreateAppOptions {
@@ -63,6 +65,8 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   );
   // Không có CORS_ORIGIN thì chỉ cho phép cùng nguồn
   app.use(cors({ origin: config.corsOrigins.length ? config.corsOrigins : false }));
+  // Endpoint công khai nhận đăng ký: đọc body nhỏ trước, tránh nhận 25MB từ người lạ
+  app.use('/api/leads/public', express.json({ limit: '8kb' }));
   app.use(express.json({ limit: '25mb' }));
 
   app.get('/api/health', (_req, res) => {
@@ -89,6 +93,7 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   app.use('/api/admin', adminRoutes(deps));
   app.use('/api/teachers', teacherRoutes(deps));
   app.use('/api', lessonRoutes(deps));
+  app.use('/api/leads', leadRoutes(deps));
 
   app.use('/api', (_req: Request, res: Response) => {
     res.status(404).json({ error: 'Không tìm thấy API này.' });
