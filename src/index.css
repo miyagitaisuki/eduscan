@@ -1,73 +1,36 @@
 @import "tailwindcss";
 
 /*
- * Màu theo ngữ nghĩa: đổi giao diện chỉ cần sửa ở đây. Giá trị lấy từ bảng màu mặc định của Tailwind,
- * riêng các sắc -600/-700 của success, warning, danger và slate-500 được làm đậm hơn một bậc để
- * chữ trắng trên nút và chữ nhỏ trên nền nhạt đạt tương phản WCAG AA (4,5:1).
+ * Màu, font, bo góc, bóng lấy từ bộ quy chuẩn thương hiệu dùng chung với website và trang luyện tập:
+ * src/styles/imeji-brand.css (không sửa riêng ở repo này, xem hướng dẫn đầu file đó).
  */
-@theme {
-  --color-slate-500: oklch(49% 0.04 257.4);
+@import "./styles/imeji-brand.css";
 
-  /* primary: Màu thương hiệu, nút chính, liên kết, mục đang chọn (gốc: blue) */
-  --color-primary-50: oklch(97% 0.014 254.604);
-  --color-primary-100: oklch(93.2% 0.032 255.585);
-  --color-primary-200: oklch(88.2% 0.059 254.128);
-  --color-primary-300: oklch(80.9% 0.105 251.813);
-  --color-primary-400: oklch(70.7% 0.165 254.624);
-  --color-primary-500: oklch(62.3% 0.214 259.815);
-  --color-primary-600: oklch(54.6% 0.245 262.881);
-  --color-primary-700: oklch(48.8% 0.243 264.376);
-  --color-primary-800: oklch(42.4% 0.199 265.638);
-  --color-primary-900: oklch(37.9% 0.146 265.522);
-  --color-primary-950: oklch(28.2% 0.091 267.935);
-  /* success: Thành công, đã đóng/đã nộp, có mặt (gốc: emerald) */
-  --color-success-50: oklch(97.9% 0.021 166.113);
-  --color-success-100: oklch(95% 0.052 163.051);
-  --color-success-200: oklch(90.5% 0.093 164.15);
-  --color-success-300: oklch(84.5% 0.143 164.978);
-  --color-success-400: oklch(76.5% 0.177 163.223);
-  --color-success-500: oklch(69.6% 0.17 162.48);
-  --color-success-600: oklch(50.8% 0.118 165.612);
-  --color-success-700: oklch(43.2% 0.095 166.913);
-  --color-success-800: oklch(43.2% 0.095 166.913);
-  --color-success-900: oklch(37.8% 0.077 168.94);
-  --color-success-950: oklch(26.2% 0.051 172.552);
-  /* warning: Cảnh báo, chưa đóng, cần chú ý (gốc: amber) */
-  --color-warning-50: oklch(98.7% 0.022 95.277);
-  --color-warning-100: oklch(96.2% 0.059 95.617);
-  --color-warning-200: oklch(92.4% 0.12 95.746);
-  --color-warning-300: oklch(87.9% 0.169 91.605);
-  --color-warning-400: oklch(82.8% 0.189 84.429);
-  --color-warning-500: oklch(76.9% 0.188 70.08);
-  --color-warning-600: oklch(55.5% 0.163 48.998);
-  --color-warning-700: oklch(47.3% 0.137 46.201);
-  --color-warning-800: oklch(47.3% 0.137 46.201);
-  --color-warning-900: oklch(41.4% 0.112 45.904);
-  --color-warning-950: oklch(27.9% 0.077 45.635);
-  /* danger: Lỗi, xóa, vắng mặt, nợ (gốc: rose) */
-  --color-danger-50: oklch(96.9% 0.015 12.422);
-  --color-danger-100: oklch(94.1% 0.03 12.58);
-  --color-danger-200: oklch(89.2% 0.058 10.001);
-  --color-danger-300: oklch(81% 0.117 11.638);
-  --color-danger-400: oklch(71.2% 0.194 13.428);
-  --color-danger-500: oklch(64.5% 0.246 16.439);
-  --color-danger-600: oklch(54% 0.24 17.2);
-  --color-danger-700: oklch(51.4% 0.222 16.935);
-  --color-danger-800: oklch(45.5% 0.188 13.697);
-  --color-danger-900: oklch(41% 0.159 10.272);
-  --color-danger-950: oklch(27.1% 0.105 12.094);
-  /* accent: AI, bài tập, điểm nhấn phụ (gốc: indigo) */
-  --color-accent-50: oklch(96.2% 0.018 272.314);
-  --color-accent-100: oklch(93% 0.034 272.788);
-  --color-accent-200: oklch(87% 0.065 274.039);
-  --color-accent-300: oklch(78.5% 0.115 274.713);
-  --color-accent-400: oklch(67.3% 0.182 276.935);
-  --color-accent-500: oklch(58.5% 0.233 277.117);
-  --color-accent-600: oklch(51.1% 0.262 276.966);
-  --color-accent-700: oklch(45.7% 0.24 277.023);
-  --color-accent-800: oklch(39.8% 0.195 277.366);
-  --color-accent-900: oklch(35.9% 0.144 278.697);
-  --color-accent-950: oklch(25.7% 0.09 281.288);
+/* Nối Tailwind với bộ quy chuẩn thương hiệu (imeji-brand.css). Không khai báo giá trị màu ở đây. */
+@theme inline {
+  --color-primary-50: var(--imeji-primary-50); --color-primary-100: var(--imeji-primary-100); --color-primary-200: var(--imeji-primary-200); --color-primary-300: var(--imeji-primary-300); --color-primary-400: var(--imeji-primary-400); --color-primary-500: var(--imeji-primary-500);
+  --color-primary-600: var(--imeji-primary-600); --color-primary-700: var(--imeji-primary-700); --color-primary-800: var(--imeji-primary-800); --color-primary-900: var(--imeji-primary-900); --color-primary-950: var(--imeji-primary-950);
+  --color-success-50: var(--imeji-success-50); --color-success-100: var(--imeji-success-100); --color-success-200: var(--imeji-success-200); --color-success-300: var(--imeji-success-300); --color-success-400: var(--imeji-success-400); --color-success-500: var(--imeji-success-500);
+  --color-success-600: var(--imeji-success-600); --color-success-700: var(--imeji-success-700); --color-success-800: var(--imeji-success-800); --color-success-900: var(--imeji-success-900); --color-success-950: var(--imeji-success-950);
+  --color-warning-50: var(--imeji-warning-50); --color-warning-100: var(--imeji-warning-100); --color-warning-200: var(--imeji-warning-200); --color-warning-300: var(--imeji-warning-300); --color-warning-400: var(--imeji-warning-400); --color-warning-500: var(--imeji-warning-500);
+  --color-warning-600: var(--imeji-warning-600); --color-warning-700: var(--imeji-warning-700); --color-warning-800: var(--imeji-warning-800); --color-warning-900: var(--imeji-warning-900); --color-warning-950: var(--imeji-warning-950);
+  --color-danger-50: var(--imeji-danger-50); --color-danger-100: var(--imeji-danger-100); --color-danger-200: var(--imeji-danger-200); --color-danger-300: var(--imeji-danger-300); --color-danger-400: var(--imeji-danger-400); --color-danger-500: var(--imeji-danger-500);
+  --color-danger-600: var(--imeji-danger-600); --color-danger-700: var(--imeji-danger-700); --color-danger-800: var(--imeji-danger-800); --color-danger-900: var(--imeji-danger-900); --color-danger-950: var(--imeji-danger-950);
+  --color-accent-50: var(--imeji-accent-50); --color-accent-100: var(--imeji-accent-100); --color-accent-200: var(--imeji-accent-200); --color-accent-300: var(--imeji-accent-300); --color-accent-400: var(--imeji-accent-400); --color-accent-500: var(--imeji-accent-500);
+  --color-accent-600: var(--imeji-accent-600); --color-accent-700: var(--imeji-accent-700); --color-accent-800: var(--imeji-accent-800); --color-accent-900: var(--imeji-accent-900); --color-accent-950: var(--imeji-accent-950);
+  --color-slate-500: var(--imeji-slate-500);
+
+  --font-sans: var(--imeji-font-sans);
+  --font-jp: var(--imeji-font-jp);
+
+  --radius-lg: var(--imeji-radius-sm);
+  --radius-xl: var(--imeji-radius-md);
+  --radius-2xl: var(--imeji-radius-lg);
+  --radius-3xl: var(--imeji-radius-xl);
+
+  --shadow-card: var(--imeji-shadow-card);
+  --shadow-lift: var(--imeji-shadow-lift);
+  --shadow-pop: var(--imeji-shadow-pop);
 }
 
 @layer base {
@@ -83,19 +46,11 @@
   }
 }
 
-@layer base {
-  /* Viền focus rõ cho người dùng bàn phím; chuột và cảm ứng không bị ảnh hưởng nhờ :focus-visible */
-  :focus-visible {
-    outline: 2px solid var(--color-primary-600);
-    outline-offset: 2px;
-  }
-
-  /* Ô nhập đã có vòng focus riêng (focus:ring), không vẽ thêm viền ngoài */
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible {
-    outline-offset: 0;
-  }
+/* Viền focus chung nằm trong imeji-brand.css. Ô nhập đã có vòng focus riêng (focus:ring), không đẩy viền ra ngoài. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: 0;
 }
 
 /* Người dùng chọn giảm chuyển động: tắt hiệu ứng nhấp nháy trang trí (vòng quay tải vẫn giữ để biết đang chờ) */

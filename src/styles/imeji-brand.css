@@ -1,0 +1,151 @@
+/*
+ * ============================================================================
+ *  IMEJI日本語教室 — Bộ quy chuẩn thương hiệu dùng chung (imeji-brand.css) v1
+ * ============================================================================
+ *  File này GIỐNG HỆT NHAU trong 3 repo. Sửa ở một repo thì chép y nguyên sang 2 repo kia:
+ *    - imeji_newhorizon (website, BẢN GỐC): src/styles/imeji-brand.css
+ *    - imeji_dominion   (luyện tập):        assets/css/imeji-brand.css
+ *    - eduscan          (cổng học viên):     src/styles/imeji-brand.css
+ *  Kiểm tra lệch bản: `npm run brand:check` trong từng repo (so với bản gốc trên GitHub).
+ *
+ *  Quy ước dùng:
+ *  1. Màu theo ý nghĩa, không dùng tên màu thô (blue, emerald, amber, rose, sky, purple...):
+ *       primary  thương hiệu, nút chính, liên kết, mục đang chọn
+ *       success  đúng, hoàn thành          warning  cảnh báo, cần chú ý, điểm cao
+ *       danger   sai, lỗi, xóa             accent   điểm nhấn phụ (AI, bài tập)
+ *       slate    chữ và nền trung tính
+ *     Sắc -600/-700 của success, warning, danger và slate-500 đã được làm đậm để chữ trắng trên nút
+ *     và chữ nhỏ trên nền nhạt đạt tương phản WCAG AA (4,5:1).
+ *  2. Font: --imeji-font-sans (Be Vietnam Pro, chữ Nhật rơi về Noto Sans JP) cho mọi chữ;
+ *     --imeji-font-jp cho khối chữ Nhật lớn. Đậm nhất dùng 900 (tiêu đề game), thường 400–700.
+ *  3. Bo góc: sm (nhãn, badge) · md (nút, ô nhập) · lg (thẻ) · xl (khung lớn, hero, hộp thoại) · full (pill).
+ *     Tương ứng Tailwind: rounded-lg · rounded-xl · rounded-2xl · rounded-3xl · rounded-full.
+ *  4. Bóng: card (thẻ, kính mờ) · lift (thẻ khi rê chuột) · pop (hộp thoại, toast).
+ *     Tương ứng Tailwind: shadow-card · shadow-lift · shadow-pop.
+ * ============================================================================
+ */
+
+:root {
+  /* primary: màu thương hiệu: nút chính, liên kết, mục đang chọn, thanh tiến độ (gốc: blue) */
+  --imeji-primary-50: #eff6ff;
+  --imeji-primary-100: #dbeafe;
+  --imeji-primary-200: #bfdbfe;
+  --imeji-primary-300: #93c5fd;
+  --imeji-primary-400: #60a5fa;
+  --imeji-primary-500: #3b82f6;
+  --imeji-primary-600: #2563eb;
+  --imeji-primary-700: #1d4ed8;
+  --imeji-primary-800: #1e40af;
+  --imeji-primary-900: #1e3a8a;
+  --imeji-primary-950: #172554;
+
+  /* success: đúng, hoàn thành, đã nộp, có mặt (gốc: emerald) */
+  --imeji-success-50: #ecfdf5;
+  --imeji-success-100: #d0fae5;
+  --imeji-success-200: #a4f4cf;
+  --imeji-success-300: #5ee9b5;
+  --imeji-success-400: #00d492;
+  --imeji-success-500: #00bc7d;
+  --imeji-success-600: #007a55;
+  --imeji-success-700: #006045;
+  --imeji-success-800: #006045;
+  --imeji-success-900: #004f3b;
+  --imeji-success-950: #002c22;
+
+  /* warning: cảnh báo, cần chú ý, điểm cao, sắp xong (gốc: amber) */
+  --imeji-warning-50: #fffbeb;
+  --imeji-warning-100: #fef3c6;
+  --imeji-warning-200: #fee685;
+  --imeji-warning-300: #ffd230;
+  --imeji-warning-400: #ffb900;
+  --imeji-warning-500: #fe9a00;
+  --imeji-warning-600: #bb4d00;
+  --imeji-warning-700: #973c00;
+  --imeji-warning-800: #973c00;
+  --imeji-warning-900: #7b3306;
+  --imeji-warning-950: #461901;
+
+  /* danger: sai, lỗi, xóa, vắng, nợ học phí (gốc: rose) */
+  --imeji-danger-50: #fff1f2;
+  --imeji-danger-100: #ffe4e6;
+  --imeji-danger-200: #ffccd3;
+  --imeji-danger-300: #ffa1ad;
+  --imeji-danger-400: #ff637e;
+  --imeji-danger-500: #ff2056;
+  --imeji-danger-600: #d70037;
+  --imeji-danger-700: #c70036;
+  --imeji-danger-800: #a50036;
+  --imeji-danger-900: #8b0836;
+  --imeji-danger-950: #4d0218;
+
+  /* accent: điểm nhấn phụ: AI, bài tập, xếp câu (gốc: indigo) */
+  --imeji-accent-50: #eef2ff;
+  --imeji-accent-100: #e0e7ff;
+  --imeji-accent-200: #c6d2ff;
+  --imeji-accent-300: #a3b3ff;
+  --imeji-accent-400: #7c86ff;
+  --imeji-accent-500: #615fff;
+  --imeji-accent-600: #4f39f6;
+  --imeji-accent-700: #432dd7;
+  --imeji-accent-800: #372aac;
+  --imeji-accent-900: #312c85;
+  --imeji-accent-950: #1e1a4d;
+
+  /* slate-500 đậm hơn mặc định Tailwind để chữ phụ đạt WCAG AA trên nền trắng */
+  --imeji-slate-500: #526177;
+
+  /* ---- Font ---- */
+  --imeji-font-sans: "Be Vietnam Pro", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --imeji-font-jp: "Noto Sans JP", "Be Vietnam Pro", system-ui, sans-serif;
+
+  /* ---- Bo góc ---- */
+  --imeji-radius-sm: 0.5rem;
+  --imeji-radius-md: 0.75rem;
+  --imeji-radius-lg: 1rem;
+  --imeji-radius-xl: 1.5rem;
+  --imeji-radius-full: 9999px;
+
+  /* ---- Bóng ---- */
+  --imeji-shadow-card: 0 4px 20px -2px rgb(15 23 42 / 0.04);
+  --imeji-shadow-lift: 0 12px 24px -8px rgb(37 99 235 / 0.25);
+  --imeji-shadow-pop: 0 25px 50px -12px rgb(15 23 42 / 0.25);
+}
+
+/* ---- Nền và bề mặt chung ---- */
+body {
+  font-family: var(--imeji-font-sans);
+}
+
+/* Nền chấm nhẹ cho phần nội dung (dưới hero) */
+.bg-japanese-pattern {
+  background-color: #f8fafc;
+  background-image: radial-gradient(rgb(37 99 235 / 0.06) 1px, transparent 1px),
+    radial-gradient(rgb(37 99 235 / 0.04) 1px, #f8fafc 1px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+.dark .bg-japanese-pattern {
+  background-color: #0b0f19;
+  background-image: radial-gradient(rgb(96 165 250 / 0.08) 1px, transparent 1px),
+    radial-gradient(rgb(96 165 250 / 0.05) 1px, #0b0f19 1px);
+}
+
+/* Thẻ kính mờ */
+.glass-panel {
+  background: rgb(255 255 255 / 0.78);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(226 232 240 / 0.8);
+  box-shadow: var(--imeji-shadow-card);
+}
+.dark .glass-panel {
+  background: rgb(15 23 42 / 0.75);
+  border-color: rgb(51 65 85 / 0.65);
+  box-shadow: 0 4px 20px -2px rgb(0 0 0 / 0.35);
+}
+
+/* Viền focus rõ cho người dùng bàn phím (chuột và cảm ứng không bị ảnh hưởng) */
+:focus-visible {
+  outline: 2px solid var(--imeji-primary-600);
+  outline-offset: 2px;
+}
