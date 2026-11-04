@@ -1,4 +1,4 @@
-# IMEJI日本語教室 (Lớp học tiếng Nhật thầy Quang) — Điểm danh QR, học phí, bài tập và chấm bài AI
+# IMEJI日本語教室 (Lớp học tiếng Nhật thầy Quang) — Cổng học viên và giáo viên: điểm danh, lịch học, học phí, bài tập, luyện tập Minna và chấm bài AI
 
 Ứng dụng web (PWA) cho giáo viên và học viên. Frontend React + Vite, backend Express, dữ liệu lưu trong Postgres (Supabase).
 
@@ -8,11 +8,19 @@ Yêu cầu: Node.js 22, một chuỗi kết nối Postgres (Supabase).
 
 ```bash
 npm ci --legacy-peer-deps
-cp .env.example .env        # điền DATABASE_URL (và GEMINI_API_KEY nếu cần AI)
+# tạo file .env với các biến ở mục "Biến môi trường" bên dưới (ít nhất DATABASE_URL)
 npm run dev                 # chạy ở http://localhost:3000, tự migrate và nạp dữ liệu demo
 ```
 
 Tài khoản demo (chỉ dev): `teacher@eduscan.edu.vn`, `student@qnu.edu.vn`, `admin@eduscan.edu.vn`, mật khẩu `123456`.
+
+## Biến môi trường
+
+Đặt trong file `.env` (không commit, đã có trong `.gitignore`) hoặc trên máy chủ. Không ghi giá trị thật vào bất kỳ file nào trong repo.
+
+- Bắt buộc: `DATABASE_URL` (transaction pooler, cổng 6543), `JWT_SECRET` (ít nhất 32 ký tự, tạo bằng `openssl rand -hex 32`).
+- Khuyến nghị: `DIRECT_URL` (session pooler, cổng 5432, dùng cho migration), `DATABASE_CA_CERT` (nội dung PEM hoặc đường dẫn file .crt), `SEED_PASSWORD`, `SEED_TEACHER_NAME`, `CORS_ORIGIN`, `APP_TZ` (mặc định nên là `Asia/Ho_Chi_Minh`).
+- Tùy chọn: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (tệp đính kèm bài làm), `GEMINI_API_KEY`, `GEMINI_MODEL` (AI), `AUTO_MIGRATE`, `DATABASE_SSL` (`false` chỉ khi Postgres cục bộ không có SSL), `PORT`, `NODE_ENV`, `TRUST_PROXY`, `LEADS_NOTIFY_EMAIL`, `RESEND_API_KEY`, `MAIL_FROM`, `APP_URL` (địa chỉ eduscan để tạo liên kết trong email).
 
 ## Kiểm thử
 
@@ -40,7 +48,7 @@ docker build -t eduscan .
 docker run -p 3000:3000 --env-file .env eduscan
 ```
 
-Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc** để quét QR bằng camera trên điện thoại hoạt động, vì trình duyệt chỉ cho phép camera trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
+Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc**: bảo vệ mật khẩu và token đăng nhập, và trình duyệt chỉ cho cài ứng dụng (PWA) trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
 
 ## Cấu trúc frontend
 
@@ -48,9 +56,21 @@ docker run -p 3000:3000 --env-file .env eduscan
 - `src/App.tsx`: đăng nhập, khung trang, tải dữ liệu. `src/app/TeacherApp.tsx` và `src/app/StudentApp.tsx` là hai giao diện theo vai trò, tải riêng (lazy) nên học viên không tải mã của giáo viên.
 - Dữ liệu: `src/hooks/data/` mỗi tính năng một hook (lớp, học viên, điểm danh, bài tập, học phí, giáo viên, thông báo, sao lưu); `src/hooks/useEcosystemData.ts` ghép chúng lại, lo tải lần đầu, làm mới và các thao tác chạm nhiều tính năng.
 - Kiểu dữ liệu: `src/shared/types/index.ts` là nguồn duy nhất, dùng chung cho giao diện và server (DTO trong `server/lib/dto.ts` khai báo kiểu trả về theo đó nên lệch nhau là tsc báo lỗi). Giao diện dùng thẳng dữ liệu API, không có lớp chuyển đổi. Dữ liệu biểu mẫu gửi lên là `ClassInput`, `StudentInput`, `AssignmentInput`, `GradeInput`.
-- Giao diện: màu theo ngữ nghĩa `primary`, `success`, `warning`, `danger`, `accent` (và `slate` cho trung tính) khai báo một chỗ trong `src/index.css`; không dùng tên màu thô như `blue-600`. Chữ tối thiểu 12px (`text-xs`). Phần tử bấm được không phải `<button>` dùng `clickable()` (`src/shared/utils/a11y.tsx`). `tests/unit/design-rules.test.ts` kiểm tra các quy ước này.
+- Giao diện: màu theo ngữ nghĩa `primary`, `success`, `warning`, `danger`, `accent` (và `slate` cho trung tính) lấy từ bộ quy chuẩn thương hiệu `src/styles/imeji-brand.css` (xem mục bên dưới), `src/index.css` chỉ nối vào Tailwind; không dùng tên màu thô như `blue-600`. Chữ tối thiểu 12px (`text-xs`). Phần tử bấm được không phải `<button>` dùng `clickable()` (`src/shared/utils/a11y.tsx`). `tests/unit/design-rules.test.ts` kiểm tra các quy ước này.
 - Hộp thoại dùng chung (`src/shared/components/ui`): `Modal`, `useConfirm()` thay cho `window.confirm`, và `useIssuedPassword()` hiện mật khẩu tạm vừa cấp (giáo viên, học viên) trong hộp thoại không tự tắt, có nút sao chép thông tin đăng nhập; đặt ở cấp ứng dụng nên không mất khi chuyển trang.
 - Máy chủ phải trả `index.html` cho mọi đường dẫn không bắt đầu bằng `/api` (server.ts đã làm). Nếu đặt frontend trên static host riêng, cần cấu hình rewrite tương tự.
+
+## Bộ quy chuẩn thương hiệu
+
+Màu, font, bo góc, bóng, nền chấm và thẻ kính mờ nằm trong `src/styles/imeji-brand.css`, **giống hệt nhau** ở 3 repo: imeji_newhorizon (website, giữ bản gốc), imeji_dominion (luyện tập) và eduscan (cổng học viên). Quy ước dùng ghi ở đầu file đó.
+
+- Màu theo ý nghĩa: `primary` (thương hiệu, #2563eb), `success`, `warning`, `danger`, `accent`, cùng `slate` cho trung tính. Không dùng tên màu thô như `blue-600`, `emerald-500`, `bg-[#...]`.
+- Font: Be Vietnam Pro, chữ Nhật dùng Noto Sans JP (`font-jp`).
+- Muốn đổi: sửa bản gốc ở imeji_newhorizon, chép y nguyên sang 2 repo kia, rồi chạy `npm run brand:check` để so với bản gốc trên GitHub.
+
+Font được tự host bằng `@fontsource` (CSP production chặn Google Fonts, và PWA vẫn có font khi mất mạng).
+
+Header có **thanh chuyển 3 app** dùng chung với website và trang luyện tập (`src/shared/components/EcosystemSwitch.tsx`, kiểu `.imeji-switch`). Địa chỉ website, trang luyện tập và thông tin liên hệ nằm ở `src/shared/config/ecosystem.ts` (website đổi bằng `VITE_MINNA_ORIGIN`). Màn hình đăng nhập và đặt lại mật khẩu dùng nền mây và logo trong `public/brand/`; cổng học viên có chân trang chung (`SiteFooter`).
 
 ## Lịch giảng
 
@@ -104,6 +124,7 @@ docker run -p 3000:3000 --env-file .env eduscan
 
 ## Giới hạn đã biết
 
+- Giao diện đã bỏ điểm danh bằng QR (giáo viên điểm danh nhanh); API QR bên dưới vẫn còn ở server nhưng không còn màn hình nào dùng.
 - Mã QR do server ký (HMAC-SHA256, khóa suy ra từ `JWT_SECRET`), đổi mỗi 15 giây, gắn với đúng một phiên và chấp nhận thêm chu kỳ liền trước. Học viên không thể tự dựng mã, nhưng vẫn có thể chụp màn hình gửi cho bạn đang ở xa trong tối đa 30 giây. Đổi `JWT_SECRET` thì mã đang hiển thị mất hiệu lực (giáo viên chỉ cần chờ chu kỳ kế tiếp).
 - Mã phiên nhập tay (`ES-xxxx`) dùng cho học viên không có camera và không đổi trong suốt phiên, nên ai nhìn thấy trên màn chiếu cũng có thể gửi đi. Phiên được đóng khi giáo viên tắt màn hình QR Live (hoặc mở phiên mới), sau đó mã nhập tay không dùng được nữa. Nếu cần chặt hơn, hãy tắt QR Live ngay khi bắt đầu giờ học.
 - RLS bật trên mọi bảng (migration 0002) và không có policy: Data API của Supabase (anon/authenticated) không đọc được dữ liệu; server dùng role postgres nên không bị ảnh hưởng.

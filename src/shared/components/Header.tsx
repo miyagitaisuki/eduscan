@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { ActiveTab, User, UserRole } from '../types';
 import { getTeacherNavItems } from '../config/teacherNav';
+import { EcosystemSwitch } from './EcosystemSwitch';
 
 export type EcosystemViewMode = 'teacher' | 'student';
 
@@ -61,15 +62,14 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="bg-slate-900 text-white text-xs px-4 py-2 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
 
-          {/* Ecosystem Title & Indicator */}
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
-            </span>
-            <span className="font-extrabold tracking-wide text-slate-200">
-              IMEJI日本語教室
-            </span>
+          {/* Thương hiệu + thanh chuyển 3 app dùng chung (Trang chủ · Luyện tập · Học viên) */}
+          <div className="flex items-center gap-3">
+            <img src="/brand/logo.png" alt="" width={28} height={28} className="w-7 h-7 object-contain" />
+            <div className="leading-tight">
+              <p className="font-extrabold text-sm text-white">IMEJI日本語教室</p>
+              <p className="text-xs text-primary-200 hidden sm:block">Lớp học tiếng Nhật thầy Quang</p>
+            </div>
+            <EcosystemSwitch onDark />
           </div>
 
           {/* App Switcher (Teacher Web vs Student Mobile) - chỉ ở chế độ dev */}
@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Laptop className="w-3.5 h-3.5" />
-                <span>IMEJI日本語教室 Teacher (Web)</span>
+                <span>Giao diện giáo viên</span>
               </button>
 
               <button
@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5 text-primary-300" />
-                <span>IMEJI日本語教室 Student (Android)</span>
+                <span>Giao diện học viên</span>
               </button>
             </div>
 
@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="hidden lg:flex items-center gap-1 ml-2 pl-2 border-l border-slate-700">
               <span className="text-xs text-slate-400">Đang là:</span>
               <span className="text-xs font-bold text-warning-300">
-                {currentUser?.role === 'student' ? 'Sinh viên' : 'Giáo viên'}
+                {currentUser?.role === 'student' ? 'Học viên' : 'Giáo viên'}
               </span>
             </div>
           </div>

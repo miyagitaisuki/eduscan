@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { homeworkService } from '../../../services/homeworkService';
 import type { Assignment, Submission } from '../../../shared/types';
+import { WEBSITE_URL } from '../../../shared/config/ecosystem';
 
 // Trang luyện tập (dominion) chạy ở website; nơi nhận kết quả chỉ tin đúng nguồn này.
-const MINNA_ORIGIN = ((import.meta.env.VITE_MINNA_ORIGIN as string | undefined) || 'https://imejiquynhon.com').replace(/\/+$/, '');
+const MINNA_ORIGIN = WEBSITE_URL;
 
 interface Props {
   assignment: Assignment;

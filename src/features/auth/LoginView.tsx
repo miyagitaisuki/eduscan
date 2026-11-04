@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { LogIn } from 'lucide-react';
 import { authService } from '../../services/authService';
+import { EcosystemSwitch } from '../../shared/components/EcosystemSwitch';
+import { PHONE, PHONE_DISPLAY, WEBSITE_URL, ZALO_URL } from '../../shared/config/ecosystem';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<unknown>;
@@ -42,15 +44,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-md border border-slate-200 p-6 space-y-5">
+    <div className="relative min-h-screen flex flex-col items-center justify-center gap-5 p-4 overflow-hidden bg-slate-800">
+      {/* Nền mây dùng chung với website và trang luyện tập */}
+      <img src="/brand/clouds.jpg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/35 to-slate-900/60 pointer-events-none" />
+
+      <div className="relative">
+        <EcosystemSwitch onDark />
+      </div>
+
+      <div className="relative w-full max-w-sm glass-panel rounded-3xl shadow-pop p-6 space-y-5">
         <div className="text-center space-y-1">
-          <div className="mx-auto w-11 h-11 rounded-xl bg-primary-600 text-white flex items-center justify-center">
-            <LogIn className="w-5 h-5" />
-          </div>
-          <h1 className="text-lg font-extrabold text-slate-900">IMEJI日本語教室</h1>
-          <p className="text-xs font-semibold text-slate-600">Lớp học tiếng Nhật thầy Quang</p>
-          <p className="text-xs text-slate-500">Đăng nhập để tiếp tục</p>
+          <img src="/brand/logo.png" alt="Logo IMEJI日本語教室" width={56} height={56} className="mx-auto w-14 h-14 object-contain drop-shadow-md" />
+          <h1 className="text-xl font-extrabold text-slate-900">IMEJI日本語教室</h1>
+          <p className="text-xs font-semibold text-primary-700">Lớp học tiếng Nhật thầy Quang</p>
+          <p className="text-sm text-slate-600 pt-1 inline-flex items-center gap-1.5"><LogIn className="w-4 h-4" />Cổng học viên ・ Đăng nhập để tiếp tục</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -130,7 +138,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
             </div>
           </div>
         )}
+
+        <p className="text-xs text-center text-slate-600 border-t border-slate-200 pt-4">
+          Chưa có tài khoản hoặc quên email đăng nhập? Nhắn{' '}
+          <a href={ZALO_URL} target="_blank" rel="noreferrer" className="font-semibold text-primary-700 hover:underline">Zalo Quang Sensei</a>{' '}
+          hoặc gọi <a href={`tel:${PHONE}`} className="font-semibold text-primary-700 hover:underline">{PHONE_DISPLAY}</a>.
+        </p>
       </div>
+
+      <a href={`${WEBSITE_URL}/`} className="relative text-xs font-semibold text-white/90 hover:text-white hover:underline">
+        ← Về trang chủ imejiquynhon.com
+      </a>
     </div>
   );
 };
