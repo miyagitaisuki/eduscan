@@ -36,8 +36,8 @@ export async function sendPasswordReset(
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   const html =
     `<p>Xin chào ${escapeHtml(u.fullName)},</p>` +
-    `<p>Nhấn vào liên kết sau để đặt lại mật khẩu EduScan (hiệu lực 30 phút):</p>` +
+    `<p>Nhấn vào liên kết sau để đặt lại mật khẩu IMEJI日本語教室 (hiệu lực 30 phút):</p>` +
     `<p><a href="${link}">${link}</a></p>` +
     `<p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>`;
-  return sendMail(u.email, 'EduScan: Đặt lại mật khẩu', html);
+  return sendMail(u.email, 'IMEJI日本語教室: Đặt lại mật khẩu', html);
 }

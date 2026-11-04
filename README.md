@@ -1,4 +1,4 @@
-# EduScan AI — Điểm danh QR, học phí, bài tập và chấm bài AI
+# IMEJI日本語教室 (Lớp học tiếng Nhật thầy Quang) — Điểm danh QR, học phí, bài tập và chấm bài AI
 
 Ứng dụng web (PWA) cho giáo viên và học viên. Frontend React + Vite, backend Express, dữ liệu lưu trong Postgres (Supabase).
 

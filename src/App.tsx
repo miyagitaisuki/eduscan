@@ -104,7 +104,7 @@ export default function App() {
       <ToastNotification toast={toast} onClose={hideToast} />
 
       <footer className="hidden md:block border-t border-slate-200 bg-white/70 py-4 text-center text-xs text-slate-500">
-        <p>EduScan AI © 2026</p>
+        <p>IMEJI日本語教室 © 2026 ・ Lớp học tiếng Nhật thầy Quang</p>
       </footer>
     </div>
   );

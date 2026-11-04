@@ -20,7 +20,7 @@ export async function seedDatabase(db: AppDb, opts: SeedOptions): Promise<boolea
 
   await db.transaction(async (tx) => {
     await tx.insert(s.users).values([
-      { id: 'usr-admin-1', email: 'admin@eduscan.edu.vn', passwordHash: pw, fullName: 'Ban Quản Trị EduScan', role: 'admin', phone: '0988.888.999' },
+      { id: 'usr-admin-1', email: 'admin@eduscan.edu.vn', passwordHash: pw, fullName: 'Ban Quản Trị IMEJI日本語教室', role: 'admin', phone: '0988.888.999' },
       { id: teacherId, email: 'teacher@eduscan.edu.vn', passwordHash: pw, fullName: opts.teacherName, role: 'teacher', phone: '0912.345.678' },
     ]);
     if (!opts.demo) return;

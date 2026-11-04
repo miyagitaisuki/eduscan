@@ -1,5 +1,5 @@
 // Gửi email qua Resend (HTTP API). Thiếu cấu hình thì không gửi và trả về false, không làm hỏng luồng chính.
-// Cần: RESEND_API_KEY và MAIL_FROM (địa chỉ đã xác minh domain, ví dụ "EduScan <no-reply@ten-mien.edu.vn>").
+// Cần: RESEND_API_KEY và MAIL_FROM (địa chỉ đã xác minh domain, ví dụ "IMEJI日本語教室 <no-reply@ten-mien.edu.vn>").
 export async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.MAIL_FROM;

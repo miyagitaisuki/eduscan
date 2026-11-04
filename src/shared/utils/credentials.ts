@@ -15,7 +15,7 @@ export const roleLabel = (role: CredentialRole) => ROLE_LABEL[role];
 /** Nội dung sẵn sàng gửi cho người dùng mới (Zalo, tin nhắn...) */
 export function buildCredentialMessage({ name, email, password }: Credentials, loginUrl: string): string {
   return [
-    'Tài khoản EduScan',
+    'Tài khoản IMEJI日本語教室',
     `Họ tên: ${name}`,
     `Tên đăng nhập: ${email}`,
     `Mật khẩu tạm: ${password}`,

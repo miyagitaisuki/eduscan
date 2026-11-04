@@ -40,7 +40,7 @@ export async function notifyNewLead(db: AppDb, lead: typeof leads.$inferSelect):
       `</table>` +
       (appUrl ? `<p><a href="${appUrl}/leads">Mở danh sách đăng ký</a></p>` : '');
     const results = await Promise.all(
-      to.map((addr) => sendMail(addr, `[EduScan] Đăng ký học thử mới: ${lead.fullName}`, html))
+      to.map((addr) => sendMail(addr, `[IMEJI日本語教室] Đăng ký học thử mới: ${lead.fullName}`, html))
     );
     if (!results.some(Boolean)) console.warn('[leads] Không gửi được email báo đăng ký mới.');
   } catch (err) {

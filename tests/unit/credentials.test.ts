@@ -8,7 +8,7 @@ describe('buildCredentialMessage', () => {
       'https://eduscan.example.com'
     );
     expect(text.split('\n')).toEqual([
-      'Tài khoản EduScan',
+      'Tài khoản IMEJI日本語教室',
       'Họ tên: Nguyễn Văn An',
       'Tên đăng nhập: an@eduscan.edu.vn',
       'Mật khẩu tạm: Ab3dE5fG',
