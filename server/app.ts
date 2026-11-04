@@ -17,6 +17,7 @@ import { adminRoutes } from './routes/admin';
 import { teacherRoutes } from './routes/teachers';
 import { lessonRoutes } from './routes/lessons';
 import { leadRoutes } from './routes/leads';
+import { publicInfoRoutes } from './routes/publicInfo';
 
 export const PUBLIC_API_PATHS = new Set([
   '/api/health',
@@ -25,6 +26,7 @@ export const PUBLIC_API_PATHS = new Set([
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
   '/api/leads/public',
+  '/api/public/classes',
 ]);
 
 export interface CreateAppOptions {
@@ -94,6 +96,7 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   app.use('/api/teachers', teacherRoutes(deps));
   app.use('/api', lessonRoutes(deps));
   app.use('/api/leads', leadRoutes(deps));
+  app.use('/api/public', publicInfoRoutes(deps));
 
   app.use('/api', (_req: Request, res: Response) => {
     res.status(404).json({ error: 'Không tìm thấy API này.' });

@@ -82,6 +82,12 @@ docker run -p 3000:3000 --env-file .env eduscan
 - **Ghi danh từ đăng ký:** nút "Tạo học viên và ghi danh" (`POST /api/leads/:id/convert`, chỉ admin; body `class_id`, tùy chọn `email`, `join_date`) tạo tài khoản học viên bằng họ tên và số điện thoại của đăng ký, ghi danh vào lớp, tạo học phí tháng hiện tại, đánh dấu "Đã ghi danh" và hiện mật khẩu tạm một lần. Mỗi đăng ký chỉ tạo được một lần (cột `leads.student_id`, hai lần bấm cùng lúc thì lần sau nhận 409). Không nhập email thì tên đăng nhập tự sinh `student.<mã>@eduscan.edu.vn`.
 - Bảng `leads` chưa nằm trong "Sao lưu/Phục hồi" JSON, nên phục hồi không xóa hay nạp lại đăng ký; dữ liệu này nằm trong sao lưu Supabase và `pg_dump`.
 
+## Lịch khai giảng công khai cho website
+
+- `GET /api/public/classes` (công khai, chỉ đọc, 60 yêu cầu/phút/IP, cache 5 phút): trả `next_start_date` (ngày khai giảng gần nhất), `weekdays` (các thứ học, 0 = Chủ Nhật ... 6 = Thứ Bảy) và danh sách lớp sắp khai giảng gồm `level`, `start_date`, `weekdays`, `start_time`, `end_time`.
+- Chỉ lấy lớp có **Ngày bắt đầu** từ hôm nay trở đi. Không có tên lớp, giáo viên, phòng, học phí hay học viên. Muốn website hiện ngày khai giảng mới, chỉ cần đặt ngày bắt đầu và lịch lặp cho lớp (nút **Lịch** trên thẻ lớp).
+- Website (imejiquynhon.com) đọc endpoint này lúc người xem mở trang; khi eduscan chậm hoặc chưa có lớp sắp khai giảng thì dùng giá trị mặc định trong `siteInfo.ts`.
+
 ## Sao lưu
 
 - **Lớp chính:** sao lưu tự động của Supabase (gói có sao lưu hằng ngày/PITR). Kiểm tra gói đang dùng có bật tính năng này.
