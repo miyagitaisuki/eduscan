@@ -63,7 +63,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans flex flex-col antialiased selection:bg-primary-600 selection:text-white">
+    <div className="relative isolate min-h-screen text-slate-900 font-sans flex flex-col antialiased selection:bg-primary-600 selection:text-white">
+      {/* Nền mây dùng chung với màn hình đăng nhập, website và trang luyện tập */}
+      <div aria-hidden="true" className="app-cloud-bg" />
       <Header
         // Giao diện theo vai trò đăng nhập; công tắc dev đổi vai trò bằng cách đăng nhập tài khoản demo khác
         viewMode={isStudent ? 'student' : 'teacher'}

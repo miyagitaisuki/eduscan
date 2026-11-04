@@ -6,6 +6,26 @@
  */
 @import "./styles/imeji-brand.css";
 
+/* Thẻ kính trong hơn cho màn hình đăng nhập (nền mây lộ rõ hơn) */
+.glass-panel--clear {
+  background: rgb(255 255 255 / 0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-color: rgb(255 255 255 / 0.5);
+}
+
+/* Nền mây cố định phía sau toàn bộ app (giáo viên và học viên), phủ lớp sáng để chữ dễ đọc */
+.app-cloud-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: #e2e8f0;
+  background-image: linear-gradient(rgb(248 250 252 / 0.55), rgb(248 250 252 / 0.72)), url("/brand/clouds.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
 /* Nối Tailwind với bộ quy chuẩn thương hiệu (imeji-brand.css). Không khai báo giá trị màu ở đây. */
 @theme inline {
   --color-primary-50: var(--imeji-primary-50); --color-primary-100: var(--imeji-primary-100); --color-primary-200: var(--imeji-primary-200); --color-primary-300: var(--imeji-primary-300); --color-primary-400: var(--imeji-primary-400); --color-primary-500: var(--imeji-primary-500);

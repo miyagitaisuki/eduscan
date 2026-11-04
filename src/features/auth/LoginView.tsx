@@ -53,7 +53,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
         <EcosystemSwitch onDark />
       </div>
 
-      <div className="relative w-full max-w-sm glass-panel rounded-3xl shadow-pop p-6 space-y-5">
+      <div className="relative w-full max-w-sm glass-panel glass-panel--clear rounded-3xl shadow-pop p-6 space-y-5">
         <div className="text-center space-y-1">
           <img src="/brand/logo.png" alt="Logo IMEJI日本語教室" width={56} height={56} className="mx-auto w-14 h-14 object-contain drop-shadow-md" />
           <h1 className="text-xl font-extrabold text-slate-900">IMEJI日本語教室</h1>
