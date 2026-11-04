@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { UserPlus, Phone, MessageCircle, RefreshCw } from 'lucide-react';
-import type { Lead, LeadStatus } from '../../../shared/types';
+import { UserPlus, Phone, MessageCircle, RefreshCw, GraduationCap } from 'lucide-react';
+import type { ClassItem, Lead, LeadStatus } from '../../../shared/types';
+import { Modal } from '../../../shared/components/ui';
 
 interface LeadsViewProps {
   leads: Lead[];
+  classes: ClassItem[];
+  onConvert: (id: string, data: { class_id: string; email?: string }) => Promise<unknown>;
   onUpdate: (id: string, data: { status?: LeadStatus; admin_note?: string }) => Promise<unknown>;
   onRefresh: () => Promise<unknown>;
 }
@@ -28,7 +31,7 @@ const STATUS_TONE: Record<LeadStatus, string> = {
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: LeadsViewProps['onUpdate'] }) {
+function LeadCard({ lead, onUpdate, onEnroll }: { lead: Lead; onUpdate: LeadsViewProps['onUpdate']; onEnroll: (lead: Lead) => void }) {
   const [note, setNote] = useState(lead.admin_note);
   const [saving, setSaving] = useState(false);
   const noteChanged = note.trim() !== lead.admin_note;
@@ -98,6 +101,20 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: LeadsViewProps['on
         )}
       </dl>
 
+      {lead.student_id ? (
+        <p className="text-xs font-semibold text-success-700 bg-success-50 border border-success-200 rounded-xl px-3 py-2">
+          Đã tạo tài khoản học viên. Xem trong mục Học viên.
+        </p>
+      ) : (
+        <button
+          onClick={() => onEnroll(lead)}
+          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-success-600 hover:bg-success-700 text-white text-xs font-bold cursor-pointer min-h-[36px]"
+        >
+          <GraduationCap className="w-4 h-4" />
+          Tạo học viên và ghi danh
+        </button>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2 pt-2 border-t border-slate-100">
         <label className="text-xs font-semibold text-slate-600">
           Trạng thái
@@ -139,7 +156,87 @@ function LeadCard({ lead, onUpdate }: { lead: Lead; onUpdate: LeadsViewProps['on
   );
 }
 
-export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onUpdate, onRefresh }) => {
+const fieldClass = 'w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary-500 bg-white';
+
+function EnrollModal({
+  lead,
+  classes,
+  onClose,
+  onConvert,
+}: {
+  lead: Lead;
+  classes: ClassItem[];
+  onClose: () => void;
+  onConvert: LeadsViewProps['onConvert'];
+}) {
+  const [classId, setClassId] = useState('');
+  const [email, setEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const res = await onConvert(lead.id, { class_id: classId, email: email.trim() || undefined });
+    setSaving(false);
+    // Chỉ đóng khi tạo thành công; lỗi thì giữ nguyên để sửa (VD email đã dùng)
+    if (res) onClose();
+  };
+
+  return (
+    <Modal
+      title={<>Tạo học viên: {lead.full_name}</>}
+      description="Tạo tài khoản học viên, ghi danh vào lớp và tạo học phí tháng này. Mật khẩu tạm hiện một lần sau khi tạo."
+      onClose={onClose}
+      size="md"
+      closeOnBackdrop={false}
+    >
+      <form onSubmit={submit} className="space-y-3.5">
+        <div>
+          <label htmlFor="enroll-class" className="block text-xs font-bold text-slate-700 mb-1">
+            Lớp ghi danh *
+          </label>
+          <select id="enroll-class" required value={classId} onChange={(e) => setClassId(e.target.value)} className={fieldClass}>
+            <option value="">Chọn lớp...</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.level})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="enroll-email" className="block text-xs font-bold text-slate-700 mb-1">
+            Email đăng nhập (không bắt buộc)
+          </label>
+          <input
+            id="enroll-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Để trống: hệ thống tự sinh tên đăng nhập"
+            className={fieldClass}
+          />
+        </div>
+        <p className="text-xs text-slate-500">Số điện thoại {lead.phone} được lưu vào hồ sơ học viên.</p>
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={saving || !classId}
+            className="px-4 py-2 rounded-xl bg-success-600 hover:bg-success-700 text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
+          >
+            {saving ? 'Đang tạo...' : 'Tạo học viên'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export const LeadsView: React.FC<LeadsViewProps> = ({ leads, classes, onUpdate, onConvert, onRefresh }) => {
+  const [enrolling, setEnrolling] = useState<Lead | null>(null);
   const [filter, setFilter] = useState<LeadStatus | 'all'>('new');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -200,10 +297,12 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onUpdate, onRefresh
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {shown.map((l) => (
-            <LeadCard key={`${l.id}:${l.admin_note}`} lead={l} onUpdate={onUpdate} />
+            <LeadCard key={`${l.id}:${l.admin_note}:${l.student_id}`} lead={l} onUpdate={onUpdate} onEnroll={setEnrolling} />
           ))}
         </div>
       )}
+
+      {enrolling && <EnrollModal lead={enrolling} classes={classes} onClose={() => setEnrolling(null)} onConvert={onConvert} />}
     </div>
   );
 };

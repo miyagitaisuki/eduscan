@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createTestContext, TEACHER, ADMIN } from '../helpers';
+import { createTestContext, TEACHER, ADMIN, STUDENT_AN as STUDENT_EMAIL } from '../helpers';
 import { leads } from '../../server/db/schema';
 import { normalizePhone } from '../../server/routes/leads';
 
@@ -158,5 +158,70 @@ describe('báo email khi có đăng ký mới', () => {
       delete process.env.RESEND_API_KEY;
       delete process.env.MAIL_FROM;
     }
+  });
+});
+
+describe('ghi danh từ đăng ký (convert)', () => {
+  const adm = () => ({ Authorization: `Bearer ${ADM}` });
+  // Ghi thẳng vào DB: endpoint công khai bị giới hạn 10 lần/giờ nên không dùng cho dữ liệu dựng sẵn
+  async function newLead(phone: string, fullName = 'Học Viên Mới') {
+    const [row] = await ctx.db
+      .insert(leads)
+      .values({ id: `lead-${phone}`, fullName, phone, consentAt: new Date() })
+      .returning();
+    return row;
+  }
+
+  it('chỉ admin; thiếu lớp, lớp sai, email sai bị từ chối', async () => {
+    const l = await newLead('0933000001');
+    expect((await ctx.api.post(`/api/leads/${l.id}/convert`).send({ class_id: 'cls-n5-01' })).status).toBe(401);
+    expect((await ctx.api.post(`/api/leads/${l.id}/convert`).set('Authorization', `Bearer ${T}`).send({ class_id: 'cls-n5-01' })).status).toBe(403);
+    expect((await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({})).status).toBe(400);
+    expect((await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'nope' })).status).toBe(400);
+    expect((await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01', email: 'sai' })).status).toBe(400);
+    expect((await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01', join_date: '2026-02-31' })).status).toBe(400);
+    expect((await ctx.api.post('/api/leads/nope/convert').set(adm()).send({ class_id: 'cls-n5-01' })).status).toBe(404);
+    const [still] = (await ctx.db.select().from(leads)).filter((x) => x.id === l.id);
+    expect(still.studentId).toBeNull();
+    expect(still.status).toBe('new');
+  });
+
+  it('tạo tài khoản học viên, ghi danh, học phí, đánh dấu đã ghi danh và đăng nhập được bằng mật khẩu tạm', async () => {
+    const l = await newLead('0933000002', 'Nguyễn Thị Lead');
+    const res = await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01', email: 'Lead.Moi@Example.com' });
+    expect(res.status).toBe(201);
+    expect(res.body.student).toMatchObject({ full_name: 'Nguyễn Thị Lead', email: 'lead.moi@example.com', class_id: 'cls-n5-01' });
+    expect(res.body.lead).toMatchObject({ status: 'enrolled', student_id: res.body.student.id });
+    expect(typeof res.body.temporary_password).toBe('string');
+
+    const students = await ctx.api.get('/api/students').set(adm());
+    const st = students.body.find((s: any) => s.id === res.body.student.id);
+    expect(st).toMatchObject({ phone: '0933000002', class_id: 'cls-n5-01', must_change_password: true });
+    const tuition = await ctx.api.get('/api/tuition').set(adm());
+    expect(tuition.body.some((t: any) => t.student_id === st.id)).toBe(true);
+
+    const login = await ctx.api.post('/api/auth/login').send({ email: 'lead.moi@example.com', password: res.body.temporary_password });
+    expect(login.status).toBe(200);
+  });
+
+  it('không tạo hai lần, kể cả khi bấm đồng thời', async () => {
+    const l = await newLead('0933000003');
+    const [a, b] = await Promise.all([
+      ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01' }),
+      ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01' }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
+    const again = await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01' });
+    expect(again.status).toBe(409);
+  });
+
+  it('email đã dùng thì 409 và không tạo gì; không nhập email thì tự sinh', async () => {
+    const l = await newLead('0933000004');
+    const dup = await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01', email: STUDENT_EMAIL });
+    expect(dup.status).toBe(409);
+    expect((await ctx.db.select().from(leads)).find((x) => x.id === l.id)!.studentId).toBeNull();
+    const ok = await ctx.api.post(`/api/leads/${l.id}/convert`).set(adm()).send({ class_id: 'cls-n5-01' });
+    expect(ok.status).toBe(201);
+    expect(ok.body.student.email).toMatch(/^student\.[0-9a-f]{10}@eduscan\.edu\.vn$/);
   });
 });

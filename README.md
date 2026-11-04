@@ -79,6 +79,7 @@ docker run -p 3000:3000 --env-file .env eduscan
 - Admin: `GET /api/leads?status=` và `PATCH /api/leads/:id` (`status`: `new`, `contacted`, `trial`, `enrolled`, `declined`; `admin_note`). Mỗi lần sửa ghi `audit_logs`.
 - **Màn hình "Đăng ký"** (chỉ admin, đường dẫn `/leads`): danh sách theo trạng thái, gọi/Zalo nhanh, đổi trạng thái và ghi chú xử lý. Tab có huy hiệu số đăng ký còn ở trạng thái "Mới".
 - **Email báo đăng ký mới:** cần `RESEND_API_KEY` và `MAIL_FROM` (cùng cấu hình với email đặt lại mật khẩu). Người nhận là `LEADS_NOTIFY_EMAIL` (nhiều địa chỉ cách nhau dấu phẩy), nếu bỏ trống thì gửi cho các admin đang hoạt động. Đặt `APP_URL` (địa chỉ eduscan) để email có liên kết mở danh sách. Gửi email lỗi chỉ ghi log, không ảnh hưởng việc nhận đăng ký.
+- **Ghi danh từ đăng ký:** nút "Tạo học viên và ghi danh" (`POST /api/leads/:id/convert`, chỉ admin; body `class_id`, tùy chọn `email`, `join_date`) tạo tài khoản học viên bằng họ tên và số điện thoại của đăng ký, ghi danh vào lớp, tạo học phí tháng hiện tại, đánh dấu "Đã ghi danh" và hiện mật khẩu tạm một lần. Mỗi đăng ký chỉ tạo được một lần (cột `leads.student_id`, hai lần bấm cùng lúc thì lần sau nhận 409). Không nhập email thì tên đăng nhập tự sinh `student.<mã>@eduscan.edu.vn`.
 - Bảng `leads` chưa nằm trong "Sao lưu/Phục hồi" JSON, nên phục hồi không xóa hay nạp lại đăng ký; dữ liệu này nằm trong sao lưu Supabase và `pg_dump`.
 
 ## Sao lưu

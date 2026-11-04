@@ -43,7 +43,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const homework = useHomeworkData(notify);
   const tuition = useTuitionData({ notify, enabled: isAdmin });
   const teachers = useTeachersData({ notify, enabled: isAdmin });
-  const leads = useLeadsData({ notify, enabled: isAdmin });
+  const leads = useLeadsData({ notify, enabled: isAdmin, onConverted: () => refreshRef.current() });
   const notifications = useNotificationsData(currentUserId);
   const lessons = useLessonsData();
 
@@ -162,6 +162,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     // Đăng ký học thử từ website (admin)
     loadLeads,
     handleUpdateLead: leads.update,
+    handleConvertLead: leads.convert,
 
     // Thông báo
     handleMarkNotificationRead: notifications.markRead,
