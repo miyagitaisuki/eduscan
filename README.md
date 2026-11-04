@@ -8,11 +8,19 @@ Yêu cầu: Node.js 22, một chuỗi kết nối Postgres (Supabase).
 
 ```bash
 npm ci --legacy-peer-deps
-cp .env.example .env        # điền DATABASE_URL (và GEMINI_API_KEY nếu cần AI)
+# tạo file .env với các biến ở mục "Biến môi trường" bên dưới (ít nhất DATABASE_URL)
 npm run dev                 # chạy ở http://localhost:3000, tự migrate và nạp dữ liệu demo
 ```
 
 Tài khoản demo (chỉ dev): `teacher@eduscan.edu.vn`, `student@qnu.edu.vn`, `admin@eduscan.edu.vn`, mật khẩu `123456`.
+
+## Biến môi trường
+
+Đặt trong file `.env` (không commit, đã có trong `.gitignore`) hoặc trên máy chủ. Không ghi giá trị thật vào bất kỳ file nào trong repo.
+
+- Bắt buộc: `DATABASE_URL` (transaction pooler, cổng 6543), `JWT_SECRET` (ít nhất 32 ký tự, tạo bằng `openssl rand -hex 32`).
+- Khuyến nghị: `DIRECT_URL` (session pooler, cổng 5432, dùng cho migration), `DATABASE_CA_CERT` (nội dung PEM hoặc đường dẫn file .crt), `SEED_PASSWORD`, `SEED_TEACHER_NAME`, `CORS_ORIGIN`, `APP_TZ` (mặc định nên là `Asia/Ho_Chi_Minh`).
+- Tùy chọn: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (tệp đính kèm bài làm), `GEMINI_API_KEY`, `GEMINI_MODEL` (AI), `AUTO_MIGRATE`, `DATABASE_SSL` (`false` chỉ khi Postgres cục bộ không có SSL), `PORT`, `NODE_ENV`, `TRUST_PROXY`, `LEADS_NOTIFY_EMAIL`, `RESEND_API_KEY`, `MAIL_FROM`, `APP_URL` (địa chỉ eduscan để tạo liên kết trong email).
 
 ## Kiểm thử
 
