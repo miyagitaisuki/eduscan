@@ -24,9 +24,9 @@ export default function StudentApp({ data, currentUser }: StudentAppProps) {
   if (!tab) return <Redirect to={studentPath(DEFAULT_STUDENT_TAB)} replace />;
 
   return (
-    <div className="py-4 px-2 sm:px-4 flex-1 flex flex-col items-center">
+    <div className="py-4 px-2 sm:px-4 lg:py-6 flex-1 flex flex-col items-center">
       {data.loadError && (
-        <div className="w-full max-w-md px-2">
+        <div className="w-full max-w-md lg:max-w-5xl px-2">
           <LoadErrorBanner message={data.loadError} onRetry={data.refreshData} />
         </div>
       )}
@@ -41,7 +41,6 @@ export default function StudentApp({ data, currentUser }: StudentAppProps) {
         notifications={data.notifications}
         activeTab={tab}
         onTabChange={(next) => navigate(studentPath(next))}
-        onCheckinQR={(payload) => data.handleStudentCheckin(currentUser.id, payload)}
         onSubmitHomework={(asgId, content, attachmentUrl) =>
           data.handleSubmitHomework(asgId, currentUser.id, content, attachmentUrl)
         }
