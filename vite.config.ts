@@ -13,8 +13,8 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
         manifest: {
-          name: 'EduScan AI - Điểm danh & Chấm bài',
-          short_name: 'EduScan',
+          name: 'IMEJI日本語教室 - Lớp học tiếng Nhật thầy Quang',
+          short_name: 'IMEJI',
           description: 'Điểm danh QR, học phí và bài tập cho lớp học tiếng Nhật.',
           lang: 'vi',
           theme_color: '#2563eb',

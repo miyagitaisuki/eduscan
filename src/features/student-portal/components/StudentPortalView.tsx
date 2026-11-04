@@ -235,7 +235,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               <div className="relative z-10 flex items-center justify-between">
                 <div>
                   <span className="text-xs uppercase font-black tracking-widest text-primary-200">
-                    EduScan Điểm Danh
+                    IMEJI日本語教室 ・ Điểm danh
                   </span>
                   <h3 className="text-base font-extrabold mt-0.5">Quét mã QR tại lớp</h3>
                   <p className="text-xs text-primary-100/90 mt-1">

@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
             </span>
             <span className="font-extrabold tracking-wide text-slate-200">
-              EDUSCAN ECOSYSTEM
+              IMEJI日本語教室
             </span>
           </div>
 
@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Laptop className="w-3.5 h-3.5" />
-                <span>EduScan Teacher (Web)</span>
+                <span>IMEJI日本語教室 Teacher (Web)</span>
               </button>
 
               <button
@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5 text-primary-300" />
-                <span>EduScan Student (Android)</span>
+                <span>IMEJI日本語教室 Student (Android)</span>
               </button>
             </div>
 
@@ -166,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
-                      EduScan Teacher Portal
+                      IMEJI日本語教室
                     </h1>
                     <span className="text-xs font-bold bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full border border-primary-200">
                       Giáo viên

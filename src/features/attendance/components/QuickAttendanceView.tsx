@@ -558,7 +558,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
           title={activeClass.name}
           description={
             <>
-              Học viên mở ứng dụng <strong>EduScan Student</strong> trên điện thoại để quét mã bên dưới.
+              Học viên mở ứng dụng <strong>IMEJI日本語教室 Student</strong> trên điện thoại để quét mã bên dưới.
             </>
           }
           onClose={closeQr}
@@ -576,7 +576,7 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
               {qrCodeUrl ? (
                 <img
                   src={qrCodeUrl}
-                  alt="EduScan Dynamic Attendance QR"
+                  alt="IMEJI日本語教室 Attendance QR"
                   className="w-64 h-64 mx-auto rounded-xl shadow-md"
                 />
               ) : (

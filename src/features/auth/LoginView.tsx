@@ -48,7 +48,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLoading, onDevQ
           <div className="mx-auto w-11 h-11 rounded-xl bg-primary-600 text-white flex items-center justify-center">
             <LogIn className="w-5 h-5" />
           </div>
-          <h1 className="text-lg font-extrabold text-slate-900">EduScan AI</h1>
+          <h1 className="text-lg font-extrabold text-slate-900">IMEJI日本語教室</h1>
+          <p className="text-xs font-semibold text-slate-600">Lớp học tiếng Nhật thầy Quang</p>
           <p className="text-xs text-slate-500">Đăng nhập để tiếp tục</p>
         </div>
 
