@@ -4,8 +4,8 @@ import type { StudentTab } from '../shared/types';
 // Địa chỉ trang: mỗi tab là một đường dẫn riêng để F5 giữ nguyên tab, gửi được link,
 // và nút Back của trình duyệt/Android quay về tab trước thay vì thoát ứng dụng.
 
-export const TEACHER_TABS: ActiveTab[] = ['dashboard', 'attendance', 'classes', 'students', 'tuition', 'homework', 'stats', 'teachers'];
-export const ADMIN_ONLY_TABS: ActiveTab[] = ['tuition', 'teachers'];
+export const TEACHER_TABS: ActiveTab[] = ['dashboard', 'attendance', 'classes', 'students', 'tuition', 'homework', 'stats', 'teachers', 'leads'];
+export const ADMIN_ONLY_TABS: ActiveTab[] = ['tuition', 'teachers', 'leads'];
 export const DEFAULT_TEACHER_TAB: ActiveTab = 'dashboard';
 
 export const STUDENT_TABS: StudentTab[] = ['home', 'assignments', 'attendance', 'tuition', 'notifications'];

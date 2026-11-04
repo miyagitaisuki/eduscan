@@ -16,6 +16,8 @@ describe('teacherTabFromPath', () => {
   it('tab chỉ dành cho admin trả null với giáo viên thường', () => {
     expect(teacherTabFromPath('/tuition', false)).toBeNull();
     expect(teacherTabFromPath('/teachers', false)).toBeNull();
+    expect(teacherTabFromPath('/leads', false)).toBeNull();
+    expect(teacherTabFromPath('/leads', true)).toBe('leads');
     expect(teacherTabFromPath('/tuition', true)).toBe('tuition');
     expect(teacherTabFromPath('/teachers', true)).toBe('teachers');
   });

@@ -29,6 +29,8 @@ interface HeaderProps {
   /** Công tắc chuyển giao diện/vai trò: chỉ hiển thị ở chế độ dev */
   showAppSwitcher?: boolean;
   onLogout?: () => void;
+  /** Số đăng ký học thử chưa xử lý, hiện trên tab "Đăng ký mới" */
+  newLeadsCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -46,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   onChangePassword,
   onEditProfile,
   isAdmin = false,
+  newLeadsCount = 0,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -226,6 +229,11 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                       {item.label}
+                      {item.id === 'leads' && newLeadsCount > 0 && (
+                        <span className="text-xs bg-danger-600 text-white px-1.5 py-0.5 rounded-md font-extrabold ml-0.5">
+                          {newLeadsCount > 9 ? '9+' : newLeadsCount}
+                        </span>
+                      )}
                       {item.id === 'attendance' && (
                         <span className="text-xs bg-warning-400 text-warning-950 px-1.5 py-0.5 rounded-md font-extrabold ml-0.5">
                           QR Live

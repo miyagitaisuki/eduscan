@@ -10,3 +10,4 @@ export * from './notificationService';
 export * from './aiService';
 export * from './adminService';
 export * from './teacherService';
+export * from './leadService';

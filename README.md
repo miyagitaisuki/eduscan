@@ -77,6 +77,8 @@ docker run -p 3000:3000 --env-file .env eduscan
 - Chống lạm dụng: giới hạn 10 lần/giờ theo IP, body tối đa 8KB, ô ẩn `website` (bot điền thì trả OK nhưng không lưu), cùng số điện thoại trong 24 giờ không tạo bản ghi trùng.
 - Cần đặt `CORS_ORIGIN` gồm domain website (VD `https://imejiquynhon.com`) để trình duyệt được gọi từ site khác.
 - Admin: `GET /api/leads?status=` và `PATCH /api/leads/:id` (`status`: `new`, `contacted`, `trial`, `enrolled`, `declined`; `admin_note`). Mỗi lần sửa ghi `audit_logs`.
+- **Màn hình "Đăng ký"** (chỉ admin, đường dẫn `/leads`): danh sách theo trạng thái, gọi/Zalo nhanh, đổi trạng thái và ghi chú xử lý. Tab có huy hiệu số đăng ký còn ở trạng thái "Mới".
+- **Email báo đăng ký mới:** cần `RESEND_API_KEY` và `MAIL_FROM` (cùng cấu hình với email đặt lại mật khẩu). Người nhận là `LEADS_NOTIFY_EMAIL` (nhiều địa chỉ cách nhau dấu phẩy), nếu bỏ trống thì gửi cho các admin đang hoạt động. Đặt `APP_URL` (địa chỉ eduscan) để email có liên kết mở danh sách. Gửi email lỗi chỉ ghi log, không ảnh hưởng việc nhận đăng ký.
 - Bảng `leads` chưa nằm trong "Sao lưu/Phục hồi" JSON, nên phục hồi không xóa hay nạp lại đăng ký; dữ liệu này nằm trong sao lưu Supabase và `pg_dump`.
 
 ## Sao lưu

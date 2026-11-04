@@ -74,6 +74,7 @@ export default function App() {
         showAppSwitcher={import.meta.env.DEV}
         onLogout={logout}
         activeTab={teacherTabFromPath(location, isAdmin) ?? DEFAULT_TEACHER_TAB}
+        newLeadsCount={data.leads.filter((l) => l.status === 'new').length}
         onTabChange={(tab) => navigate(teacherPath(tab))}
         onExportData={data.handleExportBackup}
         onImportData={data.handleRestoreBackup}
