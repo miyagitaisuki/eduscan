@@ -213,7 +213,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Desktop Navigation Tabs */}
           <div className="hidden md:block border-t border-slate-100 bg-slate-50/70">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
-              <nav className="flex items-center space-x-1 py-1.5 overflow-x-auto scrollbar-none">
+              <nav className="flex flex-wrap items-center gap-0.5 py-1.5">
                 {teacherNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
@@ -221,7 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       key={item.id}
                       onClick={() => onTabChange(item.id)}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                         isActive
                           ? 'bg-primary-600 text-white shadow-xs shadow-primary-500/20'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-white'
