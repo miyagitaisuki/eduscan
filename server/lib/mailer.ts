@@ -14,7 +14,9 @@ export async function sendMail(to: string, subject: string, html: string): Promi
       body: JSON.stringify({ from, to: [to], subject, html }),
     });
     if (!res.ok) {
-      console.error('[mail] Gửi email thất bại, HTTP', res.status);
+      // Ghi kèm nội dung lỗi của Resend (VD "domain is not verified") để dễ chẩn đoán; không bao giờ ghi khóa API
+      const detail = await res.text().then((t) => t.slice(0, 300), () => '');
+      console.error('[mail] Gửi email thất bại, HTTP', res.status, detail);
       return false;
     }
     return true;
