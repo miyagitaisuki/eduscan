@@ -1,4 +1,4 @@
-# IMEJI日本語教室 (Lớp học tiếng Nhật thầy Quang) — Điểm danh QR, học phí, bài tập và chấm bài AI
+# IMEJI日本語教室 (Lớp học tiếng Nhật thầy Quang) — Cổng học viên và giáo viên: điểm danh, lịch học, học phí, bài tập, luyện tập Minna và chấm bài AI
 
 Ứng dụng web (PWA) cho giáo viên và học viên. Frontend React + Vite, backend Express, dữ liệu lưu trong Postgres (Supabase).
 
@@ -48,7 +48,7 @@ docker build -t eduscan .
 docker run -p 3000:3000 --env-file .env eduscan
 ```
 
-Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc** để quét QR bằng camera trên điện thoại hoạt động, vì trình duyệt chỉ cho phép camera trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
+Đặt sau một reverse proxy có HTTPS (Cloud Run, Render, Fly.io, Caddy...). **HTTPS là bắt buộc**: bảo vệ mật khẩu và token đăng nhập, và trình duyệt chỉ cho cài ứng dụng (PWA) trên nguồn an toàn. Đặt `TRUST_PROXY=1` (hoặc số hop tương ứng) để giới hạn đăng nhập theo đúng IP.
 
 ## Cấu trúc frontend
 
@@ -122,6 +122,7 @@ Font được tự host bằng `@fontsource` (CSP production chặn Google Fonts
 
 ## Giới hạn đã biết
 
+- Giao diện đã bỏ điểm danh bằng QR (giáo viên điểm danh nhanh); API QR bên dưới vẫn còn ở server nhưng không còn màn hình nào dùng.
 - Mã QR do server ký (HMAC-SHA256, khóa suy ra từ `JWT_SECRET`), đổi mỗi 15 giây, gắn với đúng một phiên và chấp nhận thêm chu kỳ liền trước. Học viên không thể tự dựng mã, nhưng vẫn có thể chụp màn hình gửi cho bạn đang ở xa trong tối đa 30 giây. Đổi `JWT_SECRET` thì mã đang hiển thị mất hiệu lực (giáo viên chỉ cần chờ chu kỳ kế tiếp).
 - Mã phiên nhập tay (`ES-xxxx`) dùng cho học viên không có camera và không đổi trong suốt phiên, nên ai nhìn thấy trên màn chiếu cũng có thể gửi đi. Phiên được đóng khi giáo viên tắt màn hình QR Live (hoặc mở phiên mới), sau đó mã nhập tay không dùng được nữa. Nếu cần chặt hơn, hãy tắt QR Live ngay khi bắt đầu giờ học.
 - RLS bật trên mọi bảng (migration 0002) và không có policy: Data API của Supabase (anon/authenticated) không đọc được dữ liệu; server dùng role postgres nên không bị ảnh hưởng.

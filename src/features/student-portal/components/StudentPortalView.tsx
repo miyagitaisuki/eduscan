@@ -192,7 +192,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 Học viên
               </span>
             </div>
-            <p className="text-xs text-slate-500">{currentUser.student_code ? `MSSV: ${currentUser.student_code}` : ''}{currentUser.student_code && myClass ? ' • ' : ''}{myClass ? myClass.name : !currentUser.student_code ? 'Chưa được xếp lớp' : ''}</p>
+            <p className="text-xs text-slate-500">{currentUser.student_code ? `Mã HV: ${currentUser.student_code}` : ''}{currentUser.student_code && myClass ? ' • ' : ''}{myClass ? myClass.name : !currentUser.student_code ? 'Chưa được xếp lớp' : ''}</p>
           </div>
         </div>
 

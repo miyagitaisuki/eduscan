@@ -15,7 +15,7 @@ export default defineConfig(() => {
         manifest: {
           name: 'IMEJI日本語教室 - Lớp học tiếng Nhật thầy Quang',
           short_name: 'IMEJI',
-          description: 'Điểm danh QR, học phí và bài tập cho lớp học tiếng Nhật.',
+          description: 'Cổng học viên và giáo viên: điểm danh, lịch học, học phí, bài tập và luyện tập tiếng Nhật.',
           lang: 'vi',
           theme_color: '#2563eb',
           background_color: '#f1f5f9',

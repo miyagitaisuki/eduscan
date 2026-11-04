@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Laptop className="w-3.5 h-3.5" />
-                <span>IMEJI日本語教室 Teacher (Web)</span>
+                <span>Giao diện giáo viên</span>
               </button>
 
               <button
@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5 text-primary-300" />
-                <span>IMEJI日本語教室 Student (Android)</span>
+                <span>Giao diện học viên</span>
               </button>
             </div>
 
@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="hidden lg:flex items-center gap-1 ml-2 pl-2 border-l border-slate-700">
               <span className="text-xs text-slate-400">Đang là:</span>
               <span className="text-xs font-bold text-warning-300">
-                {currentUser?.role === 'student' ? 'Sinh viên' : 'Giáo viên'}
+                {currentUser?.role === 'student' ? 'Học viên' : 'Giáo viên'}
               </span>
             </div>
           </div>

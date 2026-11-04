@@ -508,7 +508,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     {activeProfileStudent.join_date}
                   </div>
                   <p className="text-xs text-slate-500">
-                    MSSV: {activeProfileStudent.student_code || 'Chưa có'}
+                    Mã học viên: {activeProfileStudent.student_code || 'Chưa có'}
                   </p>
                 </div>
               </div>
