@@ -1,22 +1,14 @@
 import { clickable } from '../../../shared/utils/a11y';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckSquare, 
   Calendar, 
   CheckCircle2, 
   History, 
-  Sparkles,
-  QrCode,
-  RefreshCw,
-  Maximize2,
-  Users
+  Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import QRCode from 'qrcode';
-import { Modal } from '../../../shared/components/ui';
-import { attendanceService } from '../../../services/attendanceService';
-import { errorDetail } from '../../../shared/utils/errorMessage';
-import { AttendanceRecord, AttendanceSession, ClassItem, Student } from '../../../shared/types';
+import { AttendanceRecord, ClassItem, Student } from '../../../shared/types';
 import { todayLocal } from '../../../shared/utils/date';
 
 interface QuickAttendanceViewProps {
@@ -24,9 +16,6 @@ interface QuickAttendanceViewProps {
   students: Student[];
   attendance: AttendanceRecord[];
   initialClassId?: string;
-  onOpenSession: (classId: string) => Promise<AttendanceSession | undefined>;
-  /** Gọi khi đóng màn hình QR Live để tải lại điểm danh (các lượt học viên đã quét) */
-  onRefreshAttendance?: () => unknown;
   onSaveAttendance: (classId: string, date: string, presentStudentIds: string[], notesMap: Record<string, string>) => void;
 }
 
@@ -35,8 +24,6 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   students,
   attendance,
   initialClassId,
-  onOpenSession,
-  onRefreshAttendance,
   onSaveAttendance,
 }) => {
   // Selected class
@@ -58,16 +45,6 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   const [checkedStudentIds, setCheckedStudentIds] = useState<Set<string>>(new Set());
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
   const [isSavedFeedback, setIsSavedFeedback] = useState<boolean>(false);
-
-  // Dynamic QR Code Projector State
-  const [isQROpen, setIsQROpen] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [countdown, setCountdown] = useState(15);
-  const [sessionCode, setSessionCode] = useState('');
-  const [sessionId, setSessionId] = useState('');
-  const [qrError, setQrError] = useState('');
-  // Số học viên đã quét/nhập mã trong phiên QR Live, lấy từ server
-  const [liveCheckedIn, setLiveCheckedIn] = useState(0);
 
   // Sync when initialClassId changes
   useEffect(() => {
@@ -108,83 +85,6 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
     }
     setIsSavedFeedback(false);
   }, [selectedClassId, selectedDate, activeClass, attendance, classStudents.length]);
-
-  // Mã QR do server ký và đổi mỗi chu kỳ; trình duyệt chỉ hiển thị, hỏi lại đúng lúc hết chu kỳ.
-  // Dùng thời gian còn lại do server trả về nên không phụ thuộc đồng hồ của máy giáo viên.
-  useEffect(() => {
-    if (!isQROpen || !sessionId) return;
-    let cancelled = false;
-    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    let tickTimer: ReturnType<typeof setInterval> | undefined;
-
-    const loadQr = async () => {
-      try {
-        const { payload, refresh_in_ms } = await attendanceService.getSessionQr(sessionId);
-        const url = await QRCode.toDataURL(payload, {
-          width: 340,
-          margin: 2,
-          color: { dark: '#1e3a8a', light: '#ffffff' },
-        });
-        if (cancelled) return;
-        setQrCodeUrl(url);
-        setQrError('');
-        const deadline = Date.now() + refresh_in_ms;
-        setCountdown(Math.max(1, Math.ceil(refresh_in_ms / 1000)));
-        clearInterval(tickTimer);
-        tickTimer = setInterval(() => {
-          setCountdown(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
-        }, 250);
-        // Chờ thêm một chút để chắc chắn đã sang chu kỳ mới
-        refreshTimer = setTimeout(loadQr, refresh_in_ms + 150);
-      } catch (err) {
-        if (cancelled) return;
-        // Mã cũ hết hạn sau tối đa 2 chu kỳ nên không để hiển thị mã không còn dùng được
-        setQrCodeUrl('');
-        setQrError(errorDetail(err));
-        clearInterval(tickTimer);
-        refreshTimer = setTimeout(loadQr, 3000);
-      }
-    };
-
-    loadQr();
-    return () => {
-      cancelled = true;
-      clearTimeout(refreshTimer);
-      clearInterval(tickTimer);
-    };
-  }, [isQROpen, sessionId]);
-
-  // Cập nhật số học viên đã điểm danh khi đang chiếu QR (học viên quét trên điện thoại của họ)
-  useEffect(() => {
-    if (!isQROpen || !sessionId) return;
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const { count } = await attendanceService.getSessionCheckins(sessionId);
-        if (!cancelled) setLiveCheckedIn(count);
-      } catch {
-        // Lỗi mạng thoáng qua: giữ số cũ và thử lại ở lượt sau
-      }
-    };
-    poll();
-    const timer = setInterval(poll, 3000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [isQROpen, sessionId]);
-
-  // Đóng QR Live: kết thúc phiên trên server (mã nhập tay hết hiệu lực) rồi tải lại điểm danh
-  // để danh sách bên dưới phản ánh các lượt đã quét
-  const closeQr = async () => {
-    setIsQROpen(false);
-    try {
-      if (sessionId) await attendanceService.closeSession(sessionId);
-    } catch {
-      // Không đóng được (mạng): phiên sẽ tự đóng khi mở phiên mới
-    }
-    await onRefreshAttendance?.();
-  };
 
   // Toggle student present / absent
   const handleToggleStudent = (studentId: string) => {
@@ -275,24 +175,6 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
             >
               <History className="w-3.5 h-3.5" />
               Lịch sử ({uniqueDates.length})
-            </button>
-            <button
-              onClick={async () => {
-                if (!activeClass) return;
-                // Phải mở phiên trên server trước, nếu không học viên quét sẽ bị báo "chưa mở"
-                const session = await onOpenSession(activeClass.id);
-                if (!session) return;
-                setSessionCode(session.session_code ?? '');
-                setSessionId(session.id);
-                setLiveCheckedIn(0);
-                setQrCodeUrl('');
-                setQrError('');
-                setIsQROpen(true);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-700 hover:to-accent-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              Tạo QR Live
             </button>
           </div>
         </div>
@@ -550,70 +432,6 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
             </div>
           )}
         </div>
-      )}
-
-      {/* Dynamic QR Live Projector Modal */}
-      {isQROpen && activeClass && (
-        <Modal
-          title={activeClass.name}
-          description={
-            <>
-              Học viên mở ứng dụng <strong>EduScan Student</strong> trên điện thoại để quét mã bên dưới.
-            </>
-          }
-          onClose={closeQr}
-          size="md"
-          overlayClassName="bg-slate-950/85 backdrop-blur-md"
-        >
-          <div className="space-y-4 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-primary-100 text-primary-800">
-              <span className="w-2 h-2 rounded-full bg-success-500 animate-ping motion-reduce:animate-none" />
-              PHIÊN ĐIỂM DANH ĐỘNG LIVE
-            </div>
-
-            {/* QR Code Container */}
-            <div className="p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-primary-300 inline-block mx-auto relative shadow-inner">
-              {qrCodeUrl ? (
-                <img
-                  src={qrCodeUrl}
-                  alt="EduScan Dynamic Attendance QR"
-                  className="w-64 h-64 mx-auto rounded-xl shadow-md"
-                />
-              ) : (
-                <div
-                  role={qrError ? 'alert' : 'status'}
-                  className="w-64 h-64 flex items-center justify-center text-center px-4 text-xs text-slate-500"
-                >
-                  {qrError ? `Không lấy được mã QR (${qrError}). Đang thử lại...` : 'Đang khởi tạo mã QR...'}
-                </div>
-              )}
-
-              {/* Countdown badge */}
-              <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-bold text-primary-700">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                Mã làm mới tự động sau: <span className="font-mono text-sm font-black text-danger-600">{countdown}s</span>
-              </div>
-            </div>
-
-            {/* Session code fallback for students without camera */}
-            <div className="bg-slate-100 p-3 rounded-2xl flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-medium">Mã nhập thủ công:</span>
-              <span className="font-mono text-sm font-black text-primary-700 tracking-wider">
-                {sessionCode || '—'}
-              </span>
-            </div>
-
-            {/* Live Count: số học viên đã quét thật, không phải danh sách tick tay bên dưới */}
-            <div
-              role="status"
-              aria-live="polite"
-              className="flex items-center justify-center gap-2 text-xs font-bold text-success-700 bg-success-50 py-2 rounded-xl border border-success-200"
-            >
-              <CheckCircle2 className="w-4 h-4 text-success-600" aria-hidden="true" />
-              Đã điểm danh: {liveCheckedIn}/{classStudents.length} học viên
-            </div>
-          </div>
-        </Modal>
       )}
 
     </div>

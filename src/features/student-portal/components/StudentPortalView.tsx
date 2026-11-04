@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import {
   Home,
   FileText,
-  QrCode,
   CreditCard,
   Bell,
   CheckCircle2,
@@ -32,7 +31,6 @@ import {
 } from '../../../shared/types';
 import { LessonScheduleModal } from '../../schedule';
 import { shortLessonDate } from '../../../shared/utils/lessonDates';
-import { CameraQRScanner } from '../../../shared/components/CameraQRScanner';
 import { Modal } from '../../../shared/components/ui';
 import { compressImage } from '../../../shared/utils/compressImage';
 import { formatScore, scoreGrade } from '../../../shared/utils/score';
@@ -50,7 +48,6 @@ interface StudentPortalViewProps {
   attendanceRecords: AttendanceRecord[];
   tuitionRecords: TuitionRecord[];
   notifications: NotificationItem[];
-  onCheckinQR: (qrPayload: string) => Promise<any>;
   onSubmitHomework: (assignmentId: string, content: string, attachmentUrl?: string) => Promise<any>;
   onMarkNotificationRead: (id: string) => void;
   /** Tab đang mở, do đường dẫn quyết định (/home, /assignments...) */
@@ -67,13 +64,11 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   attendanceRecords,
   tuitionRecords,
   notifications,
-  onCheckinQR,
   onSubmitHomework,
   onMarkNotificationRead,
   activeTab,
   onTabChange: setActiveTab,
 }) => {
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
 
   // Selected assignment for viewing details or submitting
@@ -164,7 +159,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-white text-slate-900 flex flex-col shadow-2xl relative border-x border-slate-200">
+    <div className="w-full max-w-md mx-auto min-h-screen bg-white text-slate-900 flex flex-col shadow-2xl relative border-x border-slate-200">
       
       {/* Mobile App Bar */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 flex items-center justify-between">
@@ -226,30 +221,6 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               <div className="relative z-10">
                 <h3 className="text-xl font-black tracking-tight">{studentGreeting(currentUser.full_name, currentUser.gender)} 👋</h3>
                 <p className="text-xs text-primary-100/90 mt-1">Chúc bạn một buổi học hiệu quả hôm nay.</p>
-              </div>
-            </div>
-
-            {/* Quick Action Banner: QR Attendance Check-in */}
-            <div className="bg-gradient-to-br from-primary-600 via-accent-600 to-primary-700 rounded-3xl p-5 text-white shadow-xl shadow-primary-500/15 relative overflow-hidden">
-              <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="relative z-10 flex items-center justify-between">
-                <div>
-                  <span className="text-xs uppercase font-black tracking-widest text-primary-200">
-                    EduScan Điểm Danh
-                  </span>
-                  <h3 className="text-base font-extrabold mt-0.5">Quét mã QR tại lớp</h3>
-                  <p className="text-xs text-primary-100/90 mt-1">
-                    Mở Camera để check-in tức thì trong vài giây.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setIsScannerOpen(true)}
-                  className="flex flex-col items-center justify-center w-16 h-16 bg-white text-primary-600 rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer font-bold text-xs shrink-0"
-                >
-                  <QrCode className="w-7 h-7 mb-0.5 text-primary-600" />
-                  <span>Quét QR</span>
-                </button>
               </div>
             </div>
 
@@ -520,14 +491,6 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               <p className="text-xs text-slate-600">
                 Bạn vắng <strong className="text-danger-700">{absentCount}</strong> trên tổng số {totalLessons} buổi học trong lịch.
               </p>
-
-              <button
-                onClick={() => setIsScannerOpen(true)}
-                className="w-full py-3 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-500 hover:to-accent-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-primary-500/20 active:scale-95 transition-all cursor-pointer"
-              >
-                <QrCode className="w-5 h-5" />
-                Quét mã QR Điểm danh hôm nay
-              </button>
             </div>
 
             {/* Attendance History */}
@@ -670,7 +633,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       </main>
 
       {/* Student App Bottom Navigation (Capacitor/Android Style) */}
-      <nav className="fixed bottom-0 max-w-md w-full bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around z-40">
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md pb-[env(safe-area-inset-bottom)] bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around z-40">
         <button
           onClick={() => setActiveTab('home')}
           className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer ${
@@ -689,15 +652,6 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
         >
           <FileText className="w-5 h-5" />
           <span className="text-xs">Bài tập</span>
-        </button>
-
-        {/* Center QR Scan Button */}
-        <button
-          onClick={() => setIsScannerOpen(true)}
-          className="flex flex-col items-center -mt-5 bg-gradient-to-tr from-primary-600 to-accent-600 text-white p-3 rounded-full shadow-lg shadow-primary-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer ring-4 ring-white"
-          title="Quét mã QR điểm danh"
-        >
-          <QrCode className="w-6 h-6" />
         </button>
 
         <button
@@ -865,15 +819,6 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       {isScheduleOpen && myClass && (
         <LessonScheduleModal cls={myClass} canEditSchedule={false} canEditContent={false} onClose={() => setIsScheduleOpen(false)} onChanged={() => {}} />
       )}
-
-      {/* Live Camera QR Scanner Modal */}
-      <CameraQRScanner
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onScanSuccess={async (payload) => {
-          await onCheckinQR(payload);
-        }}
-      />
 
     </div>
   );
