@@ -83,8 +83,6 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
             students={students}
             attendance={attendanceRecords}
             initialClassId={preselectedClassId}
-            onOpenSession={data.handleCreateAttendanceSession}
-            onRefreshAttendance={data.refreshData}
             onSaveAttendance={(classId, date, presentStudentIds, notesMap) => {
               data.handleBatchAttendance(classId, date, presentStudentIds, notesMap);
             }}

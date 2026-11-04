@@ -41,7 +41,6 @@ export default function StudentApp({ data, currentUser }: StudentAppProps) {
         notifications={data.notifications}
         activeTab={tab}
         onTabChange={(next) => navigate(studentPath(next))}
-        onCheckinQR={(payload) => data.handleStudentCheckin(currentUser.id, payload)}
         onSubmitHomework={(asgId, content, attachmentUrl) =>
           data.handleSubmitHomework(asgId, currentUser.id, content, attachmentUrl)
         }
