@@ -159,10 +159,10 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-white text-slate-900 flex flex-col shadow-2xl relative border-x border-slate-200">
+    <div className="w-full max-w-md lg:max-w-5xl mx-auto min-h-screen bg-white text-slate-900 flex flex-col shadow-2xl relative border-x border-slate-200">
       
       {/* Mobile App Bar */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 flex items-center justify-between">
+      <header className="order-1 sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {currentUser.avatar ? (
             <img
@@ -202,7 +202,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 pb-24 overflow-y-auto space-y-4">
+      <main className="order-3 flex-1 p-4 pb-24 lg:p-6 lg:pb-8 overflow-y-auto space-y-4">
 
         {/* 1. HOME SCREEN */}
         {activeTab === 'home' && (
@@ -418,7 +418,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 Hiện tại chưa có bài tập nào được giao.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4">
                 {assignments.map((asg) => {
                   const sub = mySubmissions.find((s) => s.assignment_id === asg.id);
                   const isGraded = sub?.status === 'graded';
@@ -633,7 +633,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       </main>
 
       {/* Student App Bottom Navigation (Capacitor/Android Style) */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md pb-[env(safe-area-inset-bottom)] bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around z-40">
+      <nav className="order-4 fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md pb-[env(safe-area-inset-bottom)] bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around z-40 lg:order-2 lg:static lg:translate-x-0 lg:max-w-none lg:pb-2 lg:border-t-0 lg:border-b lg:px-6 lg:justify-start lg:gap-3">
         <button
           onClick={() => setActiveTab('home')}
           className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer ${
