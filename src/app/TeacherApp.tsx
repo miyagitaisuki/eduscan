@@ -13,6 +13,7 @@ import { TuitionManagementView } from '../features/tuition';
 import { HomeworkManagementView } from '../features/homework';
 import { StudentStatsView } from '../features/stats';
 import { TeacherManagementView } from '../features/teachers';
+import { LeadsView } from '../features/leads';
 import { needsGrading } from '../shared/utils/submission';
 import { classIdFromSearch, DEFAULT_TEACHER_TAB, teacherPath, teacherTabFromPath } from './routes';
 
@@ -141,6 +142,8 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
           />
         )}
 
+        {tab === 'leads' && <LeadsView leads={data.leads} onUpdate={data.handleUpdateLead} onRefresh={data.loadLeads} />}
+
         {tab === 'tuition' && (
           <TuitionManagementView
             key={viewKey}
@@ -203,6 +206,7 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
         onTabChange={(next) => goTo(next)}
         unpaidCount={unpaidTuitionCount}
         ungradedCount={ungradedHomeworkCount}
+        newLeadsCount={data.leads.filter((l) => l.status === 'new').length}
         isAdmin={isAdmin}
       />
     </>

@@ -7,6 +7,7 @@ import { useHomeworkData } from './data/useHomeworkData';
 import { useTuitionData } from './data/useTuitionData';
 import { useTeachersData } from './data/useTeachersData';
 import { useNotificationsData } from './data/useNotificationsData';
+import { useLeadsData } from './data/useLeadsData';
 import { useLessonsData } from './data/useLessonsData';
 import { useBackup } from './data/useBackup';
 import type { Notify } from './data/types';
@@ -42,6 +43,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const homework = useHomeworkData(notify);
   const tuition = useTuitionData({ notify, enabled: isAdmin });
   const teachers = useTeachersData({ notify, enabled: isAdmin });
+  const leads = useLeadsData({ notify, enabled: isAdmin });
   const notifications = useNotificationsData(currentUserId);
   const lessons = useLessonsData();
 
@@ -51,6 +53,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const loadHomework = homework.load;
   const loadTuition = tuition.load;
   const loadTeachers = teachers.load;
+  const loadLeads = leads.load;
   const loadNotifications = notifications.load;
   const loadLessons = lessons.load;
 
@@ -63,6 +66,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       loadHomework(),
       loadTuition(),
       loadTeachers(),
+      loadLeads(),
       loadNotifications(),
       loadLessons(),
     ]);
@@ -70,7 +74,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     setLoadError(ok ? null : 'Không tải được một phần dữ liệu. Có thể máy chủ đang khởi động hoặc mạng không ổn định.');
     setIsLoading(false);
     return ok;
-  }, [loadClasses, loadStudents, loadAttendance, loadHomework, loadTuition, loadTeachers, loadNotifications, loadLessons]);
+  }, [loadClasses, loadStudents, loadAttendance, loadHomework, loadTuition, loadTeachers, loadLeads, loadNotifications, loadLessons]);
   refreshRef.current = refreshData;
 
   // Chỉ tải khi đã đăng nhập; mỗi lần đổi tài khoản thì hiện lại màn hình đang tải
@@ -111,6 +115,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     attendanceRecords: attendance.attendanceRecords,
     tuitionRecords: tuition.tuitionRecords as TuitionRecord[],
     teachers: teachers.teachers,
+    leads: leads.leads,
     notifications: notifications.notifications,
     lessons: lessons.lessons,
     notify,
@@ -153,6 +158,10 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     handleUpdateTeacher: teachers.update,
     handleSetTeacherStatus: teachers.setStatus,
     handleSetTeacherPassword: teachers.setPassword,
+
+    // Đăng ký học thử từ website (admin)
+    loadLeads,
+    handleUpdateLead: leads.update,
 
     // Thông báo
     handleMarkNotificationRead: notifications.markRead,

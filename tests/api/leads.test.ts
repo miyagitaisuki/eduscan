@@ -112,3 +112,51 @@ describe('quản lý đăng ký (admin)', () => {
     expect((await ctx.api.get('/api/leads?status=xyz').set(auth)).status).toBe(400);
   });
 });
+
+describe('báo email khi có đăng ký mới', () => {
+  it('gửi cho admin đang hoạt động, dùng LEADS_NOTIFY_EMAIL nếu có, và escape HTML', async () => {
+    const { vi } = await import('vitest');
+    const { leadRecipients } = await import('../../server/lib/leadNotify');
+    expect(await leadRecipients(ctx.db, {} as NodeJS.ProcessEnv)).toEqual([ADMIN]);
+    expect(await leadRecipients(ctx.db, { LEADS_NOTIFY_EMAIL: 'a@x.vn, b@x.vn' } as NodeJS.ProcessEnv)).toEqual(['a@x.vn', 'b@x.vn']);
+
+    const sent: any[] = [];
+    vi.stubGlobal('fetch', async (_url: string, init: any) => {
+      sent.push(JSON.parse(init.body));
+      return { ok: true } as Response;
+    });
+    process.env.RESEND_API_KEY = 'k';
+    process.env.MAIL_FROM = 'EduScan <no-reply@x.vn>';
+    try {
+      const res = await ctx.api.post('/api/leads/public').send({ ...valid, phone: '0922000001', fullName: '<b>Hack</b>', notes: 'a & b' });
+      expect(res.status).toBe(201);
+      await vi.waitFor(() => expect(sent).toHaveLength(1));
+      expect(sent[0].to).toEqual([ADMIN]);
+      expect(sent[0].subject).toContain('Đăng ký học thử mới');
+      expect(sent[0].html).toContain('&lt;b&gt;Hack&lt;/b&gt;');
+      expect(sent[0].html).not.toContain('<b>Hack</b>');
+      expect(sent[0].html).toContain('a &amp; b');
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.RESEND_API_KEY;
+      delete process.env.MAIL_FROM;
+    }
+  });
+
+  it('lỗi email không làm hỏng việc nhận đăng ký', async () => {
+    const { vi } = await import('vitest');
+    vi.stubGlobal('fetch', async () => {
+      throw new Error('mạng lỗi');
+    });
+    process.env.RESEND_API_KEY = 'k';
+    process.env.MAIL_FROM = 'x@x.vn';
+    try {
+      const res = await ctx.api.post('/api/leads/public').send({ ...valid, phone: '0922000002' });
+      expect(res.status).toBe(201);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.RESEND_API_KEY;
+      delete process.env.MAIL_FROM;
+    }
+  });
+});

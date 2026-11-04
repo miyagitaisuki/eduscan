@@ -8,6 +8,7 @@ import {
   FileText,
   GraduationCap,
   UserCog,
+  UserPlus,
 } from 'lucide-react';
 import type { ActiveTab } from '../types';
 
@@ -33,6 +34,7 @@ export const TEACHER_NAV_ITEMS: TeacherNavItem[] = [
   { id: 'homework', label: 'Bài tập & AI', shortLabel: 'Bài tập', icon: FileText, mobilePrimary: true },
   { id: 'stats', label: 'Báo cáo', shortLabel: 'Báo cáo', icon: GraduationCap },
   { id: 'teachers', label: 'Giáo viên', shortLabel: 'GV', icon: UserCog, adminOnly: true },
+  { id: 'leads', label: 'Đăng ký', shortLabel: 'Đăng ký', icon: UserPlus, adminOnly: true },
 ];
 
 /** Lọc menu theo quyền: mục adminOnly chỉ hiện với admin */

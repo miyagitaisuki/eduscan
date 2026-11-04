@@ -9,6 +9,7 @@ interface BottomNavProps {
   onTabChange: (tab: ActiveTab) => void;
   unpaidCount: number;
   ungradedCount: number;
+  newLeadsCount?: number;
   isAdmin?: boolean;
 }
 
@@ -20,6 +21,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
   unpaidCount,
   ungradedCount,
+  newLeadsCount = 0,
   isAdmin = false,
 }) => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -31,6 +33,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const badgeFor = (id: ActiveTab) => {
     if (id === 'tuition' && unpaidCount > 0) return { count: unpaidCount, tone: 'rose' as const };
     if (id === 'homework' && ungradedCount > 0) return { count: ungradedCount, tone: 'amber' as const };
+    if (id === 'leads' && newLeadsCount > 0) return { count: newLeadsCount, tone: 'rose' as const };
     return null;
   };
   const formatCount = (count: number) => (count > 9 ? '9+' : String(count));

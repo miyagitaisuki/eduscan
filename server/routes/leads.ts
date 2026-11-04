@@ -5,6 +5,7 @@ import { leads } from '../db/schema';
 import { ah, AuthedRequest } from '../lib/http';
 import { audit } from '../lib/audit';
 import { newId } from '../lib/security';
+import { notifyNewLead } from '../lib/leadNotify';
 import type { Deps } from './deps';
 
 export const LEAD_STATUSES = ['new', 'contacted', 'trial', 'enrolled', 'declined'] as const;
@@ -72,7 +73,9 @@ export function leadRoutes({ db, auth }: Deps) {
         .limit(1);
       if (dup) return res.json({ ok: true });
 
-      await db.insert(leads).values({
+      const [created] = await db
+        .insert(leads)
+        .values({
         id: newId('lead'),
         fullName,
         phone,
@@ -81,7 +84,10 @@ export function leadRoutes({ db, auth }: Deps) {
         notes: str(body.notes, 2000) || null,
         source: str(body.source, 300) || null,
         consentAt: new Date(),
-      });
+        })
+        .returning();
+      // Báo email chạy nền: phản hồi cho người đăng ký không phải chờ và không phụ thuộc vào email
+      void notifyNewLead(db, created);
       return res.status(201).json({ ok: true });
     })
   );

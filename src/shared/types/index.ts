@@ -306,5 +306,19 @@ export interface ToastNotification {
   subtitle?: string;
 }
 
-export type ActiveTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats' | 'teachers';
+export type ActiveTab = 'dashboard' | 'attendance' | 'classes' | 'students' | 'tuition' | 'homework' | 'stats' | 'teachers' | 'leads';
+export type LeadStatus = 'new' | 'contacted' | 'trial' | 'enrolled' | 'declined';
+export interface Lead {
+  id: string;
+  full_name: string;
+  phone: string;
+  current_level: string;
+  target_jlpt: string;
+  notes: string;
+  source: string;
+  consent_at: string;
+  status: LeadStatus;
+  admin_note: string;
+  created_at: string;
+}
 export type StudentTab = 'home' | 'assignments' | 'attendance' | 'tuition' | 'notifications';
