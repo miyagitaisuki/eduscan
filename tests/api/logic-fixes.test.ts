@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createTestContext, TEACHER, STUDENT_AN, ADMIN } from '../helpers';
+import { createTestContext, TEACHER, STUDENT_AN, ADMIN, SEED_PASSWORD } from '../helpers';
+import { hashPassword } from '../../server/lib/security';
 import { eq } from 'drizzle-orm';
-import { tuitionRecords, submissions, users } from '../../server/db/schema';
+import { tuitionRecords, submissions, users, notifications } from '../../server/db/schema';
 
 let ctx: Awaited<ReturnType<typeof createTestContext>>;
 let T: string;
@@ -109,5 +110,35 @@ describe('xếp học viên chưa có lớp', () => {
     const assign = await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${T}`).send({ class_id: 'cls-n5-01' });
     expect(assign.status).toBe(200);
     expect(assign.body.class_id).toBe('cls-n5-01');
+  });
+});
+
+describe('giáo viên xem và chấm bài mọi lớp; thông báo khi xếp lớp', () => {
+  it('giáo viên không phụ trách xem được bài tập, bài nộp và danh sách học viên của lớp khác', async () => {
+    // Giáo viên thứ hai không phụ trách lớp nào
+    await ctx.db.insert(users).values({
+      id: 'usr-teacher-x',
+      email: 'gv.khac@eduscan.edu.vn',
+      passwordHash: hashPassword(SEED_PASSWORD),
+      fullName: 'GV khác',
+      role: 'teacher',
+      status: 'active',
+    });
+    const token = await ctx.login('gv.khac@eduscan.edu.vn');
+    const asg = await ctx.api.get('/api/assignments').set('Authorization', `Bearer ${token}`);
+    expect(asg.body.length).toBeGreaterThan(0);
+    const subs = await ctx.api.get('/api/submissions').set('Authorization', `Bearer ${token}`);
+    expect(subs.status).toBe(200);
+    const roster = await ctx.api.get('/api/classes/cls-n5-01/roster').set('Authorization', `Bearer ${token}`);
+    expect(roster.status).toBe(200);
+    expect(roster.body[0]).not.toHaveProperty('phone');
+    expect((await ctx.api.get('/api/classes/cls-n5-01/roster').set('Authorization', `Bearer ${S}`)).status).toBe(403);
+  });
+
+  it('xếp học viên vào lớp gửi thông báo cho học viên', async () => {
+    const created = await ctx.api.post('/api/students').set('Authorization', `Bearer ${A}`).send({ full_name: 'Thông báo lớp', email: 'tbl@example.com' });
+    await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${A}`).send({ class_id: 'cls-n5-01' });
+    const rows = await ctx.db.select().from(notifications).where(eq(notifications.userId, created.body.id));
+    expect(rows.some((n) => n.type === 'class')).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { and, asc, eq, inArray, ne } from 'drizzle-orm';
-import { classes, enrollments, tuitionRecords, users } from '../db/schema';
+import { classes, enrollments, notifications, tuitionRecords, users } from '../db/schema';
 import { classDto, parseGender, userDto } from '../lib/dto';
 import { parseDateOnly } from '../lib/validation';
 import type { Student } from '../../src/shared/types';
@@ -88,9 +88,21 @@ function parseGenderLabel(v: unknown): 'male' | 'female' | null | undefined {
 }
 
 
+// Báo cho học viên biết mình vừa được xếp vào lớp nào
+export async function notifyAssignedToClass(db: AppDb, studentId: string, className: string) {
+  await db.insert(notifications).values({
+    id: newId('notif'),
+    userId: studentId,
+    title: 'Bạn đã được xếp vào lớp mới',
+    message: `Bạn đã được xếp vào lớp "${className}". Xem lịch học và bài tập trong mục Trang chủ.`,
+    type: 'class',
+  });
+}
+
 // Ghi danh học viên mới vào lớp và tạo học phí tháng hiện tại
 export async function enrollNewStudent(db: AppDb, studentId: string, cls: ClassRow, joinDate?: string) {
   await setStudentClass(db, studentId, cls.id, joinDate);
+  await notifyAssignedToClass(db, studentId, cls.name);
   await db.insert(tuitionRecords).values({
     id: newId('tui'),
     studentId,
@@ -509,6 +521,10 @@ export function studentRoutes({ db, auth }: Deps) {
           // Chuyển sang lớp khác: ngày vào lớp mới là hôm nay. Giữ nguyên lớp: cho phép sửa ngày vào lớp.
           const sameClass = (b.class_id || null) === (before?.id ?? null);
           await setStudentClass(t, target.id, b.class_id || null, sameClass ? joinDate ?? undefined : undefined);
+          if (b.class_id && !sameClass) {
+            const [newCls] = await t.select({ name: classes.name }).from(classes).where(eq(classes.id, b.class_id)).limit(1);
+            if (newCls) await notifyAssignedToClass(t, target.id, newCls.name);
+          }
         } else if (joinDate && before) {
           await t
             .update(enrollments)

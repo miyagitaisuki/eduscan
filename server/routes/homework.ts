@@ -39,13 +39,8 @@ export function homeworkRoutes({ db, auth }: Deps) {
         const ids = await enrolledClassIds(db, req.user.id);
         if (ids.length === 0) return res.json([]);
         conds.push(inArray(assignments.classId, ids));
-      } else {
-        const owned = await manageableClassIds(db, req.user);
-        if (owned) {
-          if (owned.length === 0) return res.json([]);
-          conds.push(inArray(assignments.classId, owned));
-        }
       }
+      // Giáo viên và admin xem được bài tập của mọi lớp (cùng quyền chấm bài)
       const rows = await db
         .select({ a: assignments, className: classes.name })
         .from(assignments)
@@ -80,8 +75,6 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (isStudent(req)) {
         const ids = await enrolledClassIds(db, req.user.id);
         if (!ids.includes(row.a.classId)) return res.status(403).json({ error: 'Bạn không thuộc lớp của bài tập này.' });
-      } else if (!(await canManageClass(db, req.user, row.a.classId))) {
-        return res.status(403).json({ error: 'Bạn chỉ được xem bài tập của lớp mình phụ trách.' });
       }
       return res.json(assignmentDto(row.a, { class_name: row.className }));
     })
@@ -238,13 +231,6 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (req.query.assignment_id) conds.push(eq(submissions.assignmentId, String(req.query.assignment_id)));
       const studentId = isStudent(req) ? req.user.id : (req.query.student_id as string | undefined);
       if (studentId) conds.push(eq(submissions.studentId, studentId));
-      if (!isStudent(req)) {
-        const owned = await manageableClassIds(db, req.user);
-        if (owned) {
-          if (owned.length === 0) return res.json([]);
-          conds.push(inArray(assignments.classId, owned));
-        }
-      }
 
       const rows = await db
         .select({ s: submissions, u: users, a: assignments })
@@ -353,8 +339,9 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (!assignment_id || !student_id) return res.status(400).json({ error: 'Thiếu assignment_id hoặc student_id' });
       const [target] = await db.select().from(assignments).where(eq(assignments.id, assignment_id)).limit(1);
       if (!target) return res.status(404).json({ error: 'Không tìm thấy bài tập.' });
-      if (!(await canManageClass(db, req.user, target.classId))) {
-        return res.status(403).json({ error: 'Bạn chỉ được ghi nhận bài nộp của lớp mình phụ trách.' });
+      // Ghi nhận bài nộp là một phần của chấm bài: mọi giáo viên/admin đều làm được
+      if (!canGradeSubmissions(req.user)) {
+        return res.status(403).json({ error: 'Bạn không có quyền ghi nhận bài nộp.' });
       }
       // Học viên phải đang học đúng lớp của bài tập; tránh tạo bài nộp "ma" cho lớp khác
       const [enrolled] = await db
