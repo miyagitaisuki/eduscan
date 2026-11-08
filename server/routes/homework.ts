@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { and, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 import { assignments, classes, enrollments, notifications, submissions, users } from '../db/schema';
 import { assignmentDto, submissionDto } from '../lib/dto';
-import { ah, AuthedRequest, isStudent } from '../lib/http';
+import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
 import { createAttachmentSignedUrl, isSafeHomeworkPath, StorageError, uploadHomeworkAttachment } from '../lib/storage';
 import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
@@ -124,7 +124,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
             id: newId('notif'),
             userId: s.studentId,
             title: 'Bài tập mới vừa được giao!',
-            message: `Giáo viên vừa giao bài tập: "${row.title}". Hạn chót: ${deadline.toISOString().split('T')[0]}.`,
+            message: `Giáo viên vừa giao bài tập: "${row.title}". Hạn chót: ${todayStr(deadline)}.`,
             type: 'assignment',
           }))
         );
@@ -308,6 +308,13 @@ export function homeworkRoutes({ db, auth }: Deps) {
             feedback: '',
             gradedByAi: false,
             gradedAt: null,
+            // Nộp lại: kết quả chấm và bản nháp AI của nội dung cũ không còn đúng
+            rubricBreakdown: null,
+            strengths: null,
+            weaknesses: null,
+            suggestions: null,
+            aiDraft: null,
+            aiDraftAt: null,
             submittedAt: new Date(),
           },
         })

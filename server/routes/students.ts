@@ -137,6 +137,7 @@ function studentDto(u: any, c?: StudentClass): Student {
 }
 
 const EDITABLE_FIELDS = ['fullName', 'phone', 'studentCode', 'status', 'avatar'] as const;
+const STUDENT_STATUSES = ['active', 'suspended', 'inactive'];
 const API_TO_COL: Record<string, (typeof EDITABLE_FIELDS)[number]> = {
   full_name: 'fullName',
   phone: 'phone',
@@ -369,7 +370,7 @@ export function studentRoutes({ db, auth }: Deps) {
         .select({ c: classes })
         .from(enrollments)
         .innerJoin(classes, eq(classes.id, enrollments.classId))
-        .where(eq(enrollments.studentId, u.id))
+        .where(and(eq(enrollments.studentId, u.id), eq(enrollments.status, 'active')))
         .limit(1);
       const current = (await studentClassMap(db, [u.id])).get(u.id);
       return res.json({ ...studentDto(u, current), class: row ? classDto(row.c) : null });
@@ -458,7 +459,16 @@ export function studentRoutes({ db, auth }: Deps) {
       // Không cho đổi vai trò, id, mật khẩu hay ngày tạo qua route này
       const set: Partial<Record<(typeof EDITABLE_FIELDS)[number] | 'email' | 'gender', string | null>> = {};
       for (const [apiKey, col] of Object.entries(API_TO_COL)) {
-        if (b[apiKey] !== undefined) set[col] = String(b[apiKey]);
+        if (b[apiKey] === undefined) continue;
+        // null/rỗng không được thành chuỗi "null"; chỉ họ tên và trạng thái là bắt buộc có giá trị
+        const value = b[apiKey] === null ? '' : String(b[apiKey]).trim();
+        if (col === 'fullName' && (!value || value.length > 150)) {
+          return res.status(400).json({ error: 'Họ tên không được để trống và tối đa 150 ký tự.' });
+        }
+        if (col === 'status' && !STUDENT_STATUSES.includes(value)) {
+          return res.status(400).json({ error: 'Trạng thái tài khoản không hợp lệ.' });
+        }
+        set[col] = value;
       }
       if (b.gender !== undefined) {
         const gender = parseGender(b.gender);

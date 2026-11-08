@@ -347,7 +347,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
       );
       const seen = new Set<string>();
       const results: { line: number; status: 'ok' | 'skip' | 'error'; lesson_date: string; title: string; errors: string[] }[] = [];
-      const updates: { id: string; title?: string; notes: string }[] = [];
+      const updates: { id: string; title?: string; notes?: string }[] = [];
 
       for (const [i, raw] of (b.rows as unknown[]).entries()) {
         const row = (raw ?? {}) as Record<string, unknown>;
@@ -370,7 +370,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
           results.push({ line, status: 'skip', lesson_date: date, title, errors: ['Không có nội dung, giữ nguyên buổi.'] });
         } else {
           results.push({ line, status: 'ok', lesson_date: date, title, errors: [] });
-          updates.push({ id: lesson!.id, ...(title ? { title } : {}), notes });
+          updates.push({ id: lesson!.id, ...(title ? { title } : {}), ...(notes ? { notes } : {}) });
         }
       }
 
@@ -383,7 +383,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
         for (const u of updates) {
           await tx
             .update(lessons)
-            .set({ ...(u.title !== undefined ? { title: u.title } : {}), notes: u.notes || null, manuallyEdited: true })
+            .set({ ...(u.title !== undefined ? { title: u.title } : {}), ...(u.notes !== undefined ? { notes: u.notes } : {}), manuallyEdited: true })
             .where(eq(lessons.id, u.id));
         }
       });

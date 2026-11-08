@@ -90,7 +90,7 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 - **Ngày nghỉ chung** (`holidays`, admin quản lý): thêm hoặc xóa ngày nghỉ áp lại lịch của mọi lớp theo cùng quy tắc trên.
 - **Trùng lịch:** hai buổi cùng ngày, chồng giờ, và trùng giáo viên phụ trách hoặc phòng học (không phân biệt hoa thường) bị báo. Áp lịch bị chặn (409) trừ khi admin chọn "Vẫn áp dụng dù bị trùng".
 - **Giáo viên phụ trách** sửa được nội dung và ghi chú các buổi của lớp mình (không đổi ngày, giờ, hủy hoặc xóa buổi; server từ chối). Cổng học viên có mục "Hôm nay học gì".
-- **Xuất / nhập CSV nội dung buổi học** (không cần Gemini): "Xuất CSV (file mẫu)" tải lịch lớp ra file có cột Ngày, Thứ, Giờ, Trạng thái, Nội dung, Ghi chú. Điền trong Excel rồi nhập lại. Khớp theo Ngày (chấp nhận YYYY-MM-DD hoặc DD/MM/YYYY); dòng trống nội dung và ghi chú được bỏ qua; kiểm tra thử trước khi ghi.
+- **Xuất / nhập CSV nội dung buổi học** (không cần Gemini): "Xuất CSV (file mẫu)" tải lịch lớp ra file có cột Ngày, Thứ, Giờ, Trạng thái, Nội dung, Ghi chú. Điền trong Excel rồi nhập lại. Khớp theo Ngày (chấp nhận YYYY-MM-DD hoặc DD/MM/YYYY); dòng trống nội dung và ghi chú được bỏ qua; ô ghi chú để trống thì giữ nguyên ghi chú hiện có (không bị xóa); kiểm tra thử trước khi ghi.
 - **Gợi ý nội dung bằng AI** (cần `GEMINI_API_KEY`): trong khung dán nội dung hàng loạt, nút "Gợi ý bằng AI" điền danh sách nội dung theo cấp độ và giáo trình của lớp. Server không lưu gì; giáo viên đọc lại, sửa, rồi mới bấm "Gán nội dung". Lỗi AI báo 503, không bao giờ điền nội dung giả.
 - Quyền: chỉ admin tạo và sửa lịch, ngày nghỉ. Giáo viên xem lịch lớp mình phụ trách, học viên xem lịch lớp đang học. Tổng quan hiện nội dung buổi hôm nay; cổng học viên hiện các buổi sắp tới.
 
@@ -110,7 +110,7 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 - **Màn hình "Đăng ký"** (chỉ admin, đường dẫn `/leads`): danh sách theo trạng thái, gọi/Zalo nhanh, đổi trạng thái và ghi chú xử lý. Tab có huy hiệu số đăng ký còn ở trạng thái "Mới".
 - **Email báo đăng ký mới:** cần `RESEND_API_KEY` và `MAIL_FROM` (cùng cấu hình với email đặt lại mật khẩu). Người nhận là `LEADS_NOTIFY_EMAIL` (nhiều địa chỉ cách nhau dấu phẩy), nếu bỏ trống thì gửi cho các admin đang hoạt động. Đặt `APP_URL` (địa chỉ eduscan) để email có liên kết mở danh sách. Gửi email lỗi chỉ ghi log, không ảnh hưởng việc nhận đăng ký.
 - **Ghi danh từ đăng ký:** nút "Tạo học viên và ghi danh" (`POST /api/leads/:id/convert`, chỉ admin; body `class_id`, tùy chọn `email`, `join_date`) tạo tài khoản học viên bằng họ tên và số điện thoại của đăng ký, ghi danh vào lớp, tạo học phí tháng hiện tại, đánh dấu "Đã ghi danh" và hiện mật khẩu tạm một lần. Mỗi đăng ký chỉ tạo được một lần (cột `leads.student_id`, hai lần bấm cùng lúc thì lần sau nhận 409). Không nhập email thì tên đăng nhập tự sinh `student.<mã>@eduscan.edu.vn`.
-- Bảng `leads` chưa nằm trong "Sao lưu/Phục hồi" JSON, nên phục hồi không xóa hay nạp lại đăng ký; dữ liệu này nằm trong sao lưu Supabase và `pg_dump`.
+- Bảng `leads` nằm trong "Sao lưu/Phục hồi" JSON (dữ liệu CRM không thể tái tạo), nên phục hồi sẽ thay thế cả danh sách đăng ký. `password_resets` và `audit_logs` cố ý không được sao lưu.
 
 ## Lịch khai giảng công khai cho website
 
@@ -133,7 +133,17 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 - Đăng ký công khai bị giới hạn 10 lần/giờ/IP và mật khẩu tối thiểu 8 ký tự. Đặt `REGISTRATION_MODE=invite` (kèm `REGISTRATION_INVITE_CODE`) hoặc `REGISTRATION_MODE=closed` để chỉ người có mã mời mới tạo được tài khoản, hoặc đóng hoàn toàn.
 - AI không bao giờ trả điểm hay nhận xét giả khi lỗi; giáo viên luôn duyệt kết quả trước khi lưu.
 
+## Quy tắc nghiệp vụ
+
+- **Học phí:** trạng thái `unpaid`, `partial` (đóng một phần) hoặc `paid`. Số nợ = `amount - paid_amount` của hồ sơ chưa đóng đủ; số đã thu tính theo `paid_amount`. Màn hình học phí, Tổng quan và Thống kê dùng chung quy tắc này (`src/shared/utils/tuition.ts`), khoản `partial` hiện ở bộ lọc "Chưa đóng". `POST /api/tuition/payment` thu thiếu số tiền học phí thì ghi `partial`; gọi lại trên hồ sơ đã đóng đủ mà không truyền số tiền thì giữ nguyên ngày đóng và ghi chú; hồ sơ mới không truyền số tiền lấy học phí của lớp.
+- **Chuyên cần:** một học viên có thể có cả bản ghi phiên QR lẫn phiên điểm danh nhanh trong cùng ngày. Thống kê gộp theo (học viên, lớp, ngày) và ưu tiên có mặt > đi muộn > có phép > vắng (`src/shared/utils/attendance.ts`), nên buổi học không bị đếm hai lần. Đi muộn và có phép không được tính là có mặt khi tính tỷ lệ chuyên cần.
+- **Nộp lại bài:** xóa điểm, nhận xét, barem, điểm mạnh/yếu, gợi ý và bản nháp AI của lần nộp trước.
+- **Sửa học viên (`PUT /api/students/:id`):** họ tên không được rỗng (tối đa 150 ký tự), `status` chỉ nhận `active`, `suspended`, `inactive`; giá trị `null` của SĐT/ảnh đại diện được lưu là chuỗi rỗng.
+- **Thông báo bài tập mới** ghi hạn nộp theo múi giờ `APP_TZ`, không phải UTC.
+
 ## Giới hạn đã biết
+
+- Khi đổi tên cột hoặc quy tắc tính tiền, nhớ cập nhật cả `tests/api/logic-fixes.test.ts` và `tests/unit/tuition-attendance-utils.test.ts`.
 
 - Giao diện đã bỏ điểm danh bằng QR (giáo viên điểm danh nhanh); API QR bên dưới vẫn còn ở server nhưng không còn màn hình nào dùng.
 - Mã QR do server ký (HMAC-SHA256, khóa suy ra từ `JWT_SECRET`), đổi mỗi 15 giây, gắn với đúng một phiên và chấp nhận thêm chu kỳ liền trước. Học viên không thể tự dựng mã, nhưng vẫn có thể chụp màn hình gửi cho bạn đang ở xa trong tối đa 30 giây. Đổi `JWT_SECRET` thì mã đang hiển thị mất hiệu lực (giáo viên chỉ cần chờ chu kỳ kế tiếp).
