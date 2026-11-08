@@ -27,6 +27,10 @@ interface UseEcosystemDataOptions {
  *  - tải lần đầu và làm mới toàn bộ, gom trạng thái đang tải / lỗi
  *  - các thao tác chạm tới nhiều tính năng (xóa học viên kéo theo điểm danh, học phí, bài nộp...)
  */
+/** Dữ liệu cũ hơn mức này mới được tự làm mới; kiểm tra định kỳ mỗi AUTO_REFRESH_INTERVAL_MS */
+const AUTO_REFRESH_MIN_AGE_MS = 60_000;
+const AUTO_REFRESH_INTERVAL_MS = 120_000;
+
 export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const notify = options?.onNotify;
   const currentUserId = options?.currentUserId;
@@ -38,6 +42,8 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const [loadError, setLoadError] = useState<string | null>(null);
   // Thế hệ tải dữ liệu: phản hồi của thế hệ cũ (tài khoản trước) bị bỏ qua
   const loadGenRef = useRef(0);
+  // Lần tải gần nhất (ms): dùng để chỉ tự làm mới khi dữ liệu đã cũ
+  const lastLoadRef = useRef(0);
 
   // Học viên thêm/sửa làm thay đổi lớp, học phí... nên cần tải lại tất cả; ref để tránh phụ thuộc vòng
   const refreshRef = useRef<() => Promise<boolean>>(async () => true);
@@ -89,6 +95,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   // Tải lại toàn bộ dữ liệu. Yêu cầu lỗi giữ nguyên dữ liệu cũ và hiện banner "Thử lại".
   const refreshData = useCallback(async () => {
     const generation = ++loadGenRef.current;
+    lastLoadRef.current = Date.now();
     const results = await Promise.all([
       loadClasses(),
       loadStudents(),
@@ -117,6 +124,26 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
     if (!currentUserId) return;
     refreshData();
   }, [currentUserId, resetAll, refreshData]);
+
+  // Dữ liệu chỉ tải một lần lúc đăng nhập nên admin, giáo viên và học viên không thấy thay đổi của nhau
+  // (học phí vừa thu, bài mới giao, điểm vừa chấm, học viên vừa xếp lớp). Tự làm mới âm thầm khi quay lại
+  // tab/ứng dụng và định kỳ khi đang mở, nhưng không quá thường xuyên.
+  useEffect(() => {
+    if (!currentUserId) return;
+    const maybeRefresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoadRef.current < AUTO_REFRESH_MIN_AGE_MS) return;
+      void refreshRef.current();
+    };
+    document.addEventListener('visibilitychange', maybeRefresh);
+    window.addEventListener('focus', maybeRefresh);
+    const timer = window.setInterval(maybeRefresh, AUTO_REFRESH_INTERVAL_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', maybeRefresh);
+      window.removeEventListener('focus', maybeRefresh);
+      window.clearInterval(timer);
+    };
+  }, [currentUserId]);
 
   // Xóa học viên: xóa luôn dữ liệu liên quan đang giữ trên máy
   const handleDeleteStudent = async (studentId: string) => {

@@ -80,6 +80,11 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   const [schedule, setSchedule] = useState('Thứ 2 - 4 - 6 (18:00 - 19:30)');
   const [monthlyFee, setMonthlyFee] = useState<number>(800000);
   const [teacherId, setTeacherId] = useState<string>('');
+  // Lớp có thể do admin phụ trách (admin không nằm trong danh sách giáo viên): giữ người đó làm lựa chọn để ô chọn không hiện sai tên
+  const teacherOptions =
+    !teacherId || teachers.some((t) => t.id === teacherId)
+      ? teachers
+      : [...teachers, { id: teacherId, full_name: editingClass?.teacher_name || 'Người phụ trách hiện tại' }];
   const [startDate, setStartDate] = useState(todayLocal());
   const [description, setDescription] = useState('');
   const [room, setRoom] = useState('');
@@ -393,7 +398,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
                 >
                   {teachers.length === 0 && <option value="">Chưa có giáo viên</option>}
-                  {teachers.map((t) => (
+                  {teacherOptions.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.full_name}
                     </option>

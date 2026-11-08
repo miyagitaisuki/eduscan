@@ -31,7 +31,7 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
   // Lớp được chọn sẵn khi đi từ thẻ lớp; mất khi sang tab khác nên không còn "dính" bộ lọc cũ
   const preselectedClassId = classIdFromSearch(search);
 
-  const { classes, students, attendanceRecords, tuitionRecords, assignments, submissions } = data;
+  const { classes, students: allStudents, attendanceRecords, tuitionRecords, assignments, submissions } = data;
 
   // Đổi tab thì cuộn lên đầu trang
   useEffect(() => {
@@ -41,6 +41,9 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
   if (!tab) return <Redirect to={teacherPath(DEFAULT_TEACHER_TAB)} replace />;
 
   const goTo = (target: ActiveTab, classId?: string) => navigate(teacherPath(target, classId));
+
+  // Học viên chưa xếp lớp chỉ dùng để xếp lớp (Học viên, Quản lý lớp); các số liệu và màn hình khác chỉ tính học viên đã có lớp
+  const students = allStudents.filter((s) => s.class_id);
 
   // Số học viên chưa đóng học phí tháng hiện tại (kể cả chưa có hồ sơ) và số bài chờ chấm, cho huy hiệu menu
   const currentMonth = currentTuitionMonth();
@@ -95,7 +98,7 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
             isAdmin={isAdmin}
             teachers={data.teachers}
             classes={classes}
-            students={students}
+            students={allStudents}
             attendance={attendanceRecords}
             payments={tuitionRecords}
             onCreateClass={data.handleCreateClass}
@@ -113,7 +116,7 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
           <StudentManagementView
             key={viewKey}
             isAdmin={isAdmin}
-            students={students}
+            students={allStudents}
             classes={classes}
             attendance={attendanceRecords}
             payments={tuitionRecords}
