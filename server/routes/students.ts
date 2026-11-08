@@ -14,6 +14,7 @@ import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
 import { toCsv, foldVi } from '../lib/csv';
 import { randomBytes } from 'crypto';
+import { newStudentCode } from '../lib/studentCode';
 
 // Chuyển lớp: hủy ghi danh đang hoạt động ở lớp khác (giữ lịch sử), bật ghi danh vào lớp mới.
 export async function setStudentClass(db: AppDb, studentId: string, classId: string | null, joinDate?: string) {
@@ -247,7 +248,6 @@ export function studentRoutes({ db, auth }: Deps) {
         if (email) {
           if (!EMAIL_RE.test(email)) errors.push('Email không đúng định dạng.');
           else if (existing.has(email) || fileEmails.has(email)) errors.push('Email đã được sử dụng.');
-          else fileEmails.add(email);
         }
 
         const gender = parseGenderLabel(row.gender);
@@ -279,6 +279,8 @@ export function studentRoutes({ db, auth }: Deps) {
           results.push({ line, status: 'error', full_name: fullName, email, class_name: cls?.name ?? className, errors });
           continue;
         }
+        // Chỉ giữ chỗ email của dòng hợp lệ: dòng lỗi không được tạo nên không chặn dòng sau
+        if (email) fileEmails.add(email);
         results.push({ line, status: 'ok', full_name: fullName, email, class_name: cls?.name ?? '', errors: [] });
         plans.push({
           line,
@@ -309,6 +311,7 @@ export function studentRoutes({ db, auth }: Deps) {
         }
       }
 
+      const usedCodes = new Set<string>();
       const credentials: { line: number; full_name: string; email: string; class_name: string; temporary_password: string }[] = [];
       await db.transaction(async (tx) => {
         for (const p of plans) {
@@ -320,7 +323,7 @@ export function studentRoutes({ db, auth }: Deps) {
             passwordHash: tmp.hash,
             fullName: p.fullName,
             role: 'student',
-            studentCode: p.studentCode || `STU${Math.floor(1000 + Math.random() * 9000)}`,
+            studentCode: p.studentCode || (await newStudentCode(tx as unknown as AppDb, usedCodes)),
             avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.fullName)}`,
             phone: p.phone,
             gender: p.gender,
@@ -414,7 +417,7 @@ export function studentRoutes({ db, auth }: Deps) {
             passwordHash: tmp.hash,
             fullName: String(b.full_name).trim(),
             role: 'student',
-            studentCode: b.student_code || `STU${Math.floor(1000 + Math.random() * 9000)}`,
+            studentCode: b.student_code || (await newStudentCode(tx as unknown as AppDb)),
             avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
             phone: b.phone || '',
             gender: parseGender(b.gender) ?? null,

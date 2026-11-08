@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createTestContext, TEACHER, STUDENT_AN, ADMIN } from '../helpers';
 import { eq } from 'drizzle-orm';
-import { tuitionRecords, submissions } from '../../server/db/schema';
+import { tuitionRecords, submissions, users } from '../../server/db/schema';
 
 let ctx: Awaited<ReturnType<typeof createTestContext>>;
 let T: string;
@@ -53,5 +53,35 @@ describe('sửa lỗi logic', () => {
     const second = await ctx.api.post('/api/submissions').set('Authorization', `Bearer ${S}`).send({ assignment_id: assignmentId, content: 'v2' });
     expect(second.body.ai_draft).toBeNull();
     expect(second.body.strengths).toBeNull();
+  });
+
+  it('đổi tháng học phí sang tháng đã có hồ sơ trả 409, không phải 500', async () => {
+    const list = await ctx.api.get('/api/students').set('Authorization', `Bearer ${T}`);
+    const id = list.body[0].id;
+    await ctx.db.delete(tuitionRecords).where(eq(tuitionRecords.studentId, id));
+    await ctx.db.insert(tuitionRecords).values([
+      { id: 'tui-m1', studentId: id, month: '02/2031', amount: 1, status: 'unpaid' },
+      { id: 'tui-m2', studentId: id, month: '03/2031', amount: 1, status: 'unpaid' },
+    ]);
+    const res = await ctx.api.put('/api/tuition/tui-m2').set('Authorization', `Bearer ${A}`).send({ month: '02/2031' });
+    expect(res.status).toBe(409);
+  });
+
+  it('nhập CSV: email của dòng lỗi không chặn dòng sau; mã học viên tự sinh không trùng', async () => {
+    const rows = [
+      { full_name: '', email: 'chung@example.com', class_id: 'cls-n5-01' },
+      { full_name: 'Người hợp lệ', email: 'chung@example.com' },
+      { full_name: 'Người hai' },
+    ];
+    const res = await ctx.api
+      .post('/api/students/import')
+      .set('Authorization', `Bearer ${T}`)
+      .send({ class_id: 'cls-n5-01', rows });
+    expect(res.status).toBe(201);
+    expect(res.body.results[0].status).toBe('error');
+    expect(res.body.results[1].status).toBe('ok');
+    const all = await ctx.db.select({ code: users.studentCode }).from(users);
+    const codes = all.map((u) => u.code).filter((c): c is string => !!c && c.startsWith('STU'));
+    expect(new Set(codes).size).toBe(codes.length);
   });
 });

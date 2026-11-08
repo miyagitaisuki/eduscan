@@ -7,6 +7,7 @@ import { newId } from '../lib/security';
 import { currentDueDate, currentMonthLabel } from './students';
 import { canManageClass, canManageStudent } from '../lib/access';
 import { parseDateOnly } from '../lib/validation';
+import { isUniqueViolation } from '../lib/dbErrors';
 import type { Deps } from './deps';
 
 const EDITABLE = ['amount', 'paidAmount', 'dueDate', 'paidDate', 'status', 'notes', 'month'] as const;
@@ -166,8 +167,14 @@ export function tuitionRoutes({ db, auth }: Deps) {
       }
       if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Không có trường nào để cập nhật.' });
 
-      const [row] = await db.update(tuitionRecords).set(set as any).where(eq(tuitionRecords.id, current.id)).returning();
-      return res.json(tuitionDto(row));
+      try {
+        const [row] = await db.update(tuitionRecords).set(set as any).where(eq(tuitionRecords.id, current.id)).returning();
+        return res.json(tuitionDto(row));
+      } catch (err) {
+        // Đổi sang tháng mà học viên đã có hồ sơ: unique (student_id, month)
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Học viên đã có hồ sơ học phí tháng này.' });
+        throw err;
+      }
     })
   );
 

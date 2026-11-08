@@ -139,6 +139,10 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 - **Chuyên cần:** một học viên có thể có cả bản ghi phiên QR lẫn phiên điểm danh nhanh trong cùng ngày. Thống kê gộp theo (học viên, lớp, ngày) và ưu tiên có mặt > đi muộn > có phép > vắng (`src/shared/utils/attendance.ts`), nên buổi học không bị đếm hai lần. Đi muộn và có phép không được tính là có mặt khi tính tỷ lệ chuyên cần.
 - **Nộp lại bài:** xóa điểm, nhận xét, barem, điểm mạnh/yếu, gợi ý và bản nháp AI của lần nộp trước.
 - **Sửa học viên (`PUT /api/students/:id`):** họ tên không được rỗng (tối đa 150 ký tự), `status` chỉ nhận `active`, `suspended`, `inactive`; giá trị `null` của SĐT/ảnh đại diện được lưu là chuỗi rỗng.
+- **Mã học viên tự sinh** (`STU` + 6 chữ số) được kiểm tra không trùng mã đang có (`server/lib/studentCode.ts`). Cột `student_code` không có unique index nên mã nhập tay vẫn có thể trùng.
+- **Xung đột đồng thời:** đăng ký trùng email, chuyển buổi học sang ngày đã có buổi, đổi tháng học phí sang tháng đã có hồ sơ đều trả 409 (bắt lỗi unique `23505`, `server/lib/dbErrors.ts`) thay vì 500.
+- **Nhập CSV học viên:** chỉ dòng hợp lệ mới giữ chỗ email; dòng lỗi không làm dòng sau bị báo trùng.
+- **Nộp lại bài** xóa luôn tệp đính kèm cũ khỏi Storage (lỗi xóa chỉ ghi log). Bộ đếm đăng nhập sai tự dọn khóa hết hạn khi vượt 1000 mục.
 - **Thông báo bài tập mới** ghi hạn nộp theo múi giờ `APP_TZ`, không phải UTC.
 
 ## Giới hạn đã biết

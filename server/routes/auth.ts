@@ -16,6 +16,8 @@ import { parseGender, userDto } from '../lib/dto';
 import { ah, AuthedRequest } from '../lib/http';
 import { audit } from '../lib/audit';
 import { sendPasswordReset } from '../lib/reset';
+import { isUniqueViolation } from '../lib/dbErrors';
+import { newStudentCode } from '../lib/studentCode';
 import type { Deps } from './deps';
 
 // Khóa tạm theo tài khoản: chống dò mật khẩu từ nhiều IP khác nhau.
@@ -29,6 +31,8 @@ function accountLocked(key: string) {
 }
 function recordFailure(key: string) {
   const now = Date.now();
+  // Dọn các khóa đã hết hạn để map không phình mãi theo số email bị thử
+  if (failures.size > 1000) for (const [k, v] of failures) if (v.resetAt <= now) failures.delete(k);
   const f = failures.get(key);
   if (!f || f.resetAt <= now) failures.set(key, { count: 1, resetAt: now + WINDOW_MS });
   else f.count++;
@@ -129,7 +133,9 @@ export function authRoutes({ db, auth, config }: Deps) {
       if (existing) return res.status(409).json({ error: 'Email này đã được đăng ký trong hệ thống.' });
 
       const id = newId('usr');
-      const [u] = await db
+      let u: typeof users.$inferSelect;
+      try {
+        [u] = await db
         .insert(users)
         .values({
           id,
@@ -137,12 +143,17 @@ export function authRoutes({ db, auth, config }: Deps) {
           passwordHash: hashPassword(String(password)),
           fullName: String(full_name).trim(),
           role: 'student',
-          studentCode: student_code || `STU${Math.floor(100000 + Math.random() * 900000)}`,
+          studentCode: student_code || (await newStudentCode(db)),
           avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(full_name))}`,
           phone: phone || '',
           status: 'active',
         })
         .returning();
+      } catch (err) {
+        // Hai đăng ký cùng email đến cùng lúc: bên thua nhận 409 thay vì 500
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Email này đã được đăng ký trong hệ thống.' });
+        throw err;
+      }
       const token = issueToken(u, config.jwtSecret);
       return res.status(201).json({ token, user: userDto(u) });
     })

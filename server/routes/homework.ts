@@ -4,7 +4,14 @@ import { assignments, classes, enrollments, notifications, submissions, users } 
 import { assignmentDto, submissionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
-import { createAttachmentSignedUrl, isSafeHomeworkPath, StorageError, uploadHomeworkAttachment } from '../lib/storage';
+import {
+  createAttachmentSignedUrl,
+  deleteHomeworkObjects,
+  HOMEWORK_BUCKET_PREFIX,
+  isSafeHomeworkPath,
+  StorageError,
+  uploadHomeworkAttachment,
+} from '../lib/storage';
 import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
@@ -287,6 +294,11 @@ export function homeworkRoutes({ db, auth }: Deps) {
         return res.status(400).json({ error: 'Đường dẫn tệp đính kèm không hợp lệ.' });
       }
 
+      const [prevSub] = await db
+        .select({ attachmentUrl: submissions.attachmentUrl })
+        .from(submissions)
+        .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
+        .limit(1);
       const [row] = await db
         .insert(submissions)
         .values({
@@ -319,6 +331,13 @@ export function homeworkRoutes({ db, auth }: Deps) {
           },
         })
         .returning();
+      // Tệp của lần nộp trước không còn được tham chiếu: xóa khỏi Storage (lỗi chỉ ghi log, không chặn việc nộp)
+      const oldPath = prevSub?.attachmentUrl;
+      if (oldPath && oldPath !== attachmentPath && oldPath.startsWith(HOMEWORK_BUCKET_PREFIX)) {
+        void deleteHomeworkObjects([oldPath.slice(HOMEWORK_BUCKET_PREFIX.length)]).catch((err) =>
+          console.error('[homework] Không xóa được tệp cũ:', err?.message || err)
+        );
+      }
       return res.status(201).json(submissionDto(row));
     })
   );
