@@ -11,6 +11,7 @@ import {
   Search,
   CalendarDays,
   CalendarOff,
+  UserPlus,
 } from 'lucide-react';
 import { Student, AttendanceRecord, TuitionRecord, ClassInput, ClassItem, JlptLevel, ActiveTab } from '../../../shared/types';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
@@ -31,6 +32,8 @@ interface ClassManagementViewProps {
   onCreateClass: (cls: ClassInput) => void;
   onUpdateClass: (classId: string, cls: Partial<ClassInput>) => void;
   onDeleteClass: (classId: string) => void;
+  /** Xếp một học viên đã có tài khoản vào lớp (chuyển khỏi lớp cũ nếu có) */
+  onAssignStudent?: (studentId: string, classId: string) => Promise<unknown> | void;
   onNavigateTab: (tab: ActiveTab, preselectedClassId?: string) => void;
   /** Gọi sau khi admin đổi lịch lặp, buổi học hoặc ngày nghỉ: tải lại lớp và buổi học */
   onScheduleChanged?: () => void;
@@ -49,6 +52,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   onCreateClass,
   onUpdateClass,
   onDeleteClass,
+  onAssignStudent,
   onNavigateTab,
   onScheduleChanged,
   notify,
@@ -59,6 +63,10 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   const [holidaysOpen, setHolidaysOpen] = useState(false);
   const scheduleClass = classes.find((c) => c.id === scheduleClassId) ?? null;
   const [searchQuery, setSearchQuery] = useState('');
+  // Lớp đang mở hộp thoại "Thêm học viên có sẵn" và ô tìm kiếm trong đó
+  const [assignClassId, setAssignClassId] = useState<string | null>(null);
+  const [assignQuery, setAssignQuery] = useState('');
+  const assignClass = classes.find((c) => c.id === assignClassId) ?? null;
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>('all');
 
   // Modal State
@@ -72,6 +80,11 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
   const [schedule, setSchedule] = useState('Thứ 2 - 4 - 6 (18:00 - 19:30)');
   const [monthlyFee, setMonthlyFee] = useState<number>(800000);
   const [teacherId, setTeacherId] = useState<string>('');
+  // Lớp có thể do admin phụ trách (admin không nằm trong danh sách giáo viên): giữ người đó làm lựa chọn để ô chọn không hiện sai tên
+  const teacherOptions =
+    !teacherId || teachers.some((t) => t.id === teacherId)
+      ? teachers
+      : [...teachers, { id: teacherId, full_name: editingClass?.teacher_name || 'Người phụ trách hiện tại' }];
   const [startDate, setStartDate] = useState(todayLocal());
   const [description, setDescription] = useState('');
   const [room, setRoom] = useState('');
@@ -310,6 +323,20 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   Điểm danh
                 </button>
 
+                {onAssignStudent && (isAdmin || cls.teacher_id === currentUserId) && (
+                <button
+                  onClick={() => {
+                    setAssignQuery('');
+                    setAssignClassId(cls.id);
+                  }}
+                  className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                  title="Thêm học viên đã có tài khoản vào lớp"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Thêm HV
+                </button>
+                )}
+
                 {(isAdmin || cls.teacher_id === currentUserId) && (
                 <button
                   onClick={() => setScheduleClassId(cls.id)}
@@ -371,7 +398,7 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
                 >
                   {teachers.length === 0 && <option value="">Chưa có giáo viên</option>}
-                  {teachers.map((t) => (
+                  {teacherOptions.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.full_name}
                     </option>
@@ -493,6 +520,54 @@ export const ClassManagementView: React.FC<ClassManagementViewProps> = ({
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {assignClass && (
+        <Modal
+          title={`Thêm học viên vào ${assignClass.name}`}
+          description="Chọn học viên đã có tài khoản. Học viên đang học lớp khác sẽ được chuyển sang lớp này."
+          onClose={() => setAssignClassId(null)}
+          size="md"
+        >
+          <div className="space-y-3">
+            <input
+              aria-label="Tìm học viên"
+              value={assignQuery}
+              onChange={(e) => setAssignQuery(e.target.value)}
+              placeholder="Tìm theo tên hoặc số điện thoại..."
+              className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium"
+            />
+            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+              {(() => {
+                const q = assignQuery.trim().toLowerCase();
+                const candidates = students
+                  .filter((s) => s.class_id !== assignClass.id)
+                  .filter((s) => !q || s.full_name.toLowerCase().includes(q) || (s.phone || '').includes(q))
+                  // Học viên chưa xếp lớp lên đầu
+                  .sort((a, b) => Number(!!a.class_id) - Number(!!b.class_id) || a.full_name.localeCompare(b.full_name, 'vi'));
+                if (candidates.length === 0) {
+                  return <p className="p-4 text-xs text-slate-500 text-center">Không có học viên phù hợp.</p>;
+                }
+                return candidates.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-2 p-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 truncate">{s.full_name}</p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {s.phone || 'Chưa có SĐT'} • {s.class_id ? `Đang học: ${s.class_name}` : 'Chưa xếp lớp'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onAssignStudent?.(s.id, assignClass.id)}
+                      className="shrink-0 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                    >
+                      Thêm vào lớp
+                    </button>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
         </Modal>
       )}
 

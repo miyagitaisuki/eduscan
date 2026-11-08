@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { and, asc, eq, inArray, ne } from 'drizzle-orm';
-import { classes, enrollments, tuitionRecords, users } from '../db/schema';
+import { classes, enrollments, notifications, tuitionRecords, users } from '../db/schema';
 import { classDto, parseGender, userDto } from '../lib/dto';
 import { parseDateOnly } from '../lib/validation';
 import type { Student } from '../../src/shared/types';
@@ -88,9 +88,21 @@ function parseGenderLabel(v: unknown): 'male' | 'female' | null | undefined {
 }
 
 
+// Báo cho học viên biết mình vừa được xếp vào lớp nào
+export async function notifyAssignedToClass(db: AppDb, studentId: string, className: string) {
+  await db.insert(notifications).values({
+    id: newId('notif'),
+    userId: studentId,
+    title: 'Bạn đã được xếp vào lớp mới',
+    message: `Bạn đã được xếp vào lớp "${className}". Xem lịch học và bài tập trong mục Trang chủ.`,
+    type: 'class',
+  });
+}
+
 // Ghi danh học viên mới vào lớp và tạo học phí tháng hiện tại
 export async function enrollNewStudent(db: AppDb, studentId: string, cls: ClassRow, joinDate?: string) {
   await setStudentClass(db, studentId, cls.id, joinDate);
+  await notifyAssignedToClass(db, studentId, cls.name);
   await db.insert(tuitionRecords).values({
     id: newId('tui'),
     studentId,
@@ -160,8 +172,8 @@ export function studentRoutes({ db, auth }: Deps) {
         db,
         list.map((u) => u.id)
       );
-      // Giáo viên chỉ thấy học viên đang học lớp mình phụ trách
-      const visible = owned ? list.filter((u) => cls.has(u.id) && owned.includes(cls.get(u.id)!.id)) : list;
+      // Giáo viên thấy học viên đang học lớp mình phụ trách và học viên chưa xếp lớp (để xếp vào lớp mình)
+      const visible = owned ? list.filter((u) => !cls.has(u.id) || owned.includes(cls.get(u.id)!.id)) : list;
       return res.json(visible.map((u) => studentDto(u, cls.get(u.id))));
     })
   );
@@ -448,7 +460,13 @@ export function studentRoutes({ db, auth }: Deps) {
         .limit(1);
       if (!target) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
       if (!(await canManageStudent(db, req.user, target.id))) {
-        return res.status(403).json({ error: 'Bạn chỉ được sửa học viên của lớp mình phụ trách.' });
+        // Học viên chưa xếp lớp: giáo viên chỉ được xếp vào lớp mình phụ trách, không sửa thông tin khác
+        const unassigned = !(await studentClassMap(db, [target.id])).has(target.id);
+        const onlyAssigning =
+          typeof b.class_id === 'string' && !!b.class_id && Object.keys(b).every((k) => k === 'class_id' || k === 'join_date');
+        if (!unassigned || !onlyAssigning) {
+          return res.status(403).json({ error: 'Bạn chỉ được sửa học viên của lớp mình phụ trách.' });
+        }
       }
       if (b.class_id && !(await canManageClass(db, req.user, b.class_id))) {
         return res.status(403).json({ error: 'Bạn chỉ được xếp học viên vào lớp mình phụ trách.' });
@@ -503,6 +521,10 @@ export function studentRoutes({ db, auth }: Deps) {
           // Chuyển sang lớp khác: ngày vào lớp mới là hôm nay. Giữ nguyên lớp: cho phép sửa ngày vào lớp.
           const sameClass = (b.class_id || null) === (before?.id ?? null);
           await setStudentClass(t, target.id, b.class_id || null, sameClass ? joinDate ?? undefined : undefined);
+          if (b.class_id && !sameClass) {
+            const [newCls] = await t.select({ name: classes.name }).from(classes).where(eq(classes.id, b.class_id)).limit(1);
+            if (newCls) await notifyAssignedToClass(t, target.id, newCls.name);
+          }
         } else if (joinDate && before) {
           await t
             .update(enrollments)

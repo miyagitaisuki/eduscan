@@ -274,7 +274,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 {currentMonthTuition ? (
                   <>
                     <div className={`text-lg font-black ${currentMonthTuition.status === 'paid' ? 'text-success-700' : 'text-warning-700'}`}>
-                      {currentMonthTuition.status === 'paid' ? 'Đã hoàn tất' : 'Chưa đóng'}
+                      {currentMonthTuition.status === 'paid' ? 'Đã hoàn tất' : currentMonthTuition.status === 'partial' ? 'Đóng một phần' : 'Chưa đóng'}
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       {currentMonthTuition.amount.toLocaleString('vi-VN')} đ
@@ -609,11 +609,11 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                       : 'bg-warning-100 text-warning-800 border border-warning-200'
                   }`}
                 >
-                  {currentMonthTuition.status === 'paid' ? '✅ Đã hoàn tất' : '⏳ Chưa thanh toán'}
+                  {currentMonthTuition.status === 'paid' ? '✅ Đã hoàn tất' : currentMonthTuition.status === 'partial' ? '⏳ Đóng một phần' : '⏳ Chưa thanh toán'}
                 </span>
               </div>
 
-              {currentMonthTuition.status === 'unpaid' && (
+              {currentMonthTuition.status !== 'paid' && (
                 <div className="mt-4 p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
                   <p className="font-bold text-slate-800">Thông tin chuyển khoản học phí:</p>
                   <p className="text-slate-600">Ngân hàng: <strong>Techcombank</strong></p>
@@ -645,7 +645,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-xl ${
                     t.status === 'paid' ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-800'
                   }`}>
-                    {t.status === 'paid' ? 'Đã đóng' : 'Chưa đóng'}
+                    {t.status === 'paid' ? 'Đã đóng' : t.status === 'partial' ? 'Đóng một phần' : 'Chưa đóng'}
                   </span>
                 </div>
               ))}

@@ -18,7 +18,9 @@ export function useAttendanceData(notify?: Notify) {
     try {
       const data = await attendanceService.getHistory();
       if (request !== requestRef.current) return false;
-      setAttendanceRecords(data);
+      // Giữ nguyên tham chiếu khi dữ liệu không đổi: màn hình điểm danh nhanh nạp lại ô tick mỗi khi mảng này đổi,
+      // nên làm mới tự động không được ghi đè các ô giáo viên đang tick dở
+      setAttendanceRecords((prev) => (JSON.stringify(prev) === JSON.stringify(data) ? prev : data));
       return true;
     } catch {
       return false;

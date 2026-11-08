@@ -81,6 +81,22 @@ export function classRoutes({ db, auth }: Deps) {
     })
   );
 
+  // Danh sách học viên đang học của một lớp để giáo viên/admin chấm bài (mọi giáo viên chấm được bài của mọi lớp).
+  // Chỉ gồm thông tin cần để chấm: không có SĐT hay email.
+  r.get(
+    '/:id/roster',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const rows = await db
+        .select({ id: users.id, fullName: users.fullName, studentCode: users.studentCode })
+        .from(enrollments)
+        .innerJoin(users, eq(users.id, enrollments.studentId))
+        .where(and(eq(enrollments.classId, req.params.id), eq(enrollments.status, 'active')))
+        .orderBy(users.fullName);
+      return res.json(rows.map((r) => ({ id: r.id, full_name: r.fullName, student_code: r.studentCode ?? '' })));
+    })
+  );
+
   r.get(
     '/:id',
     auth.requireAuth,

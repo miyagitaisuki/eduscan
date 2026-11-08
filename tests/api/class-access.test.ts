@@ -70,7 +70,8 @@ describe('phân quyền theo lớp', () => {
     expect(students.status).toBe(200);
     expect(students.body).toEqual([]);
     const asg = await ctx.api.get('/api/assignments').set('Authorization', `Bearer ${OTHER}`);
-    expect(asg.body).toEqual([]);
+    // Mọi giáo viên xem được bài tập của mọi lớp (cùng quyền chấm bài)
+    expect(asg.body.length).toBeGreaterThan(0);
     // Học phí chỉ dành cho admin: giáo viên bị từ chối, không phân biệt lớp
     const tuition = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${OTHER}`);
     expect(tuition.status).toBe(403);

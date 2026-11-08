@@ -406,7 +406,8 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     <button
                       onClick={() => {
                         setTransferringStudent(st);
-                        setTargetClassId(st.class_id);
+                        // Học viên chưa xếp lớp có class_id rỗng: chọn sẵn lớp đầu tiên để nút Xác nhận hoạt động
+                        setTargetClassId(st.class_id || classes[0]?.id || '');
                       }}
                       title="Chuyển lớp cho học viên"
                       className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors cursor-pointer"
@@ -742,6 +743,8 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   onChange={(e) => setClassId(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-primary-700 bg-white"
                 >
+                  {/* Học viên chưa có lớp có class_id rỗng: cần lựa chọn này, nếu không ô chọn hiện lớp đầu tiên nhưng lưu không xếp lớp */}
+                  {(editingStudent || classes.length === 0) && <option value="">Chưa xếp lớp</option>}
                   {classes.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}

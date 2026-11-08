@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createTestContext, TEACHER, STUDENT_AN, ADMIN } from '../helpers';
+import { createTestContext, TEACHER, STUDENT_AN, ADMIN, SEED_PASSWORD } from '../helpers';
+import { hashPassword } from '../../server/lib/security';
 import { eq } from 'drizzle-orm';
-import { tuitionRecords, submissions, users } from '../../server/db/schema';
+import { tuitionRecords, submissions, users, notifications } from '../../server/db/schema';
 
 let ctx: Awaited<ReturnType<typeof createTestContext>>;
 let T: string;
@@ -83,5 +84,61 @@ describe('sửa lỗi logic', () => {
     const all = await ctx.db.select({ code: users.studentCode }).from(users);
     const codes = all.map((u) => u.code).filter((c): c is string => !!c && c.startsWith('STU'));
     expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('học viên xem được học phí của chính mình nhưng không gọi được danh sách học viên', async () => {
+    // Giao diện học viên phải tải /api/tuition và không được gọi /api/students (403 làm banner báo lỗi tải)
+    const profile = await ctx.api.get('/api/auth/profile').set('Authorization', `Bearer ${S}`);
+    await ctx.db.insert(tuitionRecords).values({ id: 'tui-own', studentId: profile.body.id, month: '04/2031', amount: 900000, status: 'unpaid' });
+    const mine = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${S}`);
+    expect(mine.status).toBe(200);
+    expect(mine.body.every((t: any) => t.student_id === profile.body.id)).toBe(true);
+    expect(mine.body.some((t: any) => t.id === 'tui-own')).toBe(true);
+    expect((await ctx.api.get('/api/students').set('Authorization', `Bearer ${S}`)).status).toBe(403);
+  });
+});
+
+describe('xếp học viên chưa có lớp', () => {
+  it('giáo viên thấy học viên chưa xếp lớp và chỉ được xếp vào lớp mình phụ trách', async () => {
+    const created = await ctx.api.post('/api/students').set('Authorization', `Bearer ${A}`).send({ full_name: 'Chưa có lớp', email: 'chualop@example.com' });
+    expect(created.status).toBe(201);
+    const list = await ctx.api.get('/api/students').set('Authorization', `Bearer ${T}`);
+    expect(list.body.some((s: any) => s.id === created.body.id)).toBe(true);
+    // Không được sửa thông tin khác của học viên chưa xếp lớp
+    const edit = await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${T}`).send({ full_name: 'Đổi tên' });
+    expect(edit.status).toBe(403);
+    const assign = await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${T}`).send({ class_id: 'cls-n5-01' });
+    expect(assign.status).toBe(200);
+    expect(assign.body.class_id).toBe('cls-n5-01');
+  });
+});
+
+describe('giáo viên xem và chấm bài mọi lớp; thông báo khi xếp lớp', () => {
+  it('giáo viên không phụ trách xem được bài tập, bài nộp và danh sách học viên của lớp khác', async () => {
+    // Giáo viên thứ hai không phụ trách lớp nào
+    await ctx.db.insert(users).values({
+      id: 'usr-teacher-x',
+      email: 'gv.khac@eduscan.edu.vn',
+      passwordHash: hashPassword(SEED_PASSWORD),
+      fullName: 'GV khác',
+      role: 'teacher',
+      status: 'active',
+    });
+    const token = await ctx.login('gv.khac@eduscan.edu.vn');
+    const asg = await ctx.api.get('/api/assignments').set('Authorization', `Bearer ${token}`);
+    expect(asg.body.length).toBeGreaterThan(0);
+    const subs = await ctx.api.get('/api/submissions').set('Authorization', `Bearer ${token}`);
+    expect(subs.status).toBe(200);
+    const roster = await ctx.api.get('/api/classes/cls-n5-01/roster').set('Authorization', `Bearer ${token}`);
+    expect(roster.status).toBe(200);
+    expect(roster.body[0]).not.toHaveProperty('phone');
+    expect((await ctx.api.get('/api/classes/cls-n5-01/roster').set('Authorization', `Bearer ${S}`)).status).toBe(403);
+  });
+
+  it('xếp học viên vào lớp gửi thông báo cho học viên', async () => {
+    const created = await ctx.api.post('/api/students').set('Authorization', `Bearer ${A}`).send({ full_name: 'Thông báo lớp', email: 'tbl@example.com' });
+    await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${A}`).send({ class_id: 'cls-n5-01' });
+    const rows = await ctx.db.select().from(notifications).where(eq(notifications.userId, created.body.id));
+    expect(rows.some((n) => n.type === 'class')).toBe(true);
   });
 });
