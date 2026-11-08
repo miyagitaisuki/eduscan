@@ -12,6 +12,7 @@ import { newTempPassword } from './auth';
 import { enrollNewStudent } from './students';
 import type { AppDb } from '../db/client';
 import { randomBytes } from 'crypto';
+import { newStudentCode } from '../lib/studentCode';
 import type { Deps } from './deps';
 
 export const LEAD_STATUSES = ['new', 'contacted', 'trial', 'enrolled', 'declined'] as const;
@@ -186,7 +187,7 @@ export function leadRoutes({ db, auth }: Deps) {
             passwordHash: tmp.hash,
             fullName: lead.fullName,
             role: 'student',
-            studentCode: `STU${Math.floor(1000 + Math.random() * 9000)}`,
+            studentCode: await newStudentCode(tx as unknown as AppDb),
             avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(lead.fullName)}`,
             phone: lead.phone,
             status: 'active',

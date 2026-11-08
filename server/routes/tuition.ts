@@ -1,14 +1,30 @@
 import { Router } from 'express';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { classes, enrollments, tuitionRecords, users } from '../db/schema';
 import { tuitionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
 import { currentDueDate, currentMonthLabel } from './students';
 import { canManageClass, canManageStudent } from '../lib/access';
+import { parseDateOnly } from '../lib/validation';
+import { isUniqueViolation } from '../lib/dbErrors';
 import type { Deps } from './deps';
 
 const EDITABLE = ['amount', 'paidAmount', 'dueDate', 'paidDate', 'status', 'notes', 'month'] as const;
+const TUITION_STATUSES = new Set(['unpaid', 'partial', 'paid']);
+
+/** Số tiền học phí: số nguyên không âm; undefined nếu không hợp lệ */
+function parseAmount(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === '') return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) && Number.isInteger(n) && n >= 0 ? n : undefined;
+}
+
+function parseMonth(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const month = v.trim();
+  return month.length > 0 && month.length <= 20 ? month : undefined;
+}
 
 // Học phí chỉ dành cho admin: giáo viên không đọc hay ghi học phí
 export function tuitionRoutes({ db, auth }: Deps) {
@@ -47,29 +63,59 @@ export function tuitionRoutes({ db, auth }: Deps) {
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
       if (!b.student_id) return res.status(400).json({ error: 'Thiếu student_id' });
+      const [student] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, String(b.student_id)), eq(users.role, 'student')))
+        .limit(1);
+      if (!student) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
       if (!(await canManageStudent(db, req.user, String(b.student_id)))) {
         return res.status(403).json({ error: 'Bạn chỉ được ghi học phí cho học viên của lớp mình phụ trách.' });
       }
       if (b.class_id && !(await canManageClass(db, req.user, String(b.class_id)))) {
         return res.status(403).json({ error: 'Bạn chỉ được ghi học phí cho lớp mình phụ trách.' });
       }
-      const amount = Number(b.amount) || 800000;
-      const paid = b.status === 'paid';
-      const [row] = await db
-        .insert(tuitionRecords)
-        .values({
-          id: newId('tui'),
-          studentId: b.student_id,
-          classId: b.class_id || null,
-          month: b.month || currentMonthLabel(),
-          amount,
-          paidAmount: paid ? Number(b.paid_amount) || amount : Number(b.paid_amount) || 0,
-          dueDate: currentDueDate(),
-          paidDate: paid ? todayStr() : null,
-          status: b.status === 'paid' || b.status === 'partial' ? b.status : 'unpaid',
-          notes: b.notes || '',
-        })
-        .returning();
+      // 0 là số tiền hợp lệ (miễn phí), không được biến thành 800000 như `Number(x) || default`
+      const amount = b.amount === undefined || b.amount === null || b.amount === '' ? 800000 : parseAmount(b.amount);
+      if (amount === undefined) return res.status(400).json({ error: 'Học phí phải là số nguyên không âm.' });
+      const paidAmountInput = parseAmount(b.paid_amount);
+      if (b.paid_amount !== undefined && b.paid_amount !== null && b.paid_amount !== '' && paidAmountInput === undefined) {
+        return res.status(400).json({ error: 'Số tiền đã đóng phải là số nguyên không âm.' });
+      }
+      const month = b.month === undefined || b.month === null || b.month === '' ? currentMonthLabel() : parseMonth(b.month);
+      if (!month) return res.status(400).json({ error: 'Tháng học phí không hợp lệ.' });
+      const status = TUITION_STATUSES.has(b.status) ? b.status : 'unpaid';
+      const paid = status === 'paid';
+      // Khóa hàng học viên rồi kiểm tra trùng: unique(student_id, month) là chốt chặn cuối,
+      // nhưng khóa giúp trả 409 rõ ràng thay vì lỗi 500 khi hai yêu cầu đến cùng lúc.
+      const row = await db.transaction(async (tx) => {
+        await tx.execute(sql`select id from users where id = ${b.student_id} for update`);
+        const [existing] = await tx
+          .select({ id: tuitionRecords.id })
+          .from(tuitionRecords)
+          .where(and(eq(tuitionRecords.studentId, b.student_id), eq(tuitionRecords.month, month)))
+          .limit(1);
+        if (existing) return null;
+        const [inserted] = await tx
+          .insert(tuitionRecords)
+          .values({
+            id: newId('tui'),
+            studentId: b.student_id,
+            classId: b.class_id || null,
+            month,
+            amount,
+            paidAmount: paidAmountInput ?? (paid ? amount : 0),
+            dueDate: currentDueDate(),
+            paidDate: paid ? todayStr() : null,
+            status,
+            notes: b.notes || '',
+          })
+          .returning();
+        return inserted;
+      });
+      if (!row) {
+        return res.status(409).json({ error: `Học viên đã có hồ sơ học phí tháng ${month}.` });
+      }
       return res.status(201).json(tuitionDto(row));
     })
   );
@@ -86,18 +132,34 @@ export function tuitionRoutes({ db, auth }: Deps) {
       }
 
       const set: Partial<Record<(typeof EDITABLE)[number], unknown>> = {};
-      const map: Record<string, (typeof EDITABLE)[number]> = {
-        amount: 'amount',
-        paid_amount: 'paidAmount',
-        due_date: 'dueDate',
-        paid_date: 'paidDate',
-        status: 'status',
-        notes: 'notes',
-        month: 'month',
-      };
-      for (const [apiKey, col] of Object.entries(map)) {
-        if (b[apiKey] !== undefined) set[col] = b[apiKey];
+      if (b.amount !== undefined) {
+        const amount = parseAmount(b.amount);
+        if (amount === undefined) return res.status(400).json({ error: 'Học phí phải là số nguyên không âm.' });
+        set.amount = amount;
       }
+      if (b.paid_amount !== undefined) {
+        const paidAmount = parseAmount(b.paid_amount);
+        if (paidAmount === undefined) return res.status(400).json({ error: 'Số tiền đã đóng phải là số nguyên không âm.' });
+        set.paidAmount = paidAmount;
+      }
+      if (b.status !== undefined) {
+        if (typeof b.status !== 'string' || !TUITION_STATUSES.has(b.status)) {
+          return res.status(400).json({ error: 'Trạng thái học phí không hợp lệ.' });
+        }
+        set.status = b.status;
+      }
+      for (const [apiKey, col] of [['due_date', 'dueDate'], ['paid_date', 'paidDate']] as const) {
+        if (b[apiKey] === undefined) continue;
+        const d = parseDateOnly(b[apiKey]);
+        if (d === undefined) return res.status(400).json({ error: 'Ngày phải có dạng YYYY-MM-DD.' });
+        set[col] = d;
+      }
+      if (b.month !== undefined) {
+        const month = parseMonth(b.month);
+        if (!month) return res.status(400).json({ error: 'Tháng học phí không hợp lệ.' });
+        set.month = month;
+      }
+      if (b.notes !== undefined) set.notes = String(b.notes);
       // Đánh dấu đã đóng: ghi ngày đóng và số tiền đã đóng bằng học phí
       if (set.status === 'paid') {
         if (!set.paidDate) set.paidDate = todayStr();
@@ -105,8 +167,14 @@ export function tuitionRoutes({ db, auth }: Deps) {
       }
       if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Không có trường nào để cập nhật.' });
 
-      const [row] = await db.update(tuitionRecords).set(set as any).where(eq(tuitionRecords.id, current.id)).returning();
-      return res.json(tuitionDto(row));
+      try {
+        const [row] = await db.update(tuitionRecords).set(set as any).where(eq(tuitionRecords.id, current.id)).returning();
+        return res.json(tuitionDto(row));
+      } catch (err) {
+        // Đổi sang tháng mà học viên đã có hồ sơ: unique (student_id, month)
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Học viên đã có hồ sơ học phí tháng này.' });
+        throw err;
+      }
     })
   );
 
@@ -117,46 +185,75 @@ export function tuitionRoutes({ db, auth }: Deps) {
     ah(async (req: AuthedRequest, res) => {
       const { student_id, month, amount } = req.body ?? {};
       if (!student_id) return res.status(400).json({ error: 'Thiếu student_id' });
+      const [student] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, String(student_id)), eq(users.role, 'student')))
+        .limit(1);
+      if (!student) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
       if (!(await canManageStudent(db, req.user, String(student_id)))) {
         return res.status(403).json({ error: 'Bạn chỉ được thu học phí của học viên lớp mình phụ trách.' });
       }
-      const monthLabel = month || currentMonthLabel();
-      const amt = Number(amount) || 0;
+      const monthLabel = month === undefined || month === null || month === '' ? currentMonthLabel() : parseMonth(month);
+      if (!monthLabel) return res.status(400).json({ error: 'Tháng học phí không hợp lệ.' });
+      // undefined = không truyền số tiền (dùng học phí của hồ sơ); 0 là số tiền hợp lệ
+      const hasAmount = amount !== undefined && amount !== null && amount !== '';
+      const amt = hasAmount ? parseAmount(amount) : undefined;
+      if (hasAmount && amt === undefined) return res.status(400).json({ error: 'Số tiền thu phải là số nguyên không âm.' });
 
-      const [existing] = await db
-        .select()
-        .from(tuitionRecords)
-        .where(and(eq(tuitionRecords.studentId, student_id), eq(tuitionRecords.month, monthLabel)))
-        .limit(1);
-      if (existing) {
-        const [row] = await db
-          .update(tuitionRecords)
-          .set({ status: 'paid', paidAmount: amt || existing.amount, paidDate: todayStr(), notes: 'Đã thu tại lớp' })
-          .where(eq(tuitionRecords.id, existing.id))
+      // Khóa hàng học viên để hai lần thu đồng thời không tạo hai hồ sơ cùng tháng.
+      // (Bảng chưa có unique index nên khóa dòng là cách chặn race an toàn.)
+      const { row, created } = await db.transaction(async (tx) => {
+        await tx.execute(sql`select id from users where id = ${student_id} for update`);
+        const [existing] = await tx
+          .select()
+          .from(tuitionRecords)
+          .where(and(eq(tuitionRecords.studentId, student_id), eq(tuitionRecords.month, monthLabel)))
+          .limit(1);
+        if (existing) {
+          // Đã đóng đủ mà không ghi thêm số tiền mới: giữ nguyên ngày đóng và ghi chú
+          if (existing.status === 'paid' && amt === undefined) return { row: existing, created: false };
+          const paidAmount = amt ?? existing.amount;
+          const [updated] = await tx
+            .update(tuitionRecords)
+            .set({
+              // Thu thiếu thì là đóng một phần, không đánh dấu đã đóng đủ
+              status: paidAmount >= existing.amount ? 'paid' : 'partial',
+              paidAmount,
+              paidDate: todayStr(),
+              notes: existing.notes || 'Đã thu tại lớp',
+            })
+            .where(eq(tuitionRecords.id, existing.id))
+            .returning();
+          return { row: updated, created: false };
+        }
+
+        const [enr] = await tx
+          .select({ classId: enrollments.classId, fee: classes.monthlyFee })
+          .from(enrollments)
+          .innerJoin(classes, eq(classes.id, enrollments.classId))
+          .where(and(eq(enrollments.studentId, student_id), eq(enrollments.status, 'active')))
+          .limit(1);
+        const totalAmount = enr?.fee ?? amt ?? 0;
+        const paidAmount = amt ?? totalAmount;
+        const status = paidAmount >= totalAmount ? 'paid' : 'partial';
+        const [inserted] = await tx
+          .insert(tuitionRecords)
+          .values({
+            id: newId('tui'),
+            studentId: student_id,
+            classId: enr?.classId ?? null,
+            month: monthLabel,
+            amount: totalAmount,
+            paidAmount,
+            paidDate: todayStr(),
+            status,
+            notes: 'Đã thu tại lớp',
+          })
           .returning();
-        return res.json(tuitionDto(row));
-      }
-
-      const [enr] = await db
-        .select({ classId: enrollments.classId })
-        .from(enrollments)
-        .where(and(eq(enrollments.studentId, student_id), eq(enrollments.status, 'active')))
-        .limit(1);
-      const [row] = await db
-        .insert(tuitionRecords)
-        .values({
-          id: newId('tui'),
-          studentId: student_id,
-          classId: enr?.classId ?? null,
-          month: monthLabel,
-          amount: amt,
-          paidAmount: amt,
-          paidDate: todayStr(),
-          status: 'paid',
-          notes: 'Đã thu tại lớp',
-        })
-        .returning();
-      return res.status(201).json(tuitionDto(row));
+        return { row: inserted, created: true };
+      });
+      return res.status(created ? 201 : 200).json(tuitionDto(row));
     })
   );
 

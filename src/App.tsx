@@ -34,7 +34,7 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
-  const data = useEcosystemData({ onNotify: showToast, currentUserId: currentUser?.id, isAdmin });
+  const data = useEcosystemData({ onNotify: showToast, currentUserId: currentUser?.id, isAdmin, isStudent });
 
   // Trang đặt lại mật khẩu từ link trong email (không cần đăng nhập)
   if (location === '/reset-password') {

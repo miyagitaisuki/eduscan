@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Student, StudentInput } from '../../shared/types';
 import { studentService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
@@ -7,22 +7,34 @@ import type { Loader, Notify } from './types';
 
 interface Options {
   notify?: Notify;
+  /** Danh sách học viên chỉ dành cho giáo viên/admin; học viên gọi sẽ bị 403 và làm banner báo lỗi tải */
+  enabled?: boolean;
   /** Gọi sau khi thêm/sửa học viên: lớp, học phí... có thể thay đổi theo nên cần tải lại */
   onChanged?: () => Promise<unknown>;
 }
 
-export function useStudentsData({ notify, onChanged }: Options) {
+export function useStudentsData({ notify, enabled = true, onChanged }: Options) {
   const [students, setStudents] = useState<Student[]>([]);
+  const requestRef = useRef(0);
   const showIssuedPassword = useIssuedPassword();
 
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setStudents([]);
+  }, []);
+
   const load = useCallback<Loader>(async () => {
+    if (!enabled) return true;
+    const request = ++requestRef.current;
     try {
-      setStudents(await studentService.getStudents());
+      const data = await studentService.getStudents();
+      if (request !== requestRef.current) return false;
+      setStudents(data);
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [enabled]);
 
   const create = async (data: StudentInput) => {
     try {
@@ -66,5 +78,5 @@ export function useStudentsData({ notify, onChanged }: Options) {
     }
   };
 
-  return { students, load, create, update, remove };
+  return { students, load, create, update, remove, reset };
 }

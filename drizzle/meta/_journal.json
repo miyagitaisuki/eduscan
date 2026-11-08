@@ -71,6 +71,13 @@
       "when": 1793780922024,
       "tag": "0009_peaceful_fabian_cortez",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794107148457,
+      "tag": "0010_tough_hairball",
+      "breakpoints": true
     }
   ]
 }

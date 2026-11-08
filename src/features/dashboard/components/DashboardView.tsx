@@ -1,3 +1,5 @@
+import { tuitionDebt } from '../../../shared/utils/tuition';
+import { dedupeAttendanceByDay } from '../../../shared/utils/attendance';
 import { clickable } from '../../../shared/utils/a11y';
 import React from 'react';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
@@ -74,9 +76,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // 3. Students with unpaid tuition for current month
   const currentMonthPayments = payments.filter((p) => p.month === currentMonth);
-  const unpaidPayments = currentMonthPayments.filter((p) => p.status === 'unpaid');
+  const unpaidPayments = currentMonthPayments.filter((p) => p.status !== 'paid');
   const unpaidCount = unpaidPayments.length;
-  const unpaidAmount = unpaidPayments.reduce((sum, p) => sum + p.amount, 0);
+  const unpaidAmount = unpaidPayments.reduce((sum, p) => sum + tuitionDebt(p), 0);
 
   // 4. Ungraded assignments / Submissions needing review
   const ungradedSubmissionsCount = submissions.filter(needsGrading).length;
@@ -283,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {todayClasses.map((cls) => {
               const classStudents = students.filter((s) => s.class_id === cls.id);
-              const todayAtt = attendance.filter((a) => a.class_id === cls.id && a.date === todayDateStr);
+              const todayAtt = dedupeAttendanceByDay(attendance.filter((a) => a.class_id === cls.id && a.date === todayDateStr));
               const isDone = todayAtt.length > 0;
               const todayLesson = lessonOnDate(lessons, cls.id, todayDateStr);
               const presentTodayCount = todayAtt.filter((a) => a.status === 'present').length;

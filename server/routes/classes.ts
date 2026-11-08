@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { and, eq, sql } from 'drizzle-orm';
-import { classes, enrollments, users } from '../db/schema';
+import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
+import { assignments, classes, enrollments, submissions, users } from '../db/schema';
 import { classDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
 import { canManageClass, isAdmin } from '../lib/access';
 import { JLPT_LEVELS, parseDateOnly } from '../lib/validation';
+import { deleteHomeworkObjects, HOMEWORK_BUCKET_PREFIX } from '../lib/storage';
 import type { Deps } from './deps';
 
 const MAX_ROOM_LENGTH = 100;
@@ -81,6 +82,22 @@ export function classRoutes({ db, auth }: Deps) {
     })
   );
 
+  // Danh sách học viên đang học của một lớp để giáo viên/admin chấm bài (mọi giáo viên chấm được bài của mọi lớp).
+  // Chỉ gồm thông tin cần để chấm: không có SĐT hay email.
+  r.get(
+    '/:id/roster',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const rows = await db
+        .select({ id: users.id, fullName: users.fullName, studentCode: users.studentCode })
+        .from(enrollments)
+        .innerJoin(users, eq(users.id, enrollments.studentId))
+        .where(and(eq(enrollments.classId, req.params.id), eq(enrollments.status, 'active')))
+        .orderBy(users.fullName);
+      return res.json(rows.map((r) => ({ id: r.id, full_name: r.fullName, student_code: r.studentCode ?? '' })));
+    })
+  );
+
   r.get(
     '/:id',
     auth.requireAuth,
@@ -92,7 +109,27 @@ export function classRoutes({ db, auth }: Deps) {
         .where(eq(classes.id, req.params.id))
         .limit(1);
       if (!row) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });
-      const list = await db.select().from(enrollments).where(eq(enrollments.classId, row.c.id));
+
+      // Học viên chỉ xem lớp mình đang học; giáo viên chỉ xem lớp mình phụ trách.
+      // Danh sách ghi danh (chứa ID học viên) chỉ trả cho người quản lý lớp.
+      if (isStudent(req)) {
+        const [mine] = await db
+          .select({ id: enrollments.id })
+          .from(enrollments)
+          .where(
+            and(
+              eq(enrollments.studentId, req.user.id),
+              eq(enrollments.classId, row.c.id),
+              eq(enrollments.status, 'active')
+            )
+          )
+          .limit(1);
+        if (!mine) return res.status(403).json({ error: 'Bạn chỉ được xem lớp mình đang học.' });
+      } else if (!(await canManageClass(db, req.user, row.c.id))) {
+        return res.status(403).json({ error: 'Bạn chỉ được xem lớp mình phụ trách.' });
+      }
+
+      const list = isStudent(req) ? [] : await db.select().from(enrollments).where(eq(enrollments.classId, row.c.id));
       return res.json(
         classFor(req, 
           { ...row.c, teacherName: row.teacherName },
@@ -115,9 +152,17 @@ export function classRoutes({ db, auth }: Deps) {
     auth.requireTeacher,
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
-      if (!b.name) return res.status(400).json({ error: 'Tên lớp không được để trống.' });
+      const name = String(b.name ?? '').trim();
+      if (!name) return res.status(400).json({ error: 'Tên lớp không được để trống.' });
+      if (name.length > 200) return res.status(400).json({ error: 'Tên lớp tối đa 200 ký tự.' });
       const extras = parseClassExtras(b);
       if ('error' in extras) return res.status(400).json({ error: extras.error });
+      const code = b.code === undefined || b.code === null || b.code === '' ? `CLS-${Math.floor(100 + Math.random() * 900)}` : String(b.code).trim();
+      if (code.length > 50) return res.status(400).json({ error: 'Mã lớp tối đa 50 ký tự.' });
+      const schedule = b.schedule === undefined || b.schedule === null || b.schedule === '' ? 'Thứ 2 - 4 - 6' : String(b.schedule);
+      if (schedule.length > 255) return res.status(400).json({ error: 'Lịch học tối đa 255 ký tự.' });
+      const fee = b.monthly_fee === undefined ? 800000 : Number(b.monthly_fee);
+      if (!Number.isInteger(fee) || fee < 0) return res.status(400).json({ error: 'Học phí phải là số nguyên không âm.' });
       // Giáo viên tạo lớp cho chính mình; admin có thể chọn giáo viên khác
       const teacherId = req.user.role === 'admin' && b.teacher_id ? String(b.teacher_id) : req.user.id;
       if (teacherId !== req.user.id && !(await isTeacherAccount(db, teacherId))) {
@@ -127,13 +172,13 @@ export function classRoutes({ db, auth }: Deps) {
         .insert(classes)
         .values({
           id: newId('cls'),
-          name: String(b.name).trim(),
-          code: b.code || `CLS-${Math.floor(100 + Math.random() * 900)}`,
+          name,
+          code,
           teacherId,
           description: b.description || '',
-          schedule: b.schedule || 'Thứ 2 - 4 - 6',
+          schedule,
           level: b.level || 'N5',
-          monthlyFee: isAdmin(req.user) ? Number(b.monthly_fee) || 800000 : 800000,
+          monthlyFee: isAdmin(req.user) ? fee : 800000,
           room: extras.room,
           startDate: extras.startDate,
         })
@@ -156,19 +201,28 @@ export function classRoutes({ db, auth }: Deps) {
       // Lớp đã dùng lịch tự động: chuỗi lịch do server sinh từ lịch lặp, không sửa tay để khỏi lệch
       const hasLessonPlan = !!current.weekdays?.length;
       const set: Record<string, unknown> = {};
-      const map: Record<string, string> = {
-        name: 'name',
-        code: 'code',
-        description: 'description',
-        schedule: 'schedule',
-        level: 'level',
-        monthly_fee: 'monthlyFee',
-      };
-      for (const [apiKey, col] of Object.entries(map)) {
-        // Chỉ admin được đổi học phí lớp
-        if (apiKey === 'monthly_fee' && !isAdmin(req.user)) continue;
-        if (apiKey === 'schedule' && hasLessonPlan) continue;
-        if (b[apiKey] !== undefined) set[col] = apiKey === 'monthly_fee' ? Number(b[apiKey]) : b[apiKey];
+      if (b.name !== undefined) {
+        const name = String(b.name).trim();
+        if (!name) return res.status(400).json({ error: 'Tên lớp không được để trống.' });
+        if (name.length > 200) return res.status(400).json({ error: 'Tên lớp tối đa 200 ký tự.' });
+        set.name = name;
+      }
+      if (b.code !== undefined) {
+        const code = String(b.code ?? '').trim();
+        if (code.length > 50) return res.status(400).json({ error: 'Mã lớp tối đa 50 ký tự.' });
+        set.code = code || null;
+      }
+      if (b.description !== undefined) set.description = String(b.description ?? '');
+      if (b.schedule !== undefined && !hasLessonPlan) {
+        const schedule = String(b.schedule ?? '');
+        if (schedule.length > 255) return res.status(400).json({ error: 'Lịch học tối đa 255 ký tự.' });
+        set.schedule = schedule;
+      }
+      if (b.level !== undefined) set.level = b.level;
+      if (b.monthly_fee !== undefined && isAdmin(req.user)) {
+        const fee = Number(b.monthly_fee);
+        if (!Number.isInteger(fee) || fee < 0) return res.status(400).json({ error: 'Học phí phải là số nguyên không âm.' });
+        set.monthlyFee = fee;
       }
       if (b.room !== undefined) set.room = extras.room;
       if (b.start_date !== undefined && !hasLessonPlan) set.startDate = extras.startDate;
@@ -192,6 +246,32 @@ export function classRoutes({ db, auth }: Deps) {
     auth.requireTeacher,
     requireClassOwner,
     ah(async (req, res) => {
+      // Xóa các tệp đính kèm của các bài tập trong lớp trước khi DB cascade delete
+      const classAssignments = await db
+        .select({ id: assignments.id })
+        .from(assignments)
+        .where(eq(assignments.classId, req.params.id));
+      if (classAssignments.length > 0) {
+        const asgIds = classAssignments.map((a) => a.id);
+        const subs = await db
+          .select({ attachmentUrl: submissions.attachmentUrl })
+          .from(submissions)
+          .where(
+            and(
+              inArray(submissions.assignmentId, asgIds),
+              isNotNull(submissions.attachmentUrl),
+              ne(submissions.attachmentUrl, '')
+            )
+          );
+        const paths = subs
+          .map((s) => s.attachmentUrl as string)
+          .filter((p) => p && p.startsWith(HOMEWORK_BUCKET_PREFIX));
+        if (paths.length > 0) {
+          void deleteHomeworkObjects(paths.map((p) => p.slice(HOMEWORK_BUCKET_PREFIX.length))).catch((err) =>
+            console.error('[classes] Lỗi xóa tệp khi xóa lớp:', err?.message || err)
+          );
+        }
+      }
       // Xóa lớp kéo theo ghi danh, bài tập, phiên điểm danh (ON DELETE CASCADE trong DB)
       const deleted = await db.delete(classes).where(eq(classes.id, req.params.id)).returning({ id: classes.id });
       if (deleted.length === 0) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });

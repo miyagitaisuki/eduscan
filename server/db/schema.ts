@@ -13,6 +13,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ---- Enums ----
 export const userRole = pgEnum('user_role', ['admin', 'teacher', 'student']);
@@ -199,7 +200,12 @@ export const attendanceSessions = pgTable(
   },
   (t) => [
     index('idx_sessions_class_active').on(t.classId, t.isActive),
-    index('idx_sessions_code').on(t.sessionCode),
+    // Mã phiên chỉ cần duy nhất giữa các phiên đang mở: học viên nhập mã để điểm danh
+    // nên hai phiên active trùng mã sẽ không xác định được lớp. Phiên đã đóng được giữ
+    // nguyên mã cũ để tra cứu lịch sử.
+    uniqueIndex('unique_active_session_code')
+      .on(t.sessionCode)
+      .where(sql`${t.isActive}`),
   ]
 );
 
@@ -237,7 +243,8 @@ export const tuitionRecords = pgTable(
     status: tuitionStatus('status').notNull().default('unpaid'),
     notes: text('notes'),
   },
-  (t) => [index('idx_tuition_student_month').on(t.studentId, t.month)]
+  // Mỗi học viên chỉ có một hồ sơ học phí cho mỗi tháng
+  (t) => [uniqueIndex('unique_tuition_student_month').on(t.studentId, t.month)]
 );
 
 export const notifications = pgTable(

@@ -22,6 +22,13 @@ export class StorageError extends Error {
   }
 }
 
+/** Đường dẫn đối tượng hợp lệ: tương đối, không rỗng, không có `..`, `/` đầu hay ký tự điều khiển */
+function safeObjectPath(path: string): string | null {
+  if (!path || path.startsWith('/') || path.includes('\\') || /[\u0000-\u001f]/.test(path)) return null;
+  if (path.split('/').some((part) => part === '' || part === '.' || part === '..')) return null;
+  return path;
+}
+
 // Nhận chuỗi data URL (data:<mime>;base64,<dữ liệu>) từ trình duyệt và đưa tệp lên Storage.
 // Trả về đường dẫn tệp trong bucket để lưu vào attachment_url.
 export async function uploadHomeworkAttachment(dataUrl: string, submissionKey: string): Promise<string> {
@@ -66,7 +73,8 @@ export async function createAttachmentSignedUrl(attachmentPath: string, expiresI
 
   const prefix = `${BUCKET}/`;
   if (!attachmentPath.startsWith(prefix)) throw new StorageError('Đường dẫn tệp không hợp lệ.', 400);
-  const path = attachmentPath.slice(prefix.length);
+  const path = safeObjectPath(attachmentPath.slice(prefix.length));
+  if (!path) throw new StorageError('Đường dẫn tệp không hợp lệ.', 400);
 
   const res = await fetch(`${url}/storage/v1/object/sign/${BUCKET}/${path}`, {
     method: 'POST',
@@ -87,6 +95,7 @@ export async function deleteHomeworkObjects(paths: string[]): Promise<void> {
   const url = process.env.SUPABASE_URL?.replace(/\/$/, '');
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new StorageError('Chưa cấu hình nơi lưu tệp đính kèm.', 503);
+  if (paths.some((p) => !safeObjectPath(p))) throw new StorageError('Đường dẫn tệp không hợp lệ.', 400);
 
   const res = await fetch(`${url}/storage/v1/object/${BUCKET}`, {
     method: 'DELETE',
@@ -100,3 +109,9 @@ export async function deleteHomeworkObjects(paths: string[]): Promise<void> {
 }
 
 export const HOMEWORK_BUCKET_PREFIX = `${BUCKET}/`;
+
+/** Đường dẫn lưu trong submissions.attachment_url có thuộc bucket homework và an toàn không */
+export function isSafeHomeworkPath(path: string): boolean {
+  if (typeof path !== 'string' || !path.startsWith(HOMEWORK_BUCKET_PREFIX)) return false;
+  return safeObjectPath(path.slice(HOMEWORK_BUCKET_PREFIX.length)) !== null;
+}

@@ -6,6 +6,11 @@ export const classService = {
     return apiClient.get<ClassItem[]>('/classes');
   },
 
+  /** Học viên đang học của một lớp (để chấm bài của lớp không phụ trách) */
+  async getRoster(id: string): Promise<{ id: string; full_name: string; student_code: string }[]> {
+    return apiClient.get(`/classes/${id}/roster`);
+  },
+
   async getClass(id: string): Promise<ClassItem> {
     return apiClient.get<ClassItem>(`/classes/${id}`);
   },

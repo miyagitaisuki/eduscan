@@ -12,7 +12,14 @@ export interface AppConfig {
   trustProxy: boolean | number;
   geminiApiKey?: string;
   geminiModel: string;
+  /** Chính sách đăng ký công khai: mở, cần mã mời, hoặc đóng */
+  registrationMode: 'open' | 'invite' | 'closed';
+  /** Mã mời bắt buộc khi registrationMode = 'invite' */
+  registrationInviteCode?: string;
 }
+
+const REGISTRATION_MODES = ['open', 'invite', 'closed'] as const;
+type RegistrationMode = (typeof REGISTRATION_MODES)[number];
 
 // Đọc và kiểm tra cấu hình. Production thiếu biến bắt buộc thì dừng ngay thay vì chạy với giá trị mặc định.
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -21,9 +28,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
     throw new Error('JWT_SECRET là bắt buộc khi NODE_ENV=production và phải dài ít nhất 32 ký tự.');
   }
+  // Link đặt lại mật khẩu phải trỏ về đúng frontend; không suy ra từ CORS_ORIGIN
+  if (isProd && !env.APP_URL) {
+    throw new Error('APP_URL là bắt buộc khi NODE_ENV=production để tạo link đặt lại mật khẩu.');
+  }
 
   const seedGenerated = !env.SEED_PASSWORD && isProd;
   const seedPassword = env.SEED_PASSWORD || (isProd ? crypto.randomBytes(9).toString('base64url') : '123456');
+
+  const rawMode = (env.REGISTRATION_MODE || 'open').trim().toLowerCase();
+  if (!REGISTRATION_MODES.includes(rawMode as RegistrationMode)) {
+    throw new Error(`REGISTRATION_MODE không hợp lệ: chỉ nhận ${REGISTRATION_MODES.join(', ')}.`);
+  }
+  const registrationMode = rawMode as RegistrationMode;
+  const registrationInviteCode = env.REGISTRATION_INVITE_CODE?.trim() || undefined;
+  if (registrationMode === 'invite' && !registrationInviteCode) {
+    throw new Error('REGISTRATION_MODE=invite cần đặt REGISTRATION_INVITE_CODE.');
+  }
 
   return {
     isProd,
@@ -39,5 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     trustProxy: env.TRUST_PROXY ? (env.TRUST_PROXY === 'true' ? true : Number(env.TRUST_PROXY)) : isProd ? 1 : false,
     geminiApiKey: env.GEMINI_API_KEY || undefined,
     geminiModel: env.GEMINI_MODEL || 'gemini-3.8-flash',
+    registrationMode,
+    registrationInviteCode,
   };
 }

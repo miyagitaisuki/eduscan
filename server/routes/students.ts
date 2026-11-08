@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { and, asc, eq, inArray, ne } from 'drizzle-orm';
-import { classes, enrollments, tuitionRecords, users } from '../db/schema';
+import { and, asc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
+import { classes, enrollments, notifications, submissions, tuitionRecords, users } from '../db/schema';
 import { classDto, parseGender, userDto } from '../lib/dto';
 import { parseDateOnly } from '../lib/validation';
 import type { Student } from '../../src/shared/types';
@@ -14,6 +14,9 @@ import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
 import { toCsv, foldVi } from '../lib/csv';
 import { randomBytes } from 'crypto';
+import { newStudentCode } from '../lib/studentCode';
+import { isUniqueViolation } from '../lib/dbErrors';
+import { deleteHomeworkObjects, HOMEWORK_BUCKET_PREFIX } from '../lib/storage';
 
 // Chuyển lớp: hủy ghi danh đang hoạt động ở lớp khác (giữ lịch sử), bật ghi danh vào lớp mới.
 export async function setStudentClass(db: AppDb, studentId: string, classId: string | null, joinDate?: string) {
@@ -42,14 +45,14 @@ export async function setStudentClass(db: AppDb, studentId: string, classId: str
   }
 }
 
-// Học phí tháng hiện tại, dạng MM/YYYY như giao diện đang dùng
+// Học phí tháng hiện tại, dạng MM/YYYY như giao diện đang dùng.
+// Dùng cùng múi giờ với todayStr (Asia/Ho_Chi_Minh) để không lệch tháng vào đầu tháng âm lịch/UTC.
 export function currentMonthLabel() {
-  const d = new Date();
-  return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+  const [year, month] = todayStr().split('-');
+  return `${month}/${year}`;
 }
 export function currentDueDate() {
-  const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-15`;
+  return `${todayStr().slice(0, 7)}-15`;
 }
 
 type ClassRow = typeof classes.$inferSelect;
@@ -87,9 +90,21 @@ function parseGenderLabel(v: unknown): 'male' | 'female' | null | undefined {
 }
 
 
+// Báo cho học viên biết mình vừa được xếp vào lớp nào
+export async function notifyAssignedToClass(db: AppDb, studentId: string, className: string) {
+  await db.insert(notifications).values({
+    id: newId('notif'),
+    userId: studentId,
+    title: 'Bạn đã được xếp vào lớp mới',
+    message: `Bạn đã được xếp vào lớp "${className}". Xem lịch học và bài tập trong mục Trang chủ.`,
+    type: 'class',
+  });
+}
+
 // Ghi danh học viên mới vào lớp và tạo học phí tháng hiện tại
 export async function enrollNewStudent(db: AppDb, studentId: string, cls: ClassRow, joinDate?: string) {
   await setStudentClass(db, studentId, cls.id, joinDate);
+  await notifyAssignedToClass(db, studentId, cls.name);
   await db.insert(tuitionRecords).values({
     id: newId('tui'),
     studentId,
@@ -137,6 +152,7 @@ function studentDto(u: any, c?: StudentClass): Student {
 }
 
 const EDITABLE_FIELDS = ['fullName', 'phone', 'studentCode', 'status', 'avatar'] as const;
+const STUDENT_STATUSES = ['active', 'suspended', 'inactive'];
 const API_TO_COL: Record<string, (typeof EDITABLE_FIELDS)[number]> = {
   full_name: 'fullName',
   phone: 'phone',
@@ -158,8 +174,8 @@ export function studentRoutes({ db, auth }: Deps) {
         db,
         list.map((u) => u.id)
       );
-      // Giáo viên chỉ thấy học viên đang học lớp mình phụ trách
-      const visible = owned ? list.filter((u) => cls.has(u.id) && owned.includes(cls.get(u.id)!.id)) : list;
+      // Giáo viên thấy học viên đang học lớp mình phụ trách và học viên chưa xếp lớp (để xếp vào lớp mình)
+      const visible = owned ? list.filter((u) => !cls.has(u.id) || owned.includes(cls.get(u.id)!.id)) : list;
       return res.json(visible.map((u) => studentDto(u, cls.get(u.id))));
     })
   );
@@ -226,6 +242,9 @@ export function studentRoutes({ db, auth }: Deps) {
       const owned = await manageableClassIds(db, req.user);
       const canUseClass = (id: string) => owned === null || owned.includes(id);
       const classRows = await db.select().from(classes);
+      if (defaultClassId && !classRows.some((c) => c.id === defaultClassId)) {
+        return res.status(400).json({ error: 'Lớp học không tồn tại.' });
+      }
       const existing = new Set((await db.select({ email: users.email }).from(users)).map((u) => u.email));
       const fileEmails = new Set<string>();
 
@@ -243,7 +262,6 @@ export function studentRoutes({ db, auth }: Deps) {
         if (email) {
           if (!EMAIL_RE.test(email)) errors.push('Email không đúng định dạng.');
           else if (existing.has(email) || fileEmails.has(email)) errors.push('Email đã được sử dụng.');
-          else fileEmails.add(email);
         }
 
         const gender = parseGenderLabel(row.gender);
@@ -275,6 +293,8 @@ export function studentRoutes({ db, auth }: Deps) {
           results.push({ line, status: 'error', full_name: fullName, email, class_name: cls?.name ?? className, errors });
           continue;
         }
+        // Chỉ giữ chỗ email của dòng hợp lệ: dòng lỗi không được tạo nên không chặn dòng sau
+        if (email) fileEmails.add(email);
         results.push({ line, status: 'ok', full_name: fullName, email, class_name: cls?.name ?? '', errors: [] });
         plans.push({
           line,
@@ -305,6 +325,7 @@ export function studentRoutes({ db, auth }: Deps) {
         }
       }
 
+      const usedCodes = new Set<string>();
       const credentials: { line: number; full_name: string; email: string; class_name: string; temporary_password: string }[] = [];
       await db.transaction(async (tx) => {
         for (const p of plans) {
@@ -316,7 +337,7 @@ export function studentRoutes({ db, auth }: Deps) {
             passwordHash: tmp.hash,
             fullName: p.fullName,
             role: 'student',
-            studentCode: p.studentCode || `STU${Math.floor(1000 + Math.random() * 9000)}`,
+            studentCode: p.studentCode || (await newStudentCode(tx as unknown as AppDb, usedCodes)),
             avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.fullName)}`,
             phone: p.phone,
             gender: p.gender,
@@ -366,7 +387,7 @@ export function studentRoutes({ db, auth }: Deps) {
         .select({ c: classes })
         .from(enrollments)
         .innerJoin(classes, eq(classes.id, enrollments.classId))
-        .where(eq(enrollments.studentId, u.id))
+        .where(and(eq(enrollments.studentId, u.id), eq(enrollments.status, 'active')))
         .limit(1);
       const current = (await studentClassMap(db, [u.id])).get(u.id);
       return res.json({ ...studentDto(u, current), class: row ? classDto(row.c) : null });
@@ -385,34 +406,48 @@ export function studentRoutes({ db, auth }: Deps) {
       const joinDate = parseDateOnly(b.join_date);
       if (joinDate === undefined) return res.status(400).json({ error: 'Ngày vào lớp không hợp lệ (định dạng YYYY-MM-DD).' });
 
-      const email = String(b.email || `student.${Date.now()}@eduscan.edu.vn`).trim().toLowerCase();
+      const email = String(b.email || `student.${randomBytes(5).toString('hex')}@eduscan.edu.vn`).trim().toLowerCase();
       const [dup] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
       if (dup) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
 
+      // Kiểm tra lớp trước khi tạo user: nếu không, admin gửi class_id không tồn tại sẽ
+      // để lại một tài khoản học viên mồ côi sau khi insert thất bại ở bước sau.
+      let cls: ClassRow | null = null;
+      if (b.class_id) {
+        const [row] = await db.select().from(classes).where(eq(classes.id, b.class_id)).limit(1);
+        if (!row) return res.status(400).json({ error: 'Lớp học không tồn tại.' });
+        cls = row;
+      }
+
       const tmp = newTempPassword();
       const id = newId('usr');
-      const [u] = await db
-        .insert(users)
-        .values({
-          id,
-          email,
-          passwordHash: tmp.hash,
-          fullName: String(b.full_name).trim(),
-          role: 'student',
-          studentCode: b.student_code || `STU${Math.floor(1000 + Math.random() * 9000)}`,
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
-          phone: b.phone || '',
-          gender: parseGender(b.gender) ?? null,
-          status: 'active',
-          // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
-          mustChangePassword: true,
-        })
-        .returning();
-
-      if (b.class_id) {
-        const [cls] = await db.select().from(classes).where(eq(classes.id, b.class_id)).limit(1);
-        if (!cls) return res.status(400).json({ error: 'Lớp học không tồn tại.' });
-        await enrollNewStudent(db, id, cls, joinDate ?? undefined);
+      // Tạo user, ghi danh và học phí trong cùng một transaction để không có dữ liệu dở dang
+      let u: typeof users.$inferSelect;
+      try {
+        u = await db.transaction(async (tx) => {
+          const [created] = await tx
+            .insert(users)
+            .values({
+              id,
+              email,
+              passwordHash: tmp.hash,
+              fullName: String(b.full_name).trim(),
+              role: 'student',
+              studentCode: b.student_code || (await newStudentCode(tx as unknown as AppDb)),
+              avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
+              phone: b.phone || '',
+              gender: parseGender(b.gender) ?? null,
+              status: 'active',
+              // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
+              mustChangePassword: true,
+            })
+            .returning();
+          if (cls) await enrollNewStudent(tx as unknown as AppDb, id, cls, joinDate ?? undefined);
+          return created;
+        });
+      } catch (err) {
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
+        throw err;
       }
 
       // Mật khẩu tạm chỉ trả về một lần trong phản hồi tạo học viên
@@ -433,7 +468,13 @@ export function studentRoutes({ db, auth }: Deps) {
         .limit(1);
       if (!target) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
       if (!(await canManageStudent(db, req.user, target.id))) {
-        return res.status(403).json({ error: 'Bạn chỉ được sửa học viên của lớp mình phụ trách.' });
+        // Học viên chưa xếp lớp: giáo viên chỉ được xếp vào lớp mình phụ trách, không sửa thông tin khác
+        const unassigned = !(await studentClassMap(db, [target.id])).has(target.id);
+        const onlyAssigning =
+          typeof b.class_id === 'string' && !!b.class_id && Object.keys(b).every((k) => k === 'class_id' || k === 'join_date');
+        if (!unassigned || !onlyAssigning) {
+          return res.status(403).json({ error: 'Bạn chỉ được sửa học viên của lớp mình phụ trách.' });
+        }
       }
       if (b.class_id && !(await canManageClass(db, req.user, b.class_id))) {
         return res.status(403).json({ error: 'Bạn chỉ được xếp học viên vào lớp mình phụ trách.' });
@@ -447,7 +488,16 @@ export function studentRoutes({ db, auth }: Deps) {
       // Không cho đổi vai trò, id, mật khẩu hay ngày tạo qua route này
       const set: Partial<Record<(typeof EDITABLE_FIELDS)[number] | 'email' | 'gender', string | null>> = {};
       for (const [apiKey, col] of Object.entries(API_TO_COL)) {
-        if (b[apiKey] !== undefined) set[col] = String(b[apiKey]);
+        if (b[apiKey] === undefined) continue;
+        // null/rỗng không được thành chuỗi "null"; chỉ họ tên và trạng thái là bắt buộc có giá trị
+        const value = b[apiKey] === null ? '' : String(b[apiKey]).trim();
+        if (col === 'fullName' && (!value || value.length > 150)) {
+          return res.status(400).json({ error: 'Họ tên không được để trống và tối đa 150 ký tự.' });
+        }
+        if (col === 'status' && !STUDENT_STATUSES.includes(value)) {
+          return res.status(400).json({ error: 'Trạng thái tài khoản không hợp lệ.' });
+        }
+        set[col] = value;
       }
       if (b.gender !== undefined) {
         const gender = parseGender(b.gender);
@@ -463,25 +513,37 @@ export function studentRoutes({ db, auth }: Deps) {
           .limit(1);
         if (dup) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
         set.email = email;
-        if (email !== target.email) await audit(db, req.user.id, 'student.email_changed', target.id);
       }
-      if (Object.keys(set).length > 0) {
-        await db.update(users).set(set as any).where(eq(users.id, target.id));
-      }
-      const before = (await studentClassMap(db, [target.id])).get(target.id);
-      if (b.class_id !== undefined) {
-        // Chuyển sang lớp khác: ngày vào lớp mới là hôm nay. Giữ nguyên lớp: cho phép sửa ngày vào lớp.
-        const sameClass = (b.class_id || null) === (before?.id ?? null);
-        await setStudentClass(db, target.id, b.class_id || null, sameClass ? joinDate ?? undefined : undefined);
-      } else if (joinDate && before) {
-        await db
-          .update(enrollments)
-          .set({ joinDate })
-          .where(and(eq(enrollments.studentId, target.id), eq(enrollments.classId, before.id), eq(enrollments.status, 'active')));
-      }
+      // Cập nhật hồ sơ, ghi danh và nhật ký trong cùng một transaction: nếu bước sau lỗi
+      // thì họ tên/email không bị đổi lệch với lớp đang học.
+      const { u, current } = await db.transaction(async (tx) => {
+        const t = tx as unknown as AppDb;
+        if (set.email !== undefined && set.email !== target.email) {
+          await audit(t, req.user.id, 'student.email_changed', target.id);
+        }
+        if (Object.keys(set).length > 0) {
+          await t.update(users).set(set as any).where(eq(users.id, target.id));
+        }
+        const before = (await studentClassMap(t, [target.id])).get(target.id);
+        if (b.class_id !== undefined) {
+          // Chuyển sang lớp khác: ngày vào lớp mới là hôm nay. Giữ nguyên lớp: cho phép sửa ngày vào lớp.
+          const sameClass = (b.class_id || null) === (before?.id ?? null);
+          await setStudentClass(t, target.id, b.class_id || null, sameClass ? joinDate ?? undefined : undefined);
+          if (b.class_id && !sameClass) {
+            const [newCls] = await t.select({ name: classes.name }).from(classes).where(eq(classes.id, b.class_id)).limit(1);
+            if (newCls) await notifyAssignedToClass(t, target.id, newCls.name);
+          }
+        } else if (joinDate && before) {
+          await t
+            .update(enrollments)
+            .set({ joinDate })
+            .where(and(eq(enrollments.studentId, target.id), eq(enrollments.classId, before.id), eq(enrollments.status, 'active')));
+        }
 
-      const [u] = await db.select().from(users).where(eq(users.id, target.id)).limit(1);
-      const current = (await studentClassMap(db, [target.id])).get(target.id);
+        const [updated] = await t.select().from(users).where(eq(users.id, target.id)).limit(1);
+        const cls = (await studentClassMap(t, [target.id])).get(target.id);
+        return { u: updated, current: cls };
+      });
       return res.json(studentDto(u, current));
     })
   );
@@ -545,6 +607,19 @@ export function studentRoutes({ db, auth }: Deps) {
       if (!(await canManageStudent(db, req.user, req.params.id))) {
         return res.status(403).json({ error: 'Bạn chỉ được xóa học viên của lớp mình phụ trách.' });
       }
+      // Xóa file nộp bài trên Supabase Storage trước khi CASCADE xóa DB
+      const files = await db
+        .select({ url: submissions.attachmentUrl })
+        .from(submissions)
+        .where(and(eq(submissions.studentId, req.params.id), isNotNull(submissions.attachmentUrl)));
+      const paths = files
+        .map((f) => f.url)
+        .filter((u): u is string => typeof u === 'string' && u.startsWith(HOMEWORK_BUCKET_PREFIX))
+        .map((u) => u.slice(HOMEWORK_BUCKET_PREFIX.length));
+      if (paths.length > 0) {
+        await deleteHomeworkObjects(paths).catch(() => {});
+      }
+
       const deleted = await db
         .delete(users)
         .where(and(eq(users.id, req.params.id), eq(users.role, 'student')))

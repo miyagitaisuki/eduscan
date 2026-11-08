@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { passwordResets, users } from '../db/schema';
@@ -15,6 +16,8 @@ import { parseGender, userDto } from '../lib/dto';
 import { ah, AuthedRequest } from '../lib/http';
 import { audit } from '../lib/audit';
 import { sendPasswordReset } from '../lib/reset';
+import { isUniqueViolation } from '../lib/dbErrors';
+import { newStudentCode } from '../lib/studentCode';
 import type { Deps } from './deps';
 
 // Khóa tạm theo tài khoản: chống dò mật khẩu từ nhiều IP khác nhau.
@@ -22,16 +25,14 @@ const MAX_FAILURES = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 const failures = new Map<string, { count: number; resetAt: number }>();
 
-// BUG-06 fix: periodic sweep to prevent unbounded memory growth from sustained abuse.
-// NOTE: This in-memory map resets on server restart and is NOT shared across replicas
-// (PM2 cluster, Cloud Run, etc.). For multi-replica deployments replace with a Redis-
-// or DB-backed counter.
-setInterval(() => {
+// BUG-06 fix: Dọn dẹp bộ đếm đăng nhập thất bại định kỳ để tránh rò rỉ bộ nhớ.
+// LƯU Ý: Map trong bộ nhớ này reset khi restart và không chia sẻ giữa các process replica (PM2/Cloud Run).
+function cleanupFailures() {
   const now = Date.now();
-  for (const [key, f] of failures) {
-    if (f.resetAt <= now) failures.delete(key);
-  }
-}, WINDOW_MS).unref();
+  for (const [k, v] of failures) if (v.resetAt <= now) failures.delete(k);
+}
+const cleanupTimer = setInterval(cleanupFailures, WINDOW_MS);
+cleanupTimer.unref?.();
 
 function accountLocked(key: string) {
   const f = failures.get(key);
@@ -39,6 +40,8 @@ function accountLocked(key: string) {
 }
 function recordFailure(key: string) {
   const now = Date.now();
+  // Dọn các khóa đã hết hạn để map không phình mãi theo số email bị thử
+  if (failures.size > 200) cleanupFailures();
   const f = failures.get(key);
   if (!f || f.resetAt <= now) failures.set(key, { count: 1, resetAt: now + WINDOW_MS });
   else f.count++;
@@ -50,6 +53,14 @@ function issueToken(
   secret: string
 ) {
   return signJwt({ id: u.id, email: u.email, role: u.role, full_name: u.fullName, tv: u.tokenVersion }, secret);
+}
+
+// So sánh mã mời theo thời gian hằng định để không lộ độ dài/tiền tố qua thời gian phản hồi
+function inviteCodeMatches(input: unknown, expected: string): boolean {
+  if (typeof input !== 'string') return false;
+  const a = Buffer.from(input);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 export function authRoutes({ db, auth, config }: Deps) {
@@ -71,6 +82,14 @@ export function authRoutes({ db, auth, config }: Deps) {
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.' },
+  });
+  // Đăng ký công khai: chặt hơn đăng nhập để chặn tạo hàng loạt tài khoản ảo
+  const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Quá nhiều lượt đăng ký từ địa chỉ này. Vui lòng thử lại sau 1 giờ.' },
   });
 
   r.post(
@@ -101,21 +120,31 @@ export function authRoutes({ db, auth, config }: Deps) {
   // Đăng ký công khai chỉ tạo tài khoản học viên
   r.post(
     '/register',
-    loginLimiter,
+    registerLimiter,
     ah(async (req, res) => {
-      const { password, full_name, phone, student_code } = req.body ?? {};
+      const { password, full_name, phone, student_code, invite_code } = req.body ?? {};
+      // Chính sách đăng ký do quản trị đặt: mở, cần mã mời, hoặc đóng hoàn toàn
+      if (config.registrationMode === 'closed') {
+        return res.status(403).json({ error: 'Đăng ký công khai đang tạm đóng. Vui lòng liên hệ trung tâm.' });
+      }
+      if (config.registrationMode === 'invite' && !inviteCodeMatches(invite_code, config.registrationInviteCode ?? '')) {
+        return res.status(403).json({ error: 'Mã mời không hợp lệ hoặc đã hết hiệu lực.' });
+      }
       const email = String(req.body?.email ?? '').trim().toLowerCase();
       if (!email || !password || !full_name) {
         return res.status(400).json({ error: 'Vui lòng điền đầy đủ email, mật khẩu và họ tên.' });
       }
-      if (String(password).length < 6) {
-        return res.status(400).json({ error: 'Mật khẩu phải có ít nhất 6 ký tự.' });
+      // Dùng chung chính sách với đổi/đặt lại mật khẩu thay vì hard-code 6 ký tự
+      if (String(password).length < MIN_PASSWORD_LENGTH) {
+        return res.status(400).json({ error: `Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` });
       }
       const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
       if (existing) return res.status(409).json({ error: 'Email này đã được đăng ký trong hệ thống.' });
 
       const id = newId('usr');
-      const [u] = await db
+      let u: typeof users.$inferSelect;
+      try {
+        [u] = await db
         .insert(users)
         .values({
           id,
@@ -123,12 +152,17 @@ export function authRoutes({ db, auth, config }: Deps) {
           passwordHash: hashPassword(String(password)),
           fullName: String(full_name).trim(),
           role: 'student',
-          studentCode: student_code || `STU${Math.floor(100000 + Math.random() * 900000)}`,
+          studentCode: student_code || (await newStudentCode(db)),
           avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(full_name))}`,
           phone: phone || '',
           status: 'active',
         })
         .returning();
+      } catch (err) {
+        // Hai đăng ký cùng email đến cùng lúc: bên thua nhận 409 thay vì 500
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Email này đã được đăng ký trong hệ thống.' });
+        throw err;
+      }
       const token = issueToken(u, config.jwtSecret);
       return res.status(201).json({ token, user: userDto(u) });
     })
@@ -285,6 +319,15 @@ export function authRoutes({ db, auth, config }: Deps) {
 
       const [u] = await db.select().from(users).where(eq(users.id, row.userId)).limit(1);
       if (!u || u.status !== 'active') return res.status(400).json({ error: invalid });
+
+      // Đánh dấu token đã dùng bằng một UPDATE có điều kiện: hai request đồng thời
+      // cùng token sẽ chỉ có một request thắng, tránh đặt lại mật khẩu hai lần.
+      const [claimed] = await db
+        .update(passwordResets)
+        .set({ usedAt: new Date() })
+        .where(and(eq(passwordResets.id, row.id), isNull(passwordResets.usedAt)))
+        .returning({ id: passwordResets.id });
+      if (!claimed) return res.status(400).json({ error: invalid });
 
       await db
         .update(users)

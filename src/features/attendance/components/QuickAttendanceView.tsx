@@ -16,7 +16,7 @@ interface QuickAttendanceViewProps {
   students: Student[];
   attendance: AttendanceRecord[];
   initialClassId?: string;
-  onSaveAttendance: (classId: string, date: string, presentStudentIds: string[], notesMap: Record<string, string>) => void;
+  onSaveAttendance: (classId: string, date: string, presentStudentIds: string[], notesMap: Record<string, string>) => Promise<boolean> | boolean | void;
 }
 
 export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
@@ -114,14 +114,16 @@ export const QuickAttendanceView: React.FC<QuickAttendanceViewProps> = ({
   };
 
   // Save Attendance
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!activeClass) return;
-    onSaveAttendance(
+    const ok = await onSaveAttendance(
       activeClass.id,
       selectedDate,
       Array.from(checkedStudentIds),
       notesMap
     );
+    // Chỉ báo đã lưu khi server thực sự ghi thành công (handler trả về false khi lỗi)
+    if (ok === false) return;
     setIsSavedFeedback(true);
     confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
   };

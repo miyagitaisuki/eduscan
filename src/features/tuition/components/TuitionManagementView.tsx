@@ -1,3 +1,4 @@
+import { tuitionCollected, tuitionDebt } from '../../../shared/utils/tuition';
 import React, { useState } from 'react';
 import { 
   CreditCard, 
@@ -77,17 +78,18 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
     const matchSearch = student.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         student.phone.includes(searchQuery);
     const matchClass = selectedClassFilter === 'all' || student.class_id === selectedClassFilter;
-    const matchStatus = statusFilter === 'all' || status === statusFilter;
+    const matchStatus =
+      statusFilter === 'all' || (statusFilter === 'paid' ? status === 'paid' : status !== 'paid');
     return matchSearch && matchClass && matchStatus;
   });
 
   // Overall financial statistics for selectedMonth
   const totalStudentsInMonth = rows.length;
   const paidRows = rows.filter((r) => r.status === 'paid');
-  const unpaidRows = rows.filter((r) => r.status === 'unpaid');
+  const unpaidRows = rows.filter((r) => r.status !== 'paid');
 
-  const totalCollectedAmount = paidRows.reduce((sum, r) => sum + r.amount, 0);
-  const totalDebtAmount = unpaidRows.reduce((sum, r) => sum + r.amount, 0);
+  const totalCollectedAmount = rows.reduce((sum, r) => sum + (r.payment ? tuitionCollected(r.payment) : 0), 0);
+  const totalDebtAmount = unpaidRows.reduce((sum, r) => sum + (r.payment ? tuitionDebt(r.payment) : r.amount), 0);
   const completionRate = totalStudentsInMonth > 0 ? Math.round((paidRows.length / totalStudentsInMonth) * 100) : 0;
 
   const openEditor = (row: typeof rows[0], mode: 'pay' | 'fee') => {
@@ -118,7 +120,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
     const todayStr = todayLocal();
     if (row.payment) {
       onUpdatePayment(row.payment.id, {
-        status: 'paid',
+        status: paidAmount >= row.amount ? 'paid' : 'partial',
         paid_date: todayStr,
         paid_amount: paidAmount,
       });
@@ -360,7 +362,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
                       {row.amount.toLocaleString('vi-VN')} đ
                     </div>
                     <span className={`inline-block text-xs font-bold ${isPaid ? 'text-success-700' : 'text-danger-600 font-extrabold'}`}>
-                      {isPaid ? (row.paidDate ? `Đã đóng (${row.paidDate})` : 'Đã đóng') : 'Chưa đóng'}
+                      {isPaid ? (row.paidDate ? `Đã đóng (${row.paidDate})` : 'Đã đóng') : row.status === 'partial' ? 'Đóng một phần' : 'Chưa đóng'}
                     </span>
                     {isPaid && row.payment?.paid_amount !== undefined && row.payment.paid_amount !== row.amount && (
                       <p className="text-xs text-slate-500 font-semibold">

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { teacherService, TeacherAccount } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
 import { useIssuedPassword } from '../../shared/components/ui';
@@ -12,12 +12,21 @@ interface Options {
 
 export function useTeachersData({ notify, enabled }: Options) {
   const [teachers, setTeachers] = useState<TeacherAccount[]>([]);
+  const requestRef = useRef(0);
   const showIssuedPassword = useIssuedPassword();
+
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setTeachers([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
     if (!enabled) return true;
+    const request = ++requestRef.current;
     try {
-      setTeachers(await teacherService.getTeachers());
+      const data = await teacherService.getTeachers();
+      if (request !== requestRef.current) return false;
+      setTeachers(data);
       return true;
     } catch {
       return false;
@@ -74,5 +83,5 @@ export function useTeachersData({ notify, enabled }: Options) {
     }
   };
 
-  return { teachers, load, create, update, setStatus, setPassword };
+  return { teachers, load, create, update, setStatus, setPassword, reset };
 }

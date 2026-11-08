@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { Type } from '@google/genai';
-import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import { attendanceSessions, classes, enrollments, holidays, lessons } from '../db/schema';
 import type { AppDb } from '../db/client';
 import { holidayDto, lessonDto } from '../lib/dto';
 import { ah, AuthedRequest, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
 import { audit } from '../lib/audit';
+import { isUniqueViolation } from '../lib/dbErrors';
 import { canManageClass, isAdmin, manageableClassIds } from '../lib/access';
 import { parseDateOnly } from '../lib/validation';
 import { toCsv } from '../lib/csv';
@@ -162,7 +163,9 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
 
       const today = todayStr();
       const dryRun = b.dry_run === true;
-      const apply = async (tx: AppDb) => {
+      const apply = async (tx: AppDb, lock = false) => {
+        // Khóa lớp khi ghi: hai lần áp lịch đồng thời sẽ nối tiếp nhau, tránh cùng insert một ngày
+        if (lock) await tx.execute(sql`select id from classes where id = ${cls.id} for update`);
         const plan = await planLessonSync(tx, cls, rule, today);
         const blocked = plan.conflicts.length > 0 && b.allow_conflicts !== true;
         const willWrite = !dryRun && !blocked;
@@ -174,7 +177,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
       };
       const { plan, blocked, willWrite } = dryRun
         ? await apply(db)
-        : await db.transaction((tx) => apply(tx as unknown as AppDb));
+        : await db.transaction((tx) => apply(tx as unknown as AppDb, true));
 
       if (!dryRun && blocked) {
         return res.status(409).json({
@@ -345,7 +348,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
       );
       const seen = new Set<string>();
       const results: { line: number; status: 'ok' | 'skip' | 'error'; lesson_date: string; title: string; errors: string[] }[] = [];
-      const updates: { id: string; title?: string; notes: string }[] = [];
+      const updates: { id: string; title?: string; notes?: string }[] = [];
 
       for (const [i, raw] of (b.rows as unknown[]).entries()) {
         const row = (raw ?? {}) as Record<string, unknown>;
@@ -368,7 +371,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
           results.push({ line, status: 'skip', lesson_date: date, title, errors: ['Không có nội dung, giữ nguyên buổi.'] });
         } else {
           results.push({ line, status: 'ok', lesson_date: date, title, errors: [] });
-          updates.push({ id: lesson!.id, ...(title ? { title } : {}), notes });
+          updates.push({ id: lesson!.id, ...(title ? { title } : {}), ...(notes ? { notes } : {}) });
         }
       }
 
@@ -381,7 +384,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
         for (const u of updates) {
           await tx
             .update(lessons)
-            .set({ ...(u.title !== undefined ? { title: u.title } : {}), notes: u.notes || null, manuallyEdited: true })
+            .set({ ...(u.title !== undefined ? { title: u.title } : {}), ...(u.notes !== undefined ? { notes: u.notes } : {}), manuallyEdited: true })
             .where(eq(lessons.id, u.id));
         }
       });
@@ -462,11 +465,18 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
         }
       }
 
-      const [row] = await db
-        .update(lessons)
-        .set({ ...set, manuallyEdited: true })
-        .where(eq(lessons.id, lesson.id))
-        .returning();
+      let row: typeof lessons.$inferSelect;
+      try {
+        [row] = await db
+          .update(lessons)
+          .set({ ...set, manuallyEdited: true })
+          .where(eq(lessons.id, lesson.id))
+          .returning();
+      } catch (err) {
+        // Hai thao tác cùng chuyển buổi sang một ngày: unique (class_id, lesson_date) trả 409 thay vì 500
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Lớp đã có buổi học vào ngày này.' });
+        throw err;
+      }
       const attended = await attendedKeys(db, [row.classId], row.lessonDate, row.lessonDate);
       return res.json(lessonDto(row, { today: todayStr(), attended }));
     })

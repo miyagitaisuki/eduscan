@@ -136,12 +136,19 @@ describe('nhập CSV', () => {
       .send({ dry_run: true, class_id: 'cls-n5-01', rows: [row({ line: 2, email: 'p@qnu.edu.vn' }), row({ line: 3, email: 'p@qnu.edu.vn' })] });
     expect(res.status).toBe(403);
 
+    // Dòng lỗi (không phụ trách lớp) không giữ chỗ email; chỉ hai dòng hợp lệ trùng nhau mới bị báo
     const res2 = await ctx.api
       .post('/api/students/import')
       .set(auth(OTHER))
-      .send({ dry_run: true, rows: [row({ line: 2, email: 'q@qnu.edu.vn', class_name: 'N5 Sơ cấp 1 (Minna no Nihongo)' }), row({ line: 3, email: 'q@qnu.edu.vn', class_name: '' })] });
+      .send({ dry_run: true, rows: [row({ line: 2, email: 'q@qnu.edu.vn', class_name: 'N5 Sơ cấp 1 (Minna no Nihongo)' })] });
     expect(res2.body.results[0].errors[0]).toContain('không phụ trách');
-    expect(res2.body.results[1].errors[0]).toContain('đã được sử dụng');
+
+    const res3 = await ctx.api
+      .post('/api/students/import')
+      .set(auth(T))
+      .send({ dry_run: true, class_id: 'cls-n5-01', rows: [row({ line: 2, email: 'r@qnu.edu.vn' }), row({ line: 3, email: 'r@qnu.edu.vn' })] });
+    expect(res3.body.results[0].status).toBe('ok');
+    expect(res3.body.results[1].errors[0]).toContain('đã được sử dụng');
   });
 
   it('chặn file quá lớn, file rỗng và học viên dùng API nhập', async () => {

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { eq } from 'drizzle-orm';
 import { Type } from '@google/genai';
 import { assignments, submissions, users } from '../db/schema';
@@ -70,6 +71,18 @@ async function gradeWithGemini(ai: NonNullable<Deps['ai']>, model: string, b: Gr
 
 export function aiRoutes({ auth, ai, config, db }: Deps) {
   const r = Router();
+
+  // Mỗi lần gọi AI đều tốn tiền và hạn mức của nhà cung cấp: giới hạn theo tài khoản
+  // (không chỉ theo IP) để một giáo viên không thể đốt hết quota của cả hệ thống.
+  const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 20,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => (req as AuthedRequest).user?.id || ipKeyGenerator(req.ip ?? ''),
+    message: { error: 'Bạn đã dùng AI quá nhiều lần. Vui lòng thử lại sau 1 phút.' },
+  });
+  r.use(aiLimiter);
 
   r.post(
     '/grade-assignment',

@@ -5,6 +5,7 @@ import { parseGender, userDto } from '../lib/dto';
 import { ah, AuthedRequest } from '../lib/http';
 import { newId, hashPassword, generatePassword, MIN_PASSWORD_LENGTH } from '../lib/security';
 import { audit } from '../lib/audit';
+import { isUniqueViolation } from '../lib/dbErrors';
 import type { Deps } from './deps';
 
 const STATUSES = ['active', 'inactive'] as const;
@@ -64,21 +65,28 @@ export function teacherRoutes({ db, auth }: Deps) {
         return res.status(400).json({ error: `Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` });
       }
 
-      const [u] = await db
-        .insert(users)
-        .values({
-          id: newId('usr'),
-          email,
-          passwordHash: hashPassword(plain),
-          fullName,
-          role: 'teacher',
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
-          phone: String(b.phone ?? '').trim(),
-          gender: parseGender(b.gender) ?? null,
-          status: 'active',
-          mustChangePassword: true,
-        })
-        .returning();
+      let u: typeof users.$inferSelect;
+      try {
+        const [inserted] = await db
+          .insert(users)
+          .values({
+            id: newId('usr'),
+            email,
+            passwordHash: hashPassword(plain),
+            fullName,
+            role: 'teacher',
+            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
+            phone: String(b.phone ?? '').trim(),
+            gender: parseGender(b.gender) ?? null,
+            status: 'active',
+            mustChangePassword: true,
+          })
+          .returning();
+        u = inserted;
+      } catch (err) {
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Tên đăng nhập này đã được sử dụng.' });
+        throw err;
+      }
       await audit(db, req.user.id, 'teacher.created', u.id, { generated: generate });
       return res.status(201).json({ ...userDto(u), ...(generate ? { temporary_password: plain } : {}) });
     })
@@ -123,7 +131,14 @@ export function teacherRoutes({ db, auth }: Deps) {
       }
       if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Không có trường nào để cập nhật.' });
 
-      const [u] = await db.update(users).set(set).where(eq(users.id, target.id)).returning();
+      let u: typeof users.$inferSelect;
+      try {
+        const [updated] = await db.update(users).set(set).where(eq(users.id, target.id)).returning();
+        u = updated;
+      } catch (err) {
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Tên đăng nhập này đã được sử dụng.' });
+        throw err;
+      }
       await audit(db, req.user.id, 'teacher.updated', target.id, { fields: changed });
       return res.json(userDto(u));
     })

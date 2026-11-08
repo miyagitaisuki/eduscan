@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Assignment, AssignmentInput, GradeInput, Submission } from '../../shared/types';
 import { aiService, homeworkService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
@@ -7,12 +7,21 @@ import type { Loader, Notify } from './types';
 export function useHomeworkData(notify?: Notify) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const requestRef = useRef(0);
+
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setAssignments([]);
+    setSubmissions([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
+    const request = ++requestRef.current;
     const [a, s] = await Promise.all([
       homeworkService.getAssignments().catch(() => undefined),
       homeworkService.getSubmissions().catch(() => undefined),
     ]);
+    if (request !== requestRef.current) return false;
     if (a) setAssignments(a);
     if (s) setSubmissions(s);
     return !!a && !!s;
@@ -132,5 +141,6 @@ export function useHomeworkData(notify?: Notify) {
     discardAiDraft,
     recordSubmission,
     removeForStudent,
+    reset,
   };
 }

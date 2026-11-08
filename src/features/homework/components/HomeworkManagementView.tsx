@@ -1,5 +1,5 @@
 import { clickable } from '../../../shared/utils/a11y';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   FileText, 
   Plus, 
@@ -17,6 +17,7 @@ import { isSubmitted as hasSubmitted } from '../../../shared/utils/submission';
 import { addDaysLocal, localDateOf } from '../../../shared/utils/date';
 import { Modal, useConfirm } from '../../../shared/components/ui';
 import { aiService } from '../../../services/aiService';
+import { classService } from '../../../services/classService';
 import { SubmissionAttachmentsModal } from './SubmissionAttachmentsModal';
 
 interface HomeworkManagementViewProps {
@@ -81,7 +82,23 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
   const activeAssignment = assignments.find((a) => a.id === activeAssignmentId) || filteredAssignments[0];
   const activeClass = classes.find((c) => c.id === activeAssignment?.class_id);
-  const classStudents = activeAssignment ? students.filter((s) => s.class_id === activeAssignment.class_id) : [];
+  // Giáo viên chấm được bài của mọi lớp nhưng chỉ có danh sách học viên lớp mình: lớp khác lấy danh sách rút gọn từ server
+  const [rosters, setRosters] = useState<Record<string, { id: string; full_name: string; student_code: string }[]>>({});
+  const activeClassId = activeAssignment?.class_id;
+  const ownStudents = activeClassId ? students.filter((s) => s.class_id === activeClassId) : [];
+  useEffect(() => {
+    if (!activeClassId || ownStudents.length > 0 || rosters[activeClassId]) return;
+    let cancelled = false;
+    classService
+      .getRoster(activeClassId)
+      .then((list) => !cancelled && setRosters((prev) => ({ ...prev, [activeClassId]: list })))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeClassId, ownStudents.length, rosters]);
+  const classStudents: (Pick<Student, 'id' | 'full_name' | 'student_code'> & { phone?: string })[] =
+    ownStudents.length > 0 ? ownStudents : activeClassId ? rosters[activeClassId] ?? [] : [];
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,19 +162,43 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
     }
   };
 
-  // Update Comment
-  const handleCommentChange = (studentId: string, commentVal: string) => {
+  // Update Comment: gõ phím không gọi API mỗi lần — lưu sau 600ms hoặc khi rời ô.
+  // Học viên chưa có bản ghi thì chỉ tạo khi có nội dung, và không tự đánh dấu "đã nộp".
+  const commentTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingComments = useRef<Record<string, string>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+
+  const saveComment = (studentId: string, commentVal: string) => {
     if (!activeAssignment) return;
     const existing = submissions.find((s) => s.assignment_id === activeAssignment.id && s.student_id === studentId);
     if (existing) {
       onUpdateSubmission(existing.id, { feedback: commentVal });
-    } else {
-      onCreateSubmissionRecord(activeAssignment.id, studentId, 'submitted', null, commentVal);
+    } else if (commentVal.trim()) {
+      onCreateSubmissionRecord(activeAssignment.id, studentId, 'unsubmitted', null, commentVal);
     }
   };
 
+  const handleCommentChange = (studentId: string, commentVal: string) => {
+    if (!activeAssignment) return;
+    const key = `${activeAssignment.id}:${studentId}`;
+    setCommentDrafts((prev) => ({ ...prev, [key]: commentVal }));
+    pendingComments.current[studentId] = commentVal;
+    clearTimeout(commentTimers.current[studentId]);
+    commentTimers.current[studentId] = setTimeout(() => {
+      delete commentTimers.current[studentId];
+      saveComment(studentId, pendingComments.current[studentId] ?? '');
+    }, 600);
+  };
+
+  const flushComment = (studentId: string) => {
+    if (!commentTimers.current[studentId]) return;
+    clearTimeout(commentTimers.current[studentId]);
+    delete commentTimers.current[studentId];
+    saveComment(studentId, pendingComments.current[studentId] ?? '');
+  };
+
   // Generate Japanese AI Pedagogical Feedback
-  const handleAIGenerateFeedback = async (student: Student, scoreValue: string | number) => {
+  const handleAIGenerateFeedback = async (student: Pick<Student, 'id' | 'full_name'>, scoreValue: string | number) => {
     if (!activeAssignment) return;
     setAiLoadingId(student.id);
     try {
@@ -259,7 +300,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
             filteredAssignments.map((asg) => {
               const isSelected = activeAssignment?.id === asg.id;
               const cls = classes.find((c) => c.id === asg.class_id);
-              const asgStudents = students.filter((s) => s.class_id === asg.class_id);
+              const asgStudentCount = students.filter((s) => s.class_id === asg.class_id).length || rosters[asg.class_id]?.length || 0;
               const submittedCount = submissions.filter((s) => s.assignment_id === asg.id && hasSubmitted(s)).length;
 
               return (
@@ -286,7 +327,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                   
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-xs">
                     <span className="text-slate-500">
-                      Đã nộp: <strong className="text-primary-700">{submittedCount}/{asgStudents.length}</strong>
+                      Đã nộp: <strong className="text-primary-700">{asgStudentCount > 0 ? `${submittedCount}/${asgStudentCount}` : submittedCount}</strong>
                     </span>
                     <span className="text-primary-600 font-semibold flex items-center gap-0.5">
                       Chấm bài <ChevronRight className="w-3 h-3" />
@@ -397,7 +438,7 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
 
                           <div>
                             <h5 className="text-xs font-bold text-slate-900">{st.full_name}</h5>
-                            <p className="text-xs text-slate-500">SĐT: {st.phone}</p>
+                            {st.phone && <p className="text-xs text-slate-500">SĐT: {st.phone}</p>}
                           </div>
                         </div>
 
@@ -468,8 +509,9 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                         <input
                           type="text"
                           placeholder="Nhập nhận xét (VD: Dùng ngữ pháp tốt, cần chú ý phân biệt trợ từ に và で...)"
-                          value={currentComment}
+                          value={commentDrafts[`${activeAssignment.id}:${st.id}`] ?? currentComment}
                           onChange={(e) => handleCommentChange(st.id, e.target.value)}
+                          onBlur={() => flushComment(st.id)}
                           className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary-500 transition-colors"
                         />
                       </div>

@@ -26,6 +26,7 @@ import {
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { averageScore as averageScoreOf, formatScore } from '../../../shared/utils/score';
 import { todayLocal } from '../../../shared/utils/date';
+import { dedupeAttendanceByDay } from '../../../shared/utils/attendance';
 import { Modal, useConfirm } from '../../../shared/components/ui';
 import { StudentAccountPanel } from './StudentAccountPanel';
 import { ImportStudentsModal } from './ImportStudentsModal';
@@ -189,7 +190,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
 
   // Calculate profile metrics for a given student
   const getStudentMetrics = (st: Student) => {
-    const studentAtt = attendance.filter((a) => a.student_id === st.id);
+    const studentAtt = dedupeAttendanceByDay(attendance.filter((a) => a.student_id === st.id));
     const totalSessions = studentAtt.length;
     const presentSessions = studentAtt.filter((a) => a.status === 'present').length;
     const absentSessions = totalSessions - presentSessions;
@@ -406,7 +407,8 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                     <button
                       onClick={() => {
                         setTransferringStudent(st);
-                        setTargetClassId(st.class_id);
+                        // Học viên chưa xếp lớp có class_id rỗng: chọn sẵn lớp đầu tiên để nút Xác nhận hoạt động
+                        setTargetClassId(st.class_id || classes[0]?.id || '');
                       }}
                       title="Chuyển lớp cho học viên"
                       className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors cursor-pointer"
@@ -449,7 +451,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       {activeProfileStudent && (() => {
         const metrics = getStudentMetrics(activeProfileStudent);
         const cls = classes.find((c) => c.id === activeProfileStudent.class_id);
-        const studentAtt = attendance.filter((a) => a.student_id === activeProfileStudent.id);
+        const studentAtt = dedupeAttendanceByDay(attendance.filter((a) => a.student_id === activeProfileStudent.id));
 
         return (
           <Modal title={activeProfileStudent.full_name} onClose={() => setActiveProfileStudent(null)} size="lg">
@@ -742,6 +744,8 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                   onChange={(e) => setClassId(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-primary-700 bg-white"
                 >
+                  {/* Học viên chưa có lớp có class_id rỗng: cần lựa chọn này, nếu không ô chọn hiện lớp đầu tiên nhưng lưu không xếp lớp */}
+                  {(editingStudent || classes.length === 0) && <option value="">Chưa xếp lớp</option>}
                   {classes.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}

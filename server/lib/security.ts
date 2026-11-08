@@ -9,7 +9,7 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  if (!stored || !stored.startsWith(HASH_PREFIX)) return false;
+  if (typeof stored !== 'string' || !stored.startsWith(HASH_PREFIX)) return false;
   // BUG-05 fix: avoid split('$') which may produce unexpected parts if future formats contain '$'.
   // Use indexOf on the payload after prefix to safely extract salt and hash.
   const withoutPrefix = stored.slice(HASH_PREFIX.length);
@@ -17,11 +17,16 @@ export function verifyPassword(password: string, stored: string): boolean {
   if (dollarIdx === -1) return false;
   const salt = withoutPrefix.slice(0, dollarIdx);
   const hash = withoutPrefix.slice(dollarIdx + 1);
-  if (!salt || !hash) return false;
-  const expected = Buffer.from(hash, 'hex');
-  if (expected.length === 0) return false;
-  const actual = crypto.scryptSync(password, salt, expected.length);
-  return crypto.timingSafeEqual(actual, expected);
+  // Hash hỏng/rỗng không được làm route đăng nhập ném lỗi 500
+  if (!salt || !hash || hash.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hash)) return false;
+  try {
+    const expected = Buffer.from(hash, 'hex');
+    if (expected.length === 0) return false;
+    const actual = crypto.scryptSync(password, salt, expected.length);
+    return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
 }
 
 export function signJwt(payload: Record<string, unknown>, secret: string, ttlSeconds = 7 * 24 * 3600): string {
@@ -70,5 +75,7 @@ export function hashToken(token: string): string {
 }
 
 export function newSessionCode(): string {
-  return `ES-${crypto.randomInt(1000, 10000)}`;
+  // 6 chữ số: đủ dễ đọc/đánh máy nhưng không gian mã lớn (900.000) để hiếm khi trùng
+  // giữa các phiên đang mở; unique index là chốt chặn cuối.
+  return `ES-${crypto.randomInt(100000, 1000000)}`;
 }

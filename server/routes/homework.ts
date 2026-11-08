@@ -2,9 +2,16 @@ import { Router } from 'express';
 import { and, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 import { assignments, classes, enrollments, notifications, submissions, users } from '../db/schema';
 import { assignmentDto, submissionDto } from '../lib/dto';
-import { ah, AuthedRequest, isStudent } from '../lib/http';
+import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
-import { createAttachmentSignedUrl, StorageError, uploadHomeworkAttachment } from '../lib/storage';
+import {
+  createAttachmentSignedUrl,
+  deleteHomeworkObjects,
+  HOMEWORK_BUCKET_PREFIX,
+  isSafeHomeworkPath,
+  StorageError,
+  uploadHomeworkAttachment,
+} from '../lib/storage';
 import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
@@ -32,22 +39,18 @@ export function homeworkRoutes({ db, auth }: Deps) {
         const ids = await enrolledClassIds(db, req.user.id);
         if (ids.length === 0) return res.json([]);
         conds.push(inArray(assignments.classId, ids));
-      } else {
-        const owned = await manageableClassIds(db, req.user);
-        if (owned) {
-          if (owned.length === 0) return res.json([]);
-          conds.push(inArray(assignments.classId, owned));
-        }
       }
+      // Giáo viên và admin xem được bài tập của mọi lớp (cùng quyền chấm bài)
       const rows = await db
         .select({ a: assignments, className: classes.name })
         .from(assignments)
         .innerJoin(classes, eq(classes.id, assignments.classId))
         .where(conds.length ? and(...conds) : undefined);
+      // Đã chấm vẫn là "đã nộp": nếu chỉ đếm 'submitted' thì con số tụt sau khi chấm điểm
       const counts = await db
         .select({ assignmentId: submissions.assignmentId, n: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(eq(submissions.status, 'submitted'))
+        .where(inArray(submissions.status, ['submitted', 'graded']))
         .groupBy(submissions.assignmentId);
       const countMap = new Map(counts.map((c) => [c.assignmentId, c.n]));
       return res.json(
@@ -72,8 +75,6 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (isStudent(req)) {
         const ids = await enrolledClassIds(db, req.user.id);
         if (!ids.includes(row.a.classId)) return res.status(403).json({ error: 'Bạn không thuộc lớp của bài tập này.' });
-      } else if (!(await canManageClass(db, req.user, row.a.classId))) {
-        return res.status(403).json({ error: 'Bạn chỉ được xem bài tập của lớp mình phụ trách.' });
       }
       return res.json(assignmentDto(row.a, { class_name: row.className }));
     })
@@ -123,7 +124,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
             id: newId('notif'),
             userId: s.studentId,
             title: 'Bài tập mới vừa được giao!',
-            message: `Giáo viên vừa giao bài tập: "${row.title}". Hạn chót: ${deadline.toISOString().split('T')[0]}.`,
+            message: `Giáo viên vừa giao bài tập: "${row.title}". Hạn chót: ${todayStr(deadline)}.`,
             type: 'assignment',
           }))
         );
@@ -154,37 +155,40 @@ export function homeworkRoutes({ db, auth }: Deps) {
       }
       const score = Math.round((correct / total) * 1000) / 100; // thang 10, 2 chữ số
 
-      const [prev] = await db
-        .select()
-        .from(submissions)
-        .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
-        .limit(1);
-      let attempts = 1;
-      let best = score;
-      if (prev) {
-        try {
-          attempts = (JSON.parse(prev.content || '{}').attempts ?? 0) + 1;
-        } catch {
-          attempts = 1;
+      const row = await db.transaction(async (tx) => {
+        const [prev] = await tx
+          .select()
+          .from(submissions)
+          .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
+          .limit(1);
+        let attempts = 1;
+        let best = score;
+        if (prev) {
+          try {
+            attempts = (JSON.parse(prev.content || '{}').attempts ?? 0) + 1;
+          } catch {
+            attempts = 1;
+          }
+          best = Math.max(score, Number(prev.score ?? 0));
         }
-        best = Math.max(score, Number(prev.score ?? 0));
-      }
-      const content = JSON.stringify({ attempts, last: { total, correct, score }, game: Number(req.body?.game) || null });
-      const now = new Date();
-      const values = {
-        content,
-        status: 'graded' as const,
-        score: String(best),
-        feedback: `Luyện tập Minna bài ${asg.minnaLesson}: ${attempts} lượt, điểm cao nhất ${best}/10.`,
-        gradedByAi: false,
-        gradedAt: now,
-        submittedAt: now,
-      };
-      const [row] = await db
-        .insert(submissions)
-        .values({ id: newId('sub'), assignmentId: asg.id, studentId: req.user.id, ...values })
-        .onConflictDoUpdate({ target: [submissions.assignmentId, submissions.studentId], set: values })
-        .returning();
+        const content = JSON.stringify({ attempts, last: { total, correct, score }, game: Number(req.body?.game) || null });
+        const now = new Date();
+        const values = {
+          content,
+          status: 'graded' as const,
+          score: String(best),
+          feedback: `Luyện tập Minna bài ${asg.minnaLesson}: ${attempts} lượt, điểm cao nhất ${best}/10.`,
+          gradedByAi: false,
+          gradedAt: now,
+          submittedAt: now,
+        };
+        const [r] = await tx
+          .insert(submissions)
+          .values({ id: newId('sub'), assignmentId: asg.id, studentId: req.user.id, ...values })
+          .onConflictDoUpdate({ target: [submissions.assignmentId, submissions.studentId], set: values })
+          .returning();
+        return r;
+      });
       return res.json(submissionDto(row));
     })
   );
@@ -197,6 +201,25 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (!asg) return res.status(404).json({ error: 'Không tìm thấy bài tập.' });
       if (!(await canManageClass(db, req.user, asg.classId))) {
         return res.status(403).json({ error: 'Bạn chỉ được xóa bài tập của lớp mình phụ trách.' });
+      }
+      // Xóa các tệp đính kèm trong Storage trước khi DB cascade delete bài nộp
+      const subs = await db
+        .select({ attachmentUrl: submissions.attachmentUrl })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.assignmentId, asg.id),
+            isNotNull(submissions.attachmentUrl),
+            ne(submissions.attachmentUrl, '')
+          )
+        );
+      const paths = subs
+        .map((s) => s.attachmentUrl as string)
+        .filter((p) => p && p.startsWith(HOMEWORK_BUCKET_PREFIX));
+      if (paths.length > 0) {
+        void deleteHomeworkObjects(paths.map((p) => p.slice(HOMEWORK_BUCKET_PREFIX.length))).catch((err) =>
+          console.error('[homework] Lỗi xóa tệp khi xóa bài tập:', err?.message || err)
+        );
       }
       // Xóa bài tập kéo theo bài nộp (ON DELETE CASCADE)
       await db.delete(assignments).where(eq(assignments.id, asg.id));
@@ -230,13 +253,6 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (req.query.assignment_id) conds.push(eq(submissions.assignmentId, String(req.query.assignment_id)));
       const studentId = isStudent(req) ? req.user.id : (req.query.student_id as string | undefined);
       if (studentId) conds.push(eq(submissions.studentId, studentId));
-      if (!isStudent(req)) {
-        const owned = await manageableClassIds(db, req.user);
-        if (owned) {
-          if (owned.length === 0) return res.json([]);
-          conds.push(inArray(assignments.classId, owned));
-        }
-      }
 
       const rows = await db
         .select({ s: submissions, u: users, a: assignments })
@@ -280,7 +296,17 @@ export function homeworkRoutes({ db, auth }: Deps) {
           throw err;
         }
       }
+      // Chỉ nhận tệp vừa upload (homework/...) hoặc đường dẫn cũ hợp lệ; không lưu chuỗi tùy ý
+      // hay đường dẫn có `..` để tránh ký/xóa nhầm đối tượng ngoài bucket.
+      if (attachmentPath && !isSafeHomeworkPath(String(attachmentPath))) {
+        return res.status(400).json({ error: 'Đường dẫn tệp đính kèm không hợp lệ.' });
+      }
 
+      const [prevSub] = await db
+        .select({ attachmentUrl: submissions.attachmentUrl })
+        .from(submissions)
+        .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
+        .limit(1);
       const [row] = await db
         .insert(submissions)
         .values({
@@ -302,10 +328,24 @@ export function homeworkRoutes({ db, auth }: Deps) {
             feedback: '',
             gradedByAi: false,
             gradedAt: null,
+            // Nộp lại: kết quả chấm và bản nháp AI của nội dung cũ không còn đúng
+            rubricBreakdown: null,
+            strengths: null,
+            weaknesses: null,
+            suggestions: null,
+            aiDraft: null,
+            aiDraftAt: null,
             submittedAt: new Date(),
           },
         })
         .returning();
+      // Tệp của lần nộp trước không còn được tham chiếu: xóa khỏi Storage (lỗi chỉ ghi log, không chặn việc nộp)
+      const oldPath = prevSub?.attachmentUrl;
+      if (oldPath && oldPath !== attachmentPath && oldPath.startsWith(HOMEWORK_BUCKET_PREFIX)) {
+        void deleteHomeworkObjects([oldPath.slice(HOMEWORK_BUCKET_PREFIX.length)]).catch((err) =>
+          console.error('[homework] Không xóa được tệp cũ:', err?.message || err)
+        );
+      }
       return res.status(201).json(submissionDto(row));
     })
   );
@@ -321,14 +361,30 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (!assignment_id || !student_id) return res.status(400).json({ error: 'Thiếu assignment_id hoặc student_id' });
       const [target] = await db.select().from(assignments).where(eq(assignments.id, assignment_id)).limit(1);
       if (!target) return res.status(404).json({ error: 'Không tìm thấy bài tập.' });
-      if (!(await canManageClass(db, req.user, target.classId))) {
-        return res.status(403).json({ error: 'Bạn chỉ được ghi nhận bài nộp của lớp mình phụ trách.' });
+      // Ghi nhận bài nộp là một phần của chấm bài: mọi giáo viên/admin đều làm được
+      if (!canGradeSubmissions(req.user)) {
+        return res.status(403).json({ error: 'Bạn không có quyền ghi nhận bài nộp.' });
       }
+      // Học viên phải đang học đúng lớp của bài tập; tránh tạo bài nộp "ma" cho lớp khác
+      const [enrolled] = await db
+        .select({ id: enrollments.id })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.studentId, student_id),
+            eq(enrollments.classId, target.classId),
+            eq(enrollments.status, 'active')
+          )
+        )
+        .limit(1);
+      if (!enrolled) return res.status(400).json({ error: 'Học viên không thuộc lớp của bài tập này.' });
       const scoreNum = score === null || score === undefined || score === '' ? null : Number(score);
       if (scoreNum !== null && (Number.isNaN(scoreNum) || scoreNum < 0 || scoreNum > 10)) {
         return res.status(400).json({ error: 'Điểm phải nằm trong khoảng 0 đến 10.' });
       }
       const st = status === 'submitted' || status === 'graded' ? status : 'unsubmitted';
+      const isGraded = st === 'graded' && scoreNum !== null;
+      const now = new Date();
 
       const [row] = await db
         .insert(submissions)
@@ -339,13 +395,29 @@ export function homeworkRoutes({ db, auth }: Deps) {
           status: st,
           score: scoreNum === null ? null : String(scoreNum),
           feedback,
-          submittedAt: new Date(),
+          submittedAt: now,
+          gradedAt: isGraded ? now : null,
         })
         .onConflictDoUpdate({
           target: [submissions.assignmentId, submissions.studentId],
-          set: { status: st, score: scoreNum === null ? null : String(scoreNum), feedback },
+          set: {
+            status: st,
+            score: scoreNum === null ? null : String(scoreNum),
+            feedback,
+            gradedAt: isGraded ? now : null,
+          },
         })
         .returning();
+
+      if (isGraded) {
+        await db.insert(notifications).values({
+          id: newId('notif'),
+          userId: student_id,
+          title: 'Điểm bài tập đã được công bố!',
+          message: `Bài tập "${target.title || 'Bài tập'}" đã được chấm: ${scoreNum} điểm.`,
+          type: 'grade',
+        });
+      }
       return res.status(201).json(submissionDto(row));
     })
   );

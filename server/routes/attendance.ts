@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { and, desc, eq, inArray, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import {
   attendanceRecords,
   attendanceSessions,
@@ -12,7 +12,23 @@ import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId, newSessionCode } from '../lib/security';
 import { canManageClass, manageableClassIds } from '../lib/access';
 import { createQrSigner, QR_PREFIX, QR_WINDOW_SECONDS } from '../lib/qr';
+import { parseDateOnly } from '../lib/validation';
+import type { AppDb } from '../db/client';
 import type { Deps } from './deps';
+
+// Sinh mã phiên chưa được phiên đang mở nào dùng. Unique index vẫn là chốt chặn cuối.
+async function freshSessionCode(db: AppDb): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const code = newSessionCode();
+    const [dup] = await db
+      .select({ id: attendanceSessions.id })
+      .from(attendanceSessions)
+      .where(and(eq(attendanceSessions.isActive, true), eq(attendanceSessions.sessionCode, code)))
+      .limit(1);
+    if (!dup) return code;
+  }
+  return newSessionCode();
+}
 
 export function attendanceRoutes({ db, auth, config }: Deps) {
   const r = Router();
@@ -34,6 +50,8 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
       const now = new Date();
       const id = newId('ses');
       const session = await db.transaction(async (tx) => {
+        // Khóa hàng lớp để hai giáo viên bấm mở phiên cùng lúc không tạo ra hai phiên active
+        await tx.execute(sql`select id from classes where id = ${classId} for update`);
         await tx
           .update(attendanceSessions)
           .set({ isActive: false, endTime: now })
@@ -45,7 +63,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
             classId,
             // Chỉ là nhãn; mã QR thật được server ký lại mỗi chu kỳ qua GET /session/:id/qr
             qrCode: `${QR_PREFIX}:${id}`,
-            sessionCode: newSessionCode(),
+            sessionCode: await freshSessionCode(tx as unknown as AppDb),
             sessionDate: todayStr(),
             startTime: now,
             isActive: true,
@@ -125,7 +143,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
     })
   );
 
-  // Học viên điểm danh: QR động, hoặc mã phiên nhập tay (ES-xxxx)
+  // Học viên điểm danh: QR động, hoặc mã phiên nhập tay (ES-xxxxxx)
   r.post(
     '/checkin',
     auth.requireAuth,
@@ -195,7 +213,22 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
       if (!enrolled) return res.status(403).json({ error: 'Bạn không thuộc lớp của buổi học này.' });
 
       const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-      // BUG-03 fix: use onConflictDoNothing to prevent race conditions during concurrent check-ins
+      const [existing] = await db
+        .select()
+        .from(attendanceRecords)
+        .where(and(eq(attendanceRecords.sessionId, session.id), eq(attendanceRecords.studentId, studentId)))
+        .limit(1);
+      if (existing) {
+        return res.json({
+          success: true,
+          alreadyCheckedIn: true,
+          message: `${student?.fullName || 'Học viên'} đã điểm danh trước đó rồi!`,
+          record: attendanceDto(existing, { student_name: student?.fullName, class_id: session.classId, date: session.sessionDate }),
+        });
+      }
+
+      // Hai request check-in đồng thời có thể cùng thấy "chưa có bản ghi"; unique index
+      // (session_id, student_id) là chốt chặn cuối. Bỏ qua xung đột rồi đọc lại thay vì trả 500.
       const [record] = await db
         .insert(attendanceRecords)
         .values({
@@ -205,11 +238,11 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
           status: 'present',
           notes: notes || 'Check-in thành công qua mã QR',
         })
-        .onConflictDoNothing()
+        .onConflictDoNothing({ target: [attendanceRecords.sessionId, attendanceRecords.studentId] })
         .returning();
 
       if (!record) {
-        const [existing] = await db
+        const [raced] = await db
           .select()
           .from(attendanceRecords)
           .where(and(eq(attendanceRecords.sessionId, session.id), eq(attendanceRecords.studentId, studentId)))
@@ -218,8 +251,8 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
           success: true,
           alreadyCheckedIn: true,
           message: `${student?.fullName || 'Học viên'} đã điểm danh trước đó rồi!`,
-          record: existing
-            ? attendanceDto(existing, { student_name: student?.fullName, class_id: session.classId, date: session.sessionDate })
+          record: raced
+            ? attendanceDto(raced, { student_name: student?.fullName, class_id: session.classId, date: session.sessionDate })
             : undefined,
         });
       }
@@ -283,28 +316,29 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
       if (!(await canManageClass(db, req.user, class_id))) {
         return res.status(403).json({ error: 'Bạn chỉ được điểm danh cho lớp mình phụ trách.' });
       }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
-        return res.status(400).json({ error: 'Ngày học phải có dạng YYYY-MM-DD.' });
+      const sessionDate = parseDateOnly(String(date));
+      if (!sessionDate) {
+        return res.status(400).json({ error: 'Ngày học phải là ngày hợp lệ dạng YYYY-MM-DD.' });
       }
 
       const present = new Set<string>(Array.isArray(presentStudentIds) ? presentStudentIds : []);
       let updated = false;
-      let studentCount = 0;
+      let totalStudents = 0;
       await db.transaction(async (tx) => {
-        // BUG-04 fix: query enrollments inside the transaction using tx to ensure isolation
+        // Khóa lớp để hai lần lưu đồng thời không tạo hai phiên batch cho cùng ngày
+        await tx.execute(sql`select id from classes where id = ${class_id} for update`);
         const students = await tx
           .select({ studentId: enrollments.studentId })
           .from(enrollments)
           .where(and(eq(enrollments.classId, class_id), eq(enrollments.status, 'active')));
-        studentCount = students.length;
-
+        totalStudents = students.length;
         let [session] = await tx
           .select()
           .from(attendanceSessions)
           .where(
             and(
               eq(attendanceSessions.classId, class_id),
-              eq(attendanceSessions.sessionDate, String(date)),
+              eq(attendanceSessions.sessionDate, sessionDate),
               like(attendanceSessions.qrCode, 'EDUSCAN_BATCH_%')
             )
           )
@@ -317,33 +351,51 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
             .values({
               id: newId('ses'),
               classId: class_id,
-              qrCode: `EDUSCAN_BATCH_${class_id}_${date}`,
+              qrCode: `EDUSCAN_BATCH_${class_id}_${sessionDate}`,
               sessionCode: newSessionCode(),
-              sessionDate: String(date),
-              startTime: new Date(`${date}T18:00:00Z`),
+              sessionDate,
+              startTime: new Date(`${sessionDate}T18:00:00+07:00`),
               isActive: false,
             })
             .returning();
         }
+
+        // Giữ lại trạng thái chi tiết (đi muộn / có phép) mà giao diện điểm danh nhanh
+        // không biểu diễn được; nếu không, mỗi lần lưu cả lớp sẽ âm thầm đổi thành "vắng".
+        const previous = await tx
+          .select()
+          .from(attendanceRecords)
+          .where(eq(attendanceRecords.sessionId, session.id));
+        const previousByStudent = new Map(previous.map((r) => [r.studentId, r]));
 
         await tx.delete(attendanceRecords).where(eq(attendanceRecords.sessionId, session.id));
         if (students.length > 0) {
           await tx.insert(attendanceRecords).values(
             students.map((s) => {
               const isPresent = present.has(s.studentId);
+              const prev = previousByStudent.get(s.studentId);
+              const kept = !isPresent && prev && (prev.status === 'late' || prev.status === 'excused') ? prev.status : null;
+              const status = isPresent ? ('present' as const) : kept ?? ('absent' as const);
+              const defaultNote = isPresent
+                ? 'Có mặt'
+                : status === 'late'
+                  ? 'Đi muộn'
+                  : status === 'excused'
+                    ? 'Có phép'
+                    : 'Vắng';
               return {
                 id: newId('rec'),
                 sessionId: session.id,
                 studentId: s.studentId,
-                status: isPresent ? ('present' as const) : ('absent' as const),
-                notes: notesMap?.[s.studentId] || (isPresent ? 'Có mặt' : 'Vắng'),
+                status,
+                notes: notesMap?.[s.studentId] || defaultNote,
               };
             })
           );
         }
       });
 
-      return res.json({ success: true, count: studentCount, updated });
+      return res.json({ success: true, count: totalStudents, updated });
     })
   );
 

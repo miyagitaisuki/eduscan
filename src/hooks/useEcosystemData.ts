@@ -17,6 +17,8 @@ interface UseEcosystemDataOptions {
   currentUserId?: string;
   /** Admin mới tải danh sách giáo viên và học phí */
   isAdmin?: boolean;
+  /** Học viên chỉ tải học phí của chính mình và không tải danh sách học viên (API chỉ dành cho giáo viên) */
+  isStudent?: boolean;
 }
 
 /**
@@ -25,23 +27,32 @@ interface UseEcosystemDataOptions {
  *  - tải lần đầu và làm mới toàn bộ, gom trạng thái đang tải / lỗi
  *  - các thao tác chạm tới nhiều tính năng (xóa học viên kéo theo điểm danh, học phí, bài nộp...)
  */
+/** Dữ liệu cũ hơn mức này mới được tự làm mới; kiểm tra định kỳ mỗi AUTO_REFRESH_INTERVAL_MS */
+const AUTO_REFRESH_MIN_AGE_MS = 60_000;
+const AUTO_REFRESH_INTERVAL_MS = 120_000;
+
 export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const notify = options?.onNotify;
   const currentUserId = options?.currentUserId;
   const isAdmin = options?.isAdmin ?? false;
+  const isStudent = options?.isStudent ?? false;
 
   const [isLoading, setIsLoading] = useState(true);
   // Có ít nhất một yêu cầu tải dữ liệu thất bại (dữ liệu cũ vẫn được giữ nguyên)
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Thế hệ tải dữ liệu: phản hồi của thế hệ cũ (tài khoản trước) bị bỏ qua
+  const loadGenRef = useRef(0);
+  // Lần tải gần nhất (ms): dùng để chỉ tự làm mới khi dữ liệu đã cũ
+  const lastLoadRef = useRef(0);
 
   // Học viên thêm/sửa làm thay đổi lớp, học phí... nên cần tải lại tất cả; ref để tránh phụ thuộc vòng
   const refreshRef = useRef<() => Promise<boolean>>(async () => true);
 
   const classes = useClassesData(notify);
-  const students = useStudentsData({ notify, onChanged: () => refreshRef.current() });
+  const students = useStudentsData({ notify, enabled: !isStudent, onChanged: () => refreshRef.current() });
   const attendance = useAttendanceData(notify);
   const homework = useHomeworkData(notify);
-  const tuition = useTuitionData({ notify, enabled: isAdmin });
+  const tuition = useTuitionData({ notify, enabled: isAdmin || isStudent });
   const teachers = useTeachersData({ notify, enabled: isAdmin });
   const leads = useLeadsData({ notify, enabled: isAdmin, onConverted: () => refreshRef.current() });
   const notifications = useNotificationsData(currentUserId);
@@ -57,8 +68,34 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const loadNotifications = notifications.load;
   const loadLessons = lessons.load;
 
+  // Đổi tài khoản: xóa toàn bộ dữ liệu của tài khoản trước và vô hiệu yêu cầu đang bay
+  const resetAll = useCallback(() => {
+    loadGenRef.current++;
+    classes.reset();
+    students.reset();
+    attendance.reset();
+    homework.reset();
+    tuition.reset();
+    teachers.reset();
+    leads.reset();
+    notifications.reset();
+    lessons.reset();
+  }, [
+    classes.reset,
+    students.reset,
+    attendance.reset,
+    homework.reset,
+    tuition.reset,
+    teachers.reset,
+    leads.reset,
+    notifications.reset,
+    lessons.reset,
+  ]);
+
   // Tải lại toàn bộ dữ liệu. Yêu cầu lỗi giữ nguyên dữ liệu cũ và hiện banner "Thử lại".
   const refreshData = useCallback(async () => {
+    const generation = ++loadGenRef.current;
+    lastLoadRef.current = Date.now();
     const results = await Promise.all([
       loadClasses(),
       loadStudents(),
@@ -70,6 +107,8 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       loadNotifications(),
       loadLessons(),
     ]);
+    // Đã đổi tài khoản trong lúc tải: không ghi đè trạng thái của phiên mới
+    if (generation !== loadGenRef.current) return false;
     const ok = results.every(Boolean);
     setLoadError(ok ? null : 'Không tải được một phần dữ liệu. Có thể máy chủ đang khởi động hoặc mạng không ổn định.');
     setIsLoading(false);
@@ -77,12 +116,34 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   }, [loadClasses, loadStudents, loadAttendance, loadHomework, loadTuition, loadTeachers, loadLeads, loadNotifications, loadLessons]);
   refreshRef.current = refreshData;
 
-  // Chỉ tải khi đã đăng nhập; mỗi lần đổi tài khoản thì hiện lại màn hình đang tải
+  // Chỉ tải khi đã đăng nhập; mỗi lần đổi tài khoản thì xóa dữ liệu cũ rồi tải lại
   useEffect(() => {
+    resetAll();
+    setLoadError(null);
     setIsLoading(true);
     if (!currentUserId) return;
     refreshData();
-  }, [currentUserId, refreshData]);
+  }, [currentUserId, resetAll, refreshData]);
+
+  // Dữ liệu chỉ tải một lần lúc đăng nhập nên admin, giáo viên và học viên không thấy thay đổi của nhau
+  // (học phí vừa thu, bài mới giao, điểm vừa chấm, học viên vừa xếp lớp). Tự làm mới âm thầm khi quay lại
+  // tab/ứng dụng và định kỳ khi đang mở, nhưng không quá thường xuyên.
+  useEffect(() => {
+    if (!currentUserId) return;
+    const maybeRefresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastLoadRef.current < AUTO_REFRESH_MIN_AGE_MS) return;
+      void refreshRef.current();
+    };
+    document.addEventListener('visibilitychange', maybeRefresh);
+    window.addEventListener('focus', maybeRefresh);
+    const timer = window.setInterval(maybeRefresh, AUTO_REFRESH_INTERVAL_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', maybeRefresh);
+      window.removeEventListener('focus', maybeRefresh);
+      window.clearInterval(timer);
+    };
+  }, [currentUserId]);
 
   // Xóa học viên: xóa luôn dữ liệu liên quan đang giữ trên máy
   const handleDeleteStudent = async (studentId: string) => {

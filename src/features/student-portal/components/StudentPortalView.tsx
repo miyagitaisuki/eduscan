@@ -39,6 +39,7 @@ import { formatScore, scoreGrade } from '../../../shared/utils/score';
 import { studentGreeting } from '../../../shared/utils/greeting';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
+import { dedupeAttendanceByDay } from '../../../shared/utils/attendance';
 
 interface StudentPortalViewProps {
   currentUser: User;
@@ -72,6 +73,8 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   onTabChange: setActiveTab,
 }) => {
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  // Học viên có thể học nhiều lớp: cho phép chọn lớp đang xem (mặc định lớp có buổi gần nhất)
+  const [selectedClassId, setSelectedClassId] = useState('');
 
   // Selected assignment for viewing details or submitting
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
@@ -79,6 +82,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const [submissionContent, setSubmissionContent] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
   const [attachmentBase64, setAttachmentBase64] = useState('');
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -93,20 +97,31 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     ...freshSubs,
     ...submissions.filter((s) => s.student_id === currentUser.id && !freshSubs.some((f) => f.assignment_id === s.assignment_id)),
   ];
-  const myAttendance = attendanceRecords.filter((r) => r.student_id === currentUser.id);
+  const myAttendance = dedupeAttendanceByDay(attendanceRecords.filter((r) => r.student_id === currentUser.id));
   const myTuition = tuitionRecords.filter((t) => t.student_id === currentUser.id);
   const myNotifs = notifications.filter((n) => !n.user_id || n.user_id === currentUser.id);
   const unreadNotifsCount = myNotifs.filter((n) => !n.is_read).length;
 
-  // Lớp đang học (server chỉ trả các lớp học viên đã ghi danh); null nếu chưa được xếp lớp
-  const myClass = classes[0] ?? null;
+  // Lớp đang học (server chỉ trả các lớp học viên đã ghi danh); null nếu chưa được xếp lớp.
+  // Ưu tiên lớp người dùng chọn, sau đó lớp có buổi học gần nhất, cuối cùng mới đến lớp đầu tiên.
+  const today = todayLocal();
+  const defaultClass =
+    classes.find((c) =>
+      lessons.some((l) => l.class_id === c.id && l.status !== 'cancelled' && l.lesson_date >= today)
+    ) ??
+    classes[0] ??
+    null;
+  const myClass = classes.find((c) => c.id === selectedClassId) ?? defaultClass;
 
   // Calculations
-  // Tỷ lệ = (tổng buổi trong lịch lớp − số buổi vắng) / tổng buổi trong lịch.
+  // Tỷ lệ = (tổng buổi đã diễn ra trong lịch lớp − số buổi vắng) / tổng buổi đã diễn ra.
   // Buổi chưa điểm danh không bị tính vắng; buổi đã hủy không nằm trong lịch.
   const scheduledLessons = myClass ? lessons.filter((l) => l.class_id === myClass.id && l.status !== 'cancelled') : [];
-  const totalLessons = scheduledLessons.length;
-  const absentCount = myAttendance.filter((r) => r.status === 'absent').length;
+  const pastLessons = scheduledLessons.filter((l) => l.lesson_date <= today);
+  const totalLessons = pastLessons.length;
+  const absentCount = myClass
+    ? myAttendance.filter((r) => r.class_id === myClass.id && r.status === 'absent' && r.date <= today).length
+    : 0;
   const attendanceRate =
     totalLessons > 0 ? Math.max(0, Math.round(((totalLessons - absentCount) / totalLessons) * 100)) : 100;
 
@@ -121,13 +136,25 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     if (!file) return;
     setAttachmentName(file.name);
     setAttachmentBase64('');
-    // Nén ảnh trước khi đọc thành base64 để tránh gửi ảnh chụp gốc vài MB
-    const toSend = await compressImage(file);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAttachmentBase64(reader.result as string);
-    };
-    reader.readAsDataURL(toSend);
+    setIsReadingFile(true);
+    setSubmitError('');
+    try {
+      // Nén ảnh trước khi đọc thành base64 để tránh gửi ảnh chụp gốc vài MB
+      const toSend = await compressImage(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachmentBase64(reader.result as string);
+        setIsReadingFile(false);
+      };
+      reader.onerror = () => {
+        setIsReadingFile(false);
+        setSubmitError('Không thể đọc tệp đã chọn. Vui lòng thử lại.');
+      };
+      reader.readAsDataURL(toSend);
+    } catch {
+      setIsReadingFile(false);
+      setSubmitError('Lỗi xử lý tệp tin. Vui lòng thử lại.');
+    }
   };
 
   const handleOpenSubmit = (asg: Assignment) => {
@@ -136,6 +163,8 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     if (existing) {
       setSubmissionContent(existing.content || '');
       setAttachmentName(existing.attachment_url ? 'Tệp tin đã tải lên' : '');
+      // Giữ đường dẫn thật để nộp lại không ghi đè bằng chuỗi hiển thị
+      setAttachmentBase64(existing.attachment_url || '');
     } else {
       setSubmissionContent('');
       setAttachmentName('');
@@ -148,6 +177,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAssignment) return;
+    if (isReadingFile) return;
     if (!submissionContent.trim() && !attachmentBase64) {
       setSubmitError('Vui lòng nhập nội dung bài làm hoặc đính kèm ảnh/tệp tin.');
       return;
@@ -156,7 +186,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmitHomework(selectedAssignment.id, submissionContent, attachmentBase64 || attachmentName);
+      await onSubmitHomework(selectedAssignment.id, submissionContent, attachmentBase64 || undefined);
       setIsSubmitModalOpen(false);
       setSubmissionContent('');
       setAttachmentBase64('');
@@ -259,7 +289,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 {currentMonthTuition ? (
                   <>
                     <div className={`text-lg font-black ${currentMonthTuition.status === 'paid' ? 'text-success-700' : 'text-warning-700'}`}>
-                      {currentMonthTuition.status === 'paid' ? 'Đã hoàn tất' : 'Chưa đóng'}
+                      {currentMonthTuition.status === 'paid' ? 'Đã hoàn tất' : currentMonthTuition.status === 'partial' ? 'Đóng một phần' : 'Chưa đóng'}
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       {currentMonthTuition.amount.toLocaleString('vi-VN')} đ
@@ -346,7 +376,6 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
 
             {/* Hôm nay học gì: buổi học của lớp mình trong ngày */}
             {myClass && (() => {
-              const today = todayLocal();
               const todayLesson = lessons.find((l) => l.class_id === myClass.id && l.lesson_date === today);
               const cancelled = todayLesson?.status === 'cancelled';
               return (
@@ -380,7 +409,22 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               </div>
               {myClass ? (
                 <>
-                  <p className="text-xs text-slate-900 font-semibold">{myClass.name}</p>
+                  {classes.length > 1 ? (
+                    <select
+                      value={myClass.id}
+                      onChange={(e) => setSelectedClassId(e.target.value)}
+                      aria-label="Chọn lớp đang học"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:ring-1 focus:ring-primary-500"
+                    >
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs text-slate-900 font-semibold">{myClass.name}</p>
+                  )}
                   <p className="text-xs text-primary-600 font-medium">{myClass.schedule || 'Chưa có lịch học'}</p>
                   {(() => {
                     const upcoming = lessons.filter((l) => l.class_id === myClass.id && l.state === 'upcoming').slice(0, 3);
@@ -580,11 +624,11 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                       : 'bg-warning-100 text-warning-800 border border-warning-200'
                   }`}
                 >
-                  {currentMonthTuition.status === 'paid' ? '✅ Đã hoàn tất' : '⏳ Chưa thanh toán'}
+                  {currentMonthTuition.status === 'paid' ? '✅ Đã hoàn tất' : currentMonthTuition.status === 'partial' ? '⏳ Đóng một phần' : '⏳ Chưa thanh toán'}
                 </span>
               </div>
 
-              {currentMonthTuition.status === 'unpaid' && (
+              {currentMonthTuition.status !== 'paid' && (
                 <div className="mt-4 p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
                   <p className="font-bold text-slate-800">Thông tin chuyển khoản học phí:</p>
                   <p className="text-slate-600">Ngân hàng: <strong>Techcombank</strong></p>
@@ -616,7 +660,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-xl ${
                     t.status === 'paid' ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-800'
                   }`}>
-                    {t.status === 'paid' ? 'Đã đóng' : 'Chưa đóng'}
+                    {t.status === 'paid' ? 'Đã đóng' : t.status === 'partial' ? 'Đóng một phần' : 'Chưa đóng'}
                   </span>
                 </div>
               ))}
@@ -765,11 +809,11 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isReadingFile}
                   className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  {isSubmitting ? 'Đang gửi...' : 'Nộp bài ngay'}
+                  {isReadingFile ? 'Đang nén tệp...' : isSubmitting ? 'Đang gửi...' : 'Nộp bài ngay'}
                 </button>
               </div>
             </form>

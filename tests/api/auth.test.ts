@@ -36,7 +36,7 @@ describe('xác thực', () => {
   it('đăng ký công khai luôn tạo học viên, bỏ qua trường role', async () => {
     const res = await ctx.api.post('/api/auth/register').send({
       email: 'new.student@example.com',
-      password: 'abcdef',
+      password: 'abcdefgh',
       full_name: 'Học viên mới',
       role: 'admin',
     });
@@ -112,8 +112,30 @@ describe('mật khẩu và JWT', () => {
   it('production bắt buộc JWT_SECRET đủ dài', () => {
     expect(() => loadConfig({ NODE_ENV: 'production' } as NodeJS.ProcessEnv)).toThrow(/JWT_SECRET/);
     expect(() => loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'ngan' } as NodeJS.ProcessEnv)).toThrow(/JWT_SECRET/);
-    const cfg = loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40) } as NodeJS.ProcessEnv);
+    // Link đặt lại mật khẩu cần địa chỉ frontend tin cậy, không suy ra từ CORS_ORIGIN
+    expect(() =>
+      loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40) } as NodeJS.ProcessEnv)
+    ).toThrow(/APP_URL/);
+    const cfg = loadConfig({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'x'.repeat(40),
+      APP_URL: 'https://eduscan.example.com',
+    } as NodeJS.ProcessEnv);
     expect(cfg.jwtSecret).toBe('x'.repeat(40));
     expect(cfg.seedPasswordGenerated).toBe(true);
+  });
+
+  it('đọc chính sách đăng ký công khai', () => {
+    expect(loadConfig({} as NodeJS.ProcessEnv).registrationMode).toBe('open');
+    expect(loadConfig({ REGISTRATION_MODE: 'closed' } as NodeJS.ProcessEnv).registrationMode).toBe('closed');
+    expect(() => loadConfig({ REGISTRATION_MODE: 'invite' } as NodeJS.ProcessEnv)).toThrow(/REGISTRATION_INVITE_CODE/);
+    expect(() => loadConfig({ REGISTRATION_MODE: 'khac' } as NodeJS.ProcessEnv)).toThrow(/REGISTRATION_MODE/);
+
+    const invite = loadConfig({
+      REGISTRATION_MODE: 'invite',
+      REGISTRATION_INVITE_CODE: ' moi-2026 ',
+    } as NodeJS.ProcessEnv);
+    expect(invite.registrationMode).toBe('invite');
+    expect(invite.registrationInviteCode).toBe('moi-2026');
   });
 });

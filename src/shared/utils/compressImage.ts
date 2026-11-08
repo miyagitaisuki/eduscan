@@ -13,21 +13,29 @@ export async function compressImage(file: File): Promise<File> {
     return file;
   }
 
-  const width = 'naturalWidth' in bitmap ? bitmap.naturalWidth : bitmap.width;
-  const height = 'naturalHeight' in bitmap ? bitmap.naturalHeight : bitmap.height;
-  const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
+  let blob: Blob | null = null;
+  try {
+    const width = 'naturalWidth' in bitmap ? bitmap.naturalWidth : bitmap.width;
+    const height = 'naturalHeight' in bitmap ? bitmap.naturalHeight : bitmap.height;
+    const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
 
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(width * scale);
-  canvas.height = Math.round(height * scale);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return file;
-  // Nền trắng để PNG trong suốt không thành đen khi chuyển sang JPEG
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    // Nền trắng để PNG trong suốt không thành đen khi chuyển sang JPEG
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
+    blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
+  } finally {
+    if ('close' in bitmap && typeof (bitmap as ImageBitmap).close === 'function') {
+      (bitmap as ImageBitmap).close();
+    }
+  }
+
   if (!blob || blob.size >= file.size) return file;
 
   const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';

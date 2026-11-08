@@ -1,15 +1,47 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { AttendanceRecord } from '../../shared/types';
 import { attendanceService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
 import type { Loader, Notify } from './types';
 
+function isSameAttendanceRecords(a: AttendanceRecord[], b: AttendanceRecord[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const r1 = a[i];
+    const r2 = b[i];
+    if (
+      r1.id !== r2.id ||
+      r1.status !== r2.status ||
+      r1.check_in_time !== r2.check_in_time ||
+      r1.date !== r2.date ||
+      r1.notes !== r2.notes ||
+      r1.class_id !== r2.class_id ||
+      r1.student_id !== r2.student_id
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function useAttendanceData(notify?: Notify) {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const requestRef = useRef(0);
+
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setAttendanceRecords([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
+    const request = ++requestRef.current;
     try {
-      setAttendanceRecords(await attendanceService.getHistory());
+      const data = await attendanceService.getHistory();
+      if (request !== requestRef.current) return false;
+      // Giữ nguyên tham chiếu khi dữ liệu không đổi: màn hình điểm danh nhanh nạp lại ô tick mỗi khi mảng này đổi,
+      // nên làm mới tự động không được ghi đè các ô giáo viên đang tick dở
+      setAttendanceRecords((prev) => (isSameAttendanceRecords(prev, data) ? prev : data));
       return true;
     } catch {
       return false;
@@ -56,8 +88,10 @@ export function useAttendanceData(notify?: Notify) {
         `${presentIds.length} học viên có mặt.`
       );
       await load();
+      return true;
     } catch (err: any) {
       notify?.('warning', 'Lỗi lưu điểm danh', errorDetail(err));
+      return false;
     }
   };
 
@@ -65,5 +99,5 @@ export function useAttendanceData(notify?: Notify) {
   const removeForStudent = (studentId: string) =>
     setAttendanceRecords((prev) => prev.filter((a) => a.student_id !== studentId));
 
-  return { attendanceRecords, load, createSession, checkIn, saveBatch, removeForStudent };
+  return { attendanceRecords, load, createSession, checkIn, saveBatch, removeForStudent, reset };
 }
