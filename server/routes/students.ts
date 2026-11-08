@@ -160,8 +160,8 @@ export function studentRoutes({ db, auth }: Deps) {
         db,
         list.map((u) => u.id)
       );
-      // Giáo viên chỉ thấy học viên đang học lớp mình phụ trách
-      const visible = owned ? list.filter((u) => cls.has(u.id) && owned.includes(cls.get(u.id)!.id)) : list;
+      // Giáo viên thấy học viên đang học lớp mình phụ trách và học viên chưa xếp lớp (để xếp vào lớp mình)
+      const visible = owned ? list.filter((u) => !cls.has(u.id) || owned.includes(cls.get(u.id)!.id)) : list;
       return res.json(visible.map((u) => studentDto(u, cls.get(u.id))));
     })
   );
@@ -448,7 +448,13 @@ export function studentRoutes({ db, auth }: Deps) {
         .limit(1);
       if (!target) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
       if (!(await canManageStudent(db, req.user, target.id))) {
-        return res.status(403).json({ error: 'Bạn chỉ được sửa học viên của lớp mình phụ trách.' });
+        // Học viên chưa xếp lớp: giáo viên chỉ được xếp vào lớp mình phụ trách, không sửa thông tin khác
+        const unassigned = !(await studentClassMap(db, [target.id])).has(target.id);
+        const onlyAssigning =
+          typeof b.class_id === 'string' && !!b.class_id && Object.keys(b).every((k) => k === 'class_id' || k === 'join_date');
+        if (!unassigned || !onlyAssigning) {
+          return res.status(403).json({ error: 'Bạn chỉ được sửa học viên của lớp mình phụ trách.' });
+        }
       }
       if (b.class_id && !(await canManageClass(db, req.user, b.class_id))) {
         return res.status(403).json({ error: 'Bạn chỉ được xếp học viên vào lớp mình phụ trách.' });

@@ -96,3 +96,18 @@ describe('sửa lỗi logic', () => {
     expect((await ctx.api.get('/api/students').set('Authorization', `Bearer ${S}`)).status).toBe(403);
   });
 });
+
+describe('xếp học viên chưa có lớp', () => {
+  it('giáo viên thấy học viên chưa xếp lớp và chỉ được xếp vào lớp mình phụ trách', async () => {
+    const created = await ctx.api.post('/api/students').set('Authorization', `Bearer ${A}`).send({ full_name: 'Chưa có lớp', email: 'chualop@example.com' });
+    expect(created.status).toBe(201);
+    const list = await ctx.api.get('/api/students').set('Authorization', `Bearer ${T}`);
+    expect(list.body.some((s: any) => s.id === created.body.id)).toBe(true);
+    // Không được sửa thông tin khác của học viên chưa xếp lớp
+    const edit = await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${T}`).send({ full_name: 'Đổi tên' });
+    expect(edit.status).toBe(403);
+    const assign = await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${T}`).send({ class_id: 'cls-n5-01' });
+    expect(assign.status).toBe(200);
+    expect(assign.body.class_id).toBe('cls-n5-01');
+  });
+});

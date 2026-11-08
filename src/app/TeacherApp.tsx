@@ -101,6 +101,7 @@ export default function TeacherApp({ data, currentUser, isAdmin }: TeacherAppPro
             onCreateClass={data.handleCreateClass}
             onUpdateClass={data.handleUpdateClass}
             onDeleteClass={(clsId) => data.handleDeleteClass(clsId)}
+            onAssignStudent={(stId, clsId) => data.handleUpdateStudent(stId, { class_id: clsId })}
             onNavigateTab={goTo}
             onScheduleChanged={data.reloadSchedule}
             notify={data.notify}
