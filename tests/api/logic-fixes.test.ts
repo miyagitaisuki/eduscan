@@ -84,4 +84,15 @@ describe('sửa lỗi logic', () => {
     const codes = all.map((u) => u.code).filter((c): c is string => !!c && c.startsWith('STU'));
     expect(new Set(codes).size).toBe(codes.length);
   });
+
+  it('học viên xem được học phí của chính mình nhưng không gọi được danh sách học viên', async () => {
+    // Giao diện học viên phải tải /api/tuition và không được gọi /api/students (403 làm banner báo lỗi tải)
+    const profile = await ctx.api.get('/api/auth/profile').set('Authorization', `Bearer ${S}`);
+    await ctx.db.insert(tuitionRecords).values({ id: 'tui-own', studentId: profile.body.id, month: '04/2031', amount: 900000, status: 'unpaid' });
+    const mine = await ctx.api.get('/api/tuition').set('Authorization', `Bearer ${S}`);
+    expect(mine.status).toBe(200);
+    expect(mine.body.every((t: any) => t.student_id === profile.body.id)).toBe(true);
+    expect(mine.body.some((t: any) => t.id === 'tui-own')).toBe(true);
+    expect((await ctx.api.get('/api/students').set('Authorization', `Bearer ${S}`)).status).toBe(403);
+  });
 });

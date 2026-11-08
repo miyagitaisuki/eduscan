@@ -136,6 +136,7 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 ## Quy tắc nghiệp vụ
 
 - **Học phí:** trạng thái `unpaid`, `partial` (đóng một phần) hoặc `paid`. Số nợ = `amount - paid_amount` của hồ sơ chưa đóng đủ; số đã thu tính theo `paid_amount`. Màn hình học phí, Tổng quan và Thống kê dùng chung quy tắc này (`src/shared/utils/tuition.ts`), khoản `partial` hiện ở bộ lọc "Chưa đóng". `POST /api/tuition/payment` thu thiếu số tiền học phí thì ghi `partial`; gọi lại trên hồ sơ đã đóng đủ mà không truyền số tiền thì giữ nguyên ngày đóng và ghi chú; hồ sơ mới không truyền số tiền lấy học phí của lớp.
+- **Cổng học viên tải dữ liệu theo vai trò:** học viên tải học phí của chính mình (`/api/tuition` tự lọc) và không gọi `/api/students` (chỉ giáo viên/admin, trả 403 và làm hiện banner "Không tải được một phần dữ liệu"); giáo viên không tải học phí. Cờ `isStudent`/`isAdmin` truyền vào `useEcosystemData`.
 - **Chuyên cần:** một học viên có thể có cả bản ghi phiên QR lẫn phiên điểm danh nhanh trong cùng ngày. Thống kê gộp theo (học viên, lớp, ngày) và ưu tiên có mặt > đi muộn > có phép > vắng (`src/shared/utils/attendance.ts`), nên buổi học không bị đếm hai lần. Đi muộn và có phép không được tính là có mặt khi tính tỷ lệ chuyên cần.
 - **Nộp lại bài:** xóa điểm, nhận xét, barem, điểm mạnh/yếu, gợi ý và bản nháp AI của lần nộp trước.
 - **Sửa học viên (`PUT /api/students/:id`):** họ tên không được rỗng (tối đa 150 ký tự), `status` chỉ nhận `active`, `suspended`, `inactive`; giá trị `null` của SĐT/ảnh đại diện được lưu là chuỗi rỗng.

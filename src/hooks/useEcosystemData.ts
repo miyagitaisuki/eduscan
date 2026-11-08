@@ -17,6 +17,8 @@ interface UseEcosystemDataOptions {
   currentUserId?: string;
   /** Admin mới tải danh sách giáo viên và học phí */
   isAdmin?: boolean;
+  /** Học viên chỉ tải học phí của chính mình và không tải danh sách học viên (API chỉ dành cho giáo viên) */
+  isStudent?: boolean;
 }
 
 /**
@@ -29,6 +31,7 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const notify = options?.onNotify;
   const currentUserId = options?.currentUserId;
   const isAdmin = options?.isAdmin ?? false;
+  const isStudent = options?.isStudent ?? false;
 
   const [isLoading, setIsLoading] = useState(true);
   // Có ít nhất một yêu cầu tải dữ liệu thất bại (dữ liệu cũ vẫn được giữ nguyên)
@@ -40,10 +43,10 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const refreshRef = useRef<() => Promise<boolean>>(async () => true);
 
   const classes = useClassesData(notify);
-  const students = useStudentsData({ notify, onChanged: () => refreshRef.current() });
+  const students = useStudentsData({ notify, enabled: !isStudent, onChanged: () => refreshRef.current() });
   const attendance = useAttendanceData(notify);
   const homework = useHomeworkData(notify);
-  const tuition = useTuitionData({ notify, enabled: isAdmin });
+  const tuition = useTuitionData({ notify, enabled: isAdmin || isStudent });
   const teachers = useTeachersData({ notify, enabled: isAdmin });
   const leads = useLeadsData({ notify, enabled: isAdmin, onConverted: () => refreshRef.current() });
   const notifications = useNotificationsData(currentUserId);

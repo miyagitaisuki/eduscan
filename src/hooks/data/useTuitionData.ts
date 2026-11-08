@@ -6,7 +6,7 @@ import type { Loader, Notify } from './types';
 
 interface Options {
   notify?: Notify;
-  /** Học phí chỉ admin được xem; không phải admin thì không tải */
+  /** Admin xem tất cả, học viên xem của mình (server lọc); giáo viên không được xem nên không tải */
   enabled: boolean;
 }
 
