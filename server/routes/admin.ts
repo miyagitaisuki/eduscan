@@ -31,6 +31,28 @@ function revive(row: Record<string, any>) {
   return out;
 }
 
+// BUG-01 fix: column whitelist for restore validation — prevents unexpected column injection via restore payload.
+const RESTORE_ALLOWED_COLUMNS: Record<string, Set<string>> = {
+  users: new Set(['id', 'email', 'passwordHash', 'fullName', 'role', 'studentCode', 'gender', 'avatar', 'phone', 'status', 'mustChangePassword', 'tokenVersion', 'createdAt']),
+  classes: new Set(['id', 'name', 'code', 'teacherId', 'description', 'schedule', 'level', 'monthlyFee', 'room', 'startDate', 'weekdays', 'lessonStartTime', 'lessonEndTime', 'endDate', 'createdAt']),
+  enrollments: new Set(['id', 'studentId', 'classId', 'joinDate', 'status']),
+  lessons: new Set(['id', 'classId', 'lessonDate', 'startTime', 'endTime', 'title', 'notes', 'status', 'manuallyEdited', 'createdAt']),
+  holidays: new Set(['id', 'name', 'startDate', 'endDate', 'createdAt']),
+  assignments: new Set(['id', 'classId', 'title', 'description', 'sampleSolution', 'rubric', 'kind', 'minnaLesson', 'deadline', 'createdBy', 'createdAt']),
+  submissions: new Set(['id', 'assignmentId', 'studentId', 'content', 'attachmentUrl', 'status', 'score', 'feedback', 'rubricBreakdown', 'strengths', 'weaknesses', 'suggestions', 'gradedByAi', 'aiDraft', 'aiDraftAt', 'submittedAt', 'gradedAt']),
+  attendance_sessions: new Set(['id', 'classId', 'qrCode', 'sessionCode', 'sessionDate', 'startTime', 'endTime', 'isActive', 'createdAt']),
+  attendance_records: new Set(['id', 'sessionId', 'studentId', 'status', 'checkInTime', 'notes']),
+  tuition_records: new Set(['id', 'studentId', 'classId', 'month', 'amount', 'paidAmount', 'dueDate', 'paidDate', 'status', 'notes']),
+  notifications: new Set(['id', 'userId', 'title', 'message', 'type', 'isRead', 'createdAt']),
+};
+
+function validateRestoreRow(tableName: string, row: Record<string, any>): string | null {
+  const allowed = RESTORE_ALLOWED_COLUMNS[tableName];
+  if (!allowed) return `Bảng không xác định: ${tableName}`;
+  const bad = Object.keys(row).find((k) => !allowed.has(k));
+  return bad ? `Cột không hợp lệ '${bad}' trong bảng '${tableName}'` : null;
+}
+
 export function adminRoutes({ db, auth }: Deps) {
   const r = Router();
 
@@ -59,6 +81,15 @@ export function adminRoutes({ db, auth }: Deps) {
       }
       if (!data || data.version !== 2 || !data.tables || typeof data.tables !== 'object') {
         return res.status(400).json({ error: 'File sao lưu không đúng định dạng (version 2).' });
+      }
+
+      // BUG-01 fix: validate every row against the column whitelist before touching the DB.
+      for (const [name] of TABLES) {
+        const rows: Record<string, any>[] = data.tables[name] ?? [];
+        for (const row of rows) {
+          const err = validateRestoreRow(name, row);
+          if (err) return res.status(400).json({ error: `Dữ liệu không hợp lệ: ${err}` });
+        }
       }
 
       await db.transaction(async (tx) => {

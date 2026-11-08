@@ -22,6 +22,17 @@ const MAX_FAILURES = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 const failures = new Map<string, { count: number; resetAt: number }>();
 
+// BUG-06 fix: periodic sweep to prevent unbounded memory growth from sustained abuse.
+// NOTE: This in-memory map resets on server restart and is NOT shared across replicas
+// (PM2 cluster, Cloud Run, etc.). For multi-replica deployments replace with a Redis-
+// or DB-backed counter.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, f] of failures) {
+    if (f.resetAt <= now) failures.delete(key);
+  }
+}, WINDOW_MS).unref();
+
 function accountLocked(key: string) {
   const f = failures.get(key);
   return !!f && f.resetAt > Date.now() && f.count >= MAX_FAILURES;

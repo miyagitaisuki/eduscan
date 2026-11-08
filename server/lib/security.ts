@@ -10,8 +10,16 @@ export function hashPassword(password: string): string {
 
 export function verifyPassword(password: string, stored: string): boolean {
   if (!stored || !stored.startsWith(HASH_PREFIX)) return false;
-  const [, salt, hash] = stored.split('$');
+  // BUG-05 fix: avoid split('$') which may produce unexpected parts if future formats contain '$'.
+  // Use indexOf on the payload after prefix to safely extract salt and hash.
+  const withoutPrefix = stored.slice(HASH_PREFIX.length);
+  const dollarIdx = withoutPrefix.indexOf('$');
+  if (dollarIdx === -1) return false;
+  const salt = withoutPrefix.slice(0, dollarIdx);
+  const hash = withoutPrefix.slice(dollarIdx + 1);
+  if (!salt || !hash) return false;
   const expected = Buffer.from(hash, 'hex');
+  if (expected.length === 0) return false;
   const actual = crypto.scryptSync(password, salt, expected.length);
   return crypto.timingSafeEqual(actual, expected);
 }

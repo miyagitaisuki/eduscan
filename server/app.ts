@@ -70,6 +70,8 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   app.use(cors({ origin: config.corsOrigins.length ? config.corsOrigins : false }));
   // Endpoint công khai nhận đăng ký: đọc body nhỏ trước, tránh nhận 25MB từ người lạ
   app.use('/api/leads/public', express.json({ limit: '8kb' }));
+  // BUG-01 fix: cap restore payload at 5 MB to prevent memory exhaustion via large uploads.
+  app.use('/api/admin/restore', express.json({ limit: '5mb' }));
   app.use(express.json({ limit: '25mb' }));
 
   app.get('/api/health', (_req, res) => {

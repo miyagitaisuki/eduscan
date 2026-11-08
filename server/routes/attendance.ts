@@ -195,20 +195,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
       if (!enrolled) return res.status(403).json({ error: 'Bạn không thuộc lớp của buổi học này.' });
 
       const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-      const [existing] = await db
-        .select()
-        .from(attendanceRecords)
-        .where(and(eq(attendanceRecords.sessionId, session.id), eq(attendanceRecords.studentId, studentId)))
-        .limit(1);
-      if (existing) {
-        return res.json({
-          success: true,
-          alreadyCheckedIn: true,
-          message: `${student?.fullName || 'Học viên'} đã điểm danh trước đó rồi!`,
-          record: attendanceDto(existing, { student_name: student?.fullName, class_id: session.classId, date: session.sessionDate }),
-        });
-      }
-
+      // BUG-03 fix: use onConflictDoNothing to prevent race conditions during concurrent check-ins
       const [record] = await db
         .insert(attendanceRecords)
         .values({
@@ -218,7 +205,25 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
           status: 'present',
           notes: notes || 'Check-in thành công qua mã QR',
         })
+        .onConflictDoNothing()
         .returning();
+
+      if (!record) {
+        const [existing] = await db
+          .select()
+          .from(attendanceRecords)
+          .where(and(eq(attendanceRecords.sessionId, session.id), eq(attendanceRecords.studentId, studentId)))
+          .limit(1);
+        return res.json({
+          success: true,
+          alreadyCheckedIn: true,
+          message: `${student?.fullName || 'Học viên'} đã điểm danh trước đó rồi!`,
+          record: existing
+            ? attendanceDto(existing, { student_name: student?.fullName, class_id: session.classId, date: session.sessionDate })
+            : undefined,
+        });
+      }
+
       return res.status(201).json({
         success: true,
         message: `Điểm danh thành công cho ${student?.fullName}!`,
@@ -283,13 +288,16 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
       }
 
       const present = new Set<string>(Array.isArray(presentStudentIds) ? presentStudentIds : []);
-      const students = await db
-        .select({ studentId: enrollments.studentId })
-        .from(enrollments)
-        .where(and(eq(enrollments.classId, class_id), eq(enrollments.status, 'active')));
-
       let updated = false;
+      let studentCount = 0;
       await db.transaction(async (tx) => {
+        // BUG-04 fix: query enrollments inside the transaction using tx to ensure isolation
+        const students = await tx
+          .select({ studentId: enrollments.studentId })
+          .from(enrollments)
+          .where(and(eq(enrollments.classId, class_id), eq(enrollments.status, 'active')));
+        studentCount = students.length;
+
         let [session] = await tx
           .select()
           .from(attendanceSessions)
@@ -335,7 +343,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
         }
       });
 
-      return res.json({ success: true, count: students.length, updated });
+      return res.json({ success: true, count: studentCount, updated });
     })
   );
 

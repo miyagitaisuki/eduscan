@@ -4,7 +4,7 @@ import { Type } from '@google/genai';
 import { assignments, submissions, users } from '../db/schema';
 import { submissionDto } from '../lib/dto';
 import { ah, AuthedRequest } from '../lib/http';
-import { canGradeSubmissions } from '../lib/access';
+import { canGradeSubmissions, canManageClass } from '../lib/access';
 import type { Deps } from './deps';
 
 // Lỗi AI được trả về rõ ràng (503). Không bao giờ trả điểm hay nhận xét giả thay cho kết quả AI.
@@ -76,6 +76,15 @@ export function aiRoutes({ auth, ai, config, db }: Deps) {
     auth.requireTeacher,
     ah(async (req, res) => {
       if (!ai) return res.status(503).json({ error: 'Chưa cấu hình GEMINI_API_KEY trên máy chủ.', aiFallback: false });
+      // BUG-02 fix: verify teacher owns the assignment's class before grading
+      const assignmentId = (req.body as any)?.assignment_id as string | undefined;
+      if (assignmentId) {
+        const [asg] = await db.select({ classId: assignments.classId }).from(assignments).where(eq(assignments.id, assignmentId)).limit(1);
+        const authedUser = (req as AuthedRequest).user;
+        if (!asg || !(await canManageClass(db, authedUser, asg.classId))) {
+          return res.status(403).json({ error: 'Bạn không phụ trách lớp của bài tập này.', aiFallback: false });
+        }
+      }
       try {
         return res.json(await gradeWithGemini(ai, config.geminiModel, req.body ?? {}));
       } catch (err) {
@@ -99,8 +108,9 @@ export function aiRoutes({ auth, ai, config, db }: Deps) {
         .where(eq(submissions.id, req.params.submissionId))
         .limit(1);
       if (!row) return res.status(404).json({ error: 'Không tìm thấy bài nộp.' });
-      if (!canGradeSubmissions(req.user)) {
-        return res.status(403).json({ error: 'Bạn không có quyền chấm bài này.' });
+      // BUG-02 fix: scope to assignment's class, not just any teacher role
+      if (!(await canManageClass(db, req.user, row.a.classId))) {
+        return res.status(403).json({ error: 'Bạn không phụ trách lớp của bài tập này.' });
       }
 
       try {
@@ -137,8 +147,9 @@ export function aiRoutes({ auth, ai, config, db }: Deps) {
         .where(eq(submissions.id, req.params.submissionId))
         .limit(1);
       if (!row) return res.status(404).json({ error: 'Không tìm thấy bài nộp.' });
-      if (!canGradeSubmissions(req.user)) {
-        return res.status(403).json({ error: 'Bạn không có quyền chỉnh bài nộp này.' });
+      // BUG-02 fix: scope to assignment's class, not just any teacher role
+      if (!(await canManageClass(db, req.user, row.a.classId))) {
+        return res.status(403).json({ error: 'Bạn không phụ trách lớp của bài tập này.' });
       }
       const [updated] = await db
         .update(submissions)
