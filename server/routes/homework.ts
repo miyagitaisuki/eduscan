@@ -2,9 +2,16 @@ import { Router } from 'express';
 import { and, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 import { assignments, classes, enrollments, notifications, submissions, users } from '../db/schema';
 import { assignmentDto, submissionDto } from '../lib/dto';
-import { ah, AuthedRequest, isStudent } from '../lib/http';
+import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
-import { createAttachmentSignedUrl, isSafeHomeworkPath, StorageError, uploadHomeworkAttachment } from '../lib/storage';
+import {
+  createAttachmentSignedUrl,
+  deleteHomeworkObjects,
+  HOMEWORK_BUCKET_PREFIX,
+  isSafeHomeworkPath,
+  StorageError,
+  uploadHomeworkAttachment,
+} from '../lib/storage';
 import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
@@ -124,7 +131,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
             id: newId('notif'),
             userId: s.studentId,
             title: 'Bài tập mới vừa được giao!',
-            message: `Giáo viên vừa giao bài tập: "${row.title}". Hạn chót: ${deadline.toISOString().split('T')[0]}.`,
+            message: `Giáo viên vừa giao bài tập: "${row.title}". Hạn chót: ${todayStr(deadline)}.`,
             type: 'assignment',
           }))
         );
@@ -287,6 +294,11 @@ export function homeworkRoutes({ db, auth }: Deps) {
         return res.status(400).json({ error: 'Đường dẫn tệp đính kèm không hợp lệ.' });
       }
 
+      const [prevSub] = await db
+        .select({ attachmentUrl: submissions.attachmentUrl })
+        .from(submissions)
+        .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
+        .limit(1);
       const [row] = await db
         .insert(submissions)
         .values({
@@ -308,10 +320,24 @@ export function homeworkRoutes({ db, auth }: Deps) {
             feedback: '',
             gradedByAi: false,
             gradedAt: null,
+            // Nộp lại: kết quả chấm và bản nháp AI của nội dung cũ không còn đúng
+            rubricBreakdown: null,
+            strengths: null,
+            weaknesses: null,
+            suggestions: null,
+            aiDraft: null,
+            aiDraftAt: null,
             submittedAt: new Date(),
           },
         })
         .returning();
+      // Tệp của lần nộp trước không còn được tham chiếu: xóa khỏi Storage (lỗi chỉ ghi log, không chặn việc nộp)
+      const oldPath = prevSub?.attachmentUrl;
+      if (oldPath && oldPath !== attachmentPath && oldPath.startsWith(HOMEWORK_BUCKET_PREFIX)) {
+        void deleteHomeworkObjects([oldPath.slice(HOMEWORK_BUCKET_PREFIX.length)]).catch((err) =>
+          console.error('[homework] Không xóa được tệp cũ:', err?.message || err)
+        );
+      }
       return res.status(201).json(submissionDto(row));
     })
   );

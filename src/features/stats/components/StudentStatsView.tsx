@@ -16,6 +16,8 @@ import {
 } from '../../../shared/types';
 import { averageScore, formatScore, scoreGrade } from '../../../shared/utils/score';
 import { isSubmitted } from '../../../shared/utils/submission';
+import { dedupeAttendanceByDay } from '../../../shared/utils/attendance';
+import { tuitionCollected, tuitionDebt } from '../../../shared/utils/tuition';
 
 interface StudentStatsViewProps {
   /** Học phí chỉ hiển thị với admin */
@@ -45,7 +47,7 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
   const activeClass = classes.find((c) => c.id === activeStudent?.class_id);
 
   // Compute metrics for active student
-  const studentAtt = attendance.filter((a) => a.student_id === activeStudent?.id);
+  const studentAtt = dedupeAttendanceByDay(attendance.filter((a) => a.student_id === activeStudent?.id));
   const totalAttSessions = studentAtt.length;
   const presentSessions = studentAtt.filter((a) => a.status === 'present').length;
   const absentSessions = totalAttSessions - presentSessions;
@@ -53,8 +55,8 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
 
   // Payments for active student
   const studentPayments = payments.filter((p) => p.student_id === activeStudent?.id);
-  const paidAmount = studentPayments.filter((p) => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
-  const unpaidAmount = studentPayments.filter((p) => p.status === 'unpaid').reduce((sum, p) => sum + p.amount, 0);
+  const paidAmount = studentPayments.reduce((sum, p) => sum + tuitionCollected(p), 0);
+  const unpaidAmount = studentPayments.reduce((sum, p) => sum + tuitionDebt(p), 0);
 
   // Assignments for active student
   const classAssignments = assignments.filter((a) => a.class_id === activeStudent?.class_id);
@@ -66,13 +68,13 @@ export const StudentStatsView: React.FC<StudentStatsViewProps> = ({
   // Comparison list for all students
   const studentStatsList = students.map((st) => {
     const cls = classes.find((c) => c.id === st.class_id);
-    const att = attendance.filter((a) => a.student_id === st.id);
+    const att = dedupeAttendanceByDay(attendance.filter((a) => a.student_id === st.id));
     const total = att.length;
     const present = att.filter((a) => a.status === 'present').length;
     const rate = total > 0 ? Math.round((present / total) * 100) : 100;
 
     const pmts = payments.filter((p) => p.student_id === st.id);
-    const unpaid = pmts.filter((p) => p.status === 'unpaid').reduce((sum, p) => sum + p.amount, 0);
+    const unpaid = pmts.reduce((sum, p) => sum + tuitionDebt(p), 0);
 
     const subs = submissions.filter((s) => s.student_id === st.id);
     const scored = subs.filter((s) => s.score !== null);

@@ -7,6 +7,7 @@ import { newId } from '../lib/security';
 import { currentDueDate, currentMonthLabel } from './students';
 import { canManageClass, canManageStudent } from '../lib/access';
 import { parseDateOnly } from '../lib/validation';
+import { isUniqueViolation } from '../lib/dbErrors';
 import type { Deps } from './deps';
 
 const EDITABLE = ['amount', 'paidAmount', 'dueDate', 'paidDate', 'status', 'notes', 'month'] as const;
@@ -166,8 +167,14 @@ export function tuitionRoutes({ db, auth }: Deps) {
       }
       if (Object.keys(set).length === 0) return res.status(400).json({ error: 'Không có trường nào để cập nhật.' });
 
-      const [row] = await db.update(tuitionRecords).set(set as any).where(eq(tuitionRecords.id, current.id)).returning();
-      return res.json(tuitionDto(row));
+      try {
+        const [row] = await db.update(tuitionRecords).set(set as any).where(eq(tuitionRecords.id, current.id)).returning();
+        return res.json(tuitionDto(row));
+      } catch (err) {
+        // Đổi sang tháng mà học viên đã có hồ sơ: unique (student_id, month)
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Học viên đã có hồ sơ học phí tháng này.' });
+        throw err;
+      }
     })
   );
 
@@ -204,17 +211,27 @@ export function tuitionRoutes({ db, auth }: Deps) {
           .where(and(eq(tuitionRecords.studentId, student_id), eq(tuitionRecords.month, monthLabel)))
           .limit(1);
         if (existing) {
+          // Đã đóng đủ mà không ghi thêm số tiền mới: giữ nguyên ngày đóng và ghi chú
+          if (existing.status === 'paid' && amt === undefined) return { row: existing, created: false };
+          const paidAmount = amt ?? existing.amount;
           const [updated] = await tx
             .update(tuitionRecords)
-            .set({ status: 'paid', paidAmount: amt ?? existing.amount, paidDate: todayStr(), notes: 'Đã thu tại lớp' })
+            .set({
+              // Thu thiếu thì là đóng một phần, không đánh dấu đã đóng đủ
+              status: paidAmount >= existing.amount ? 'paid' : 'partial',
+              paidAmount,
+              paidDate: todayStr(),
+              notes: existing.notes || 'Đã thu tại lớp',
+            })
             .where(eq(tuitionRecords.id, existing.id))
             .returning();
           return { row: updated, created: false };
         }
 
         const [enr] = await tx
-          .select({ classId: enrollments.classId })
+          .select({ classId: enrollments.classId, fee: classes.monthlyFee })
           .from(enrollments)
+          .innerJoin(classes, eq(classes.id, enrollments.classId))
           .where(and(eq(enrollments.studentId, student_id), eq(enrollments.status, 'active')))
           .limit(1);
         const [inserted] = await tx
@@ -224,8 +241,8 @@ export function tuitionRoutes({ db, auth }: Deps) {
             studentId: student_id,
             classId: enr?.classId ?? null,
             month: monthLabel,
-            amount: amt ?? 0,
-            paidAmount: amt ?? 0,
+            amount: amt ?? enr?.fee ?? 0,
+            paidAmount: amt ?? enr?.fee ?? 0,
             paidDate: todayStr(),
             status: 'paid',
             notes: 'Đã thu tại lớp',
