@@ -120,7 +120,7 @@ export const TuitionManagementView: React.FC<TuitionManagementViewProps> = ({
     const todayStr = todayLocal();
     if (row.payment) {
       onUpdatePayment(row.payment.id, {
-        status: 'paid',
+        status: paidAmount >= row.amount ? 'paid' : 'partial',
         paid_date: todayStr,
         paid_amount: paidAmount,
       });

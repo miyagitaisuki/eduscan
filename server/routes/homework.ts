@@ -155,37 +155,40 @@ export function homeworkRoutes({ db, auth }: Deps) {
       }
       const score = Math.round((correct / total) * 1000) / 100; // thang 10, 2 chữ số
 
-      const [prev] = await db
-        .select()
-        .from(submissions)
-        .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
-        .limit(1);
-      let attempts = 1;
-      let best = score;
-      if (prev) {
-        try {
-          attempts = (JSON.parse(prev.content || '{}').attempts ?? 0) + 1;
-        } catch {
-          attempts = 1;
+      const row = await db.transaction(async (tx) => {
+        const [prev] = await tx
+          .select()
+          .from(submissions)
+          .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
+          .limit(1);
+        let attempts = 1;
+        let best = score;
+        if (prev) {
+          try {
+            attempts = (JSON.parse(prev.content || '{}').attempts ?? 0) + 1;
+          } catch {
+            attempts = 1;
+          }
+          best = Math.max(score, Number(prev.score ?? 0));
         }
-        best = Math.max(score, Number(prev.score ?? 0));
-      }
-      const content = JSON.stringify({ attempts, last: { total, correct, score }, game: Number(req.body?.game) || null });
-      const now = new Date();
-      const values = {
-        content,
-        status: 'graded' as const,
-        score: String(best),
-        feedback: `Luyện tập Minna bài ${asg.minnaLesson}: ${attempts} lượt, điểm cao nhất ${best}/10.`,
-        gradedByAi: false,
-        gradedAt: now,
-        submittedAt: now,
-      };
-      const [row] = await db
-        .insert(submissions)
-        .values({ id: newId('sub'), assignmentId: asg.id, studentId: req.user.id, ...values })
-        .onConflictDoUpdate({ target: [submissions.assignmentId, submissions.studentId], set: values })
-        .returning();
+        const content = JSON.stringify({ attempts, last: { total, correct, score }, game: Number(req.body?.game) || null });
+        const now = new Date();
+        const values = {
+          content,
+          status: 'graded' as const,
+          score: String(best),
+          feedback: `Luyện tập Minna bài ${asg.minnaLesson}: ${attempts} lượt, điểm cao nhất ${best}/10.`,
+          gradedByAi: false,
+          gradedAt: now,
+          submittedAt: now,
+        };
+        const [r] = await tx
+          .insert(submissions)
+          .values({ id: newId('sub'), assignmentId: asg.id, studentId: req.user.id, ...values })
+          .onConflictDoUpdate({ target: [submissions.assignmentId, submissions.studentId], set: values })
+          .returning();
+        return r;
+      });
       return res.json(submissionDto(row));
     })
   );
@@ -198,6 +201,25 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (!asg) return res.status(404).json({ error: 'Không tìm thấy bài tập.' });
       if (!(await canManageClass(db, req.user, asg.classId))) {
         return res.status(403).json({ error: 'Bạn chỉ được xóa bài tập của lớp mình phụ trách.' });
+      }
+      // Xóa các tệp đính kèm trong Storage trước khi DB cascade delete bài nộp
+      const subs = await db
+        .select({ attachmentUrl: submissions.attachmentUrl })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.assignmentId, asg.id),
+            isNotNull(submissions.attachmentUrl),
+            ne(submissions.attachmentUrl, '')
+          )
+        );
+      const paths = subs
+        .map((s) => s.attachmentUrl as string)
+        .filter((p) => p && p.startsWith(HOMEWORK_BUCKET_PREFIX));
+      if (paths.length > 0) {
+        void deleteHomeworkObjects(paths.map((p) => p.slice(HOMEWORK_BUCKET_PREFIX.length))).catch((err) =>
+          console.error('[homework] Lỗi xóa tệp khi xóa bài tập:', err?.message || err)
+        );
       }
       // Xóa bài tập kéo theo bài nộp (ON DELETE CASCADE)
       await db.delete(assignments).where(eq(assignments.id, asg.id));
@@ -361,6 +383,8 @@ export function homeworkRoutes({ db, auth }: Deps) {
         return res.status(400).json({ error: 'Điểm phải nằm trong khoảng 0 đến 10.' });
       }
       const st = status === 'submitted' || status === 'graded' ? status : 'unsubmitted';
+      const isGraded = st === 'graded' && scoreNum !== null;
+      const now = new Date();
 
       const [row] = await db
         .insert(submissions)
@@ -371,13 +395,29 @@ export function homeworkRoutes({ db, auth }: Deps) {
           status: st,
           score: scoreNum === null ? null : String(scoreNum),
           feedback,
-          submittedAt: new Date(),
+          submittedAt: now,
+          gradedAt: isGraded ? now : null,
         })
         .onConflictDoUpdate({
           target: [submissions.assignmentId, submissions.studentId],
-          set: { status: st, score: scoreNum === null ? null : String(scoreNum), feedback },
+          set: {
+            status: st,
+            score: scoreNum === null ? null : String(scoreNum),
+            feedback,
+            gradedAt: isGraded ? now : null,
+          },
         })
         .returning();
+
+      if (isGraded) {
+        await db.insert(notifications).values({
+          id: newId('notif'),
+          userId: student_id,
+          title: 'Điểm bài tập đã được công bố!',
+          message: `Bài tập "${target.title || 'Bài tập'}" đã được chấm: ${scoreNum} điểm.`,
+          type: 'grade',
+        });
+      }
       return res.status(201).json(submissionDto(row));
     })
   );

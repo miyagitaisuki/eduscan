@@ -322,15 +322,16 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
       }
 
       const present = new Set<string>(Array.isArray(presentStudentIds) ? presentStudentIds : []);
-      const students = await db
-        .select({ studentId: enrollments.studentId })
-        .from(enrollments)
-        .where(and(eq(enrollments.classId, class_id), eq(enrollments.status, 'active')));
-
       let updated = false;
+      let totalStudents = 0;
       await db.transaction(async (tx) => {
         // Khóa lớp để hai lần lưu đồng thời không tạo hai phiên batch cho cùng ngày
         await tx.execute(sql`select id from classes where id = ${class_id} for update`);
+        const students = await tx
+          .select({ studentId: enrollments.studentId })
+          .from(enrollments)
+          .where(and(eq(enrollments.classId, class_id), eq(enrollments.status, 'active')));
+        totalStudents = students.length;
         let [session] = await tx
           .select()
           .from(attendanceSessions)
@@ -394,7 +395,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
         }
       });
 
-      return res.json({ success: true, count: students.length, updated });
+      return res.json({ success: true, count: totalStudents, updated });
     })
   );
 

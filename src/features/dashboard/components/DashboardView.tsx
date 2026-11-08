@@ -1,4 +1,5 @@
 import { tuitionDebt } from '../../../shared/utils/tuition';
+import { dedupeAttendanceByDay } from '../../../shared/utils/attendance';
 import { clickable } from '../../../shared/utils/a11y';
 import React from 'react';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
@@ -284,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {todayClasses.map((cls) => {
               const classStudents = students.filter((s) => s.class_id === cls.id);
-              const todayAtt = attendance.filter((a) => a.class_id === cls.id && a.date === todayDateStr);
+              const todayAtt = dedupeAttendanceByDay(attendance.filter((a) => a.class_id === cls.id && a.date === todayDateStr));
               const isDone = todayAtt.length > 0;
               const todayLesson = lessonOnDate(lessons, cls.id, todayDateStr);
               const presentTodayCount = todayAtt.filter((a) => a.status === 'present').length;

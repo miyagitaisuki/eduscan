@@ -25,6 +25,13 @@ const MAX_FAILURES = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 const failures = new Map<string, { count: number; resetAt: number }>();
 
+function cleanupFailures() {
+  const now = Date.now();
+  for (const [k, v] of failures) if (v.resetAt <= now) failures.delete(k);
+}
+const cleanupTimer = setInterval(cleanupFailures, WINDOW_MS);
+cleanupTimer.unref?.();
+
 function accountLocked(key: string) {
   const f = failures.get(key);
   return !!f && f.resetAt > Date.now() && f.count >= MAX_FAILURES;
@@ -32,7 +39,7 @@ function accountLocked(key: string) {
 function recordFailure(key: string) {
   const now = Date.now();
   // Dọn các khóa đã hết hạn để map không phình mãi theo số email bị thử
-  if (failures.size > 1000) for (const [k, v] of failures) if (v.resetAt <= now) failures.delete(k);
+  if (failures.size > 200) cleanupFailures();
   const f = failures.get(key);
   if (!f || f.resetAt <= now) failures.set(key, { count: 1, resetAt: now + WINDOW_MS });
   else f.count++;
