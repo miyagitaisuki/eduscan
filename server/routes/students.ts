@@ -474,25 +474,33 @@ export function studentRoutes({ db, auth }: Deps) {
           .limit(1);
         if (dup) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
         set.email = email;
-        if (email !== target.email) await audit(db, req.user.id, 'student.email_changed', target.id);
       }
-      if (Object.keys(set).length > 0) {
-        await db.update(users).set(set as any).where(eq(users.id, target.id));
-      }
-      const before = (await studentClassMap(db, [target.id])).get(target.id);
-      if (b.class_id !== undefined) {
-        // Chuyển sang lớp khác: ngày vào lớp mới là hôm nay. Giữ nguyên lớp: cho phép sửa ngày vào lớp.
-        const sameClass = (b.class_id || null) === (before?.id ?? null);
-        await setStudentClass(db, target.id, b.class_id || null, sameClass ? joinDate ?? undefined : undefined);
-      } else if (joinDate && before) {
-        await db
-          .update(enrollments)
-          .set({ joinDate })
-          .where(and(eq(enrollments.studentId, target.id), eq(enrollments.classId, before.id), eq(enrollments.status, 'active')));
-      }
+      // Cập nhật hồ sơ, ghi danh và nhật ký trong cùng một transaction: nếu bước sau lỗi
+      // thì họ tên/email không bị đổi lệch với lớp đang học.
+      const { u, current } = await db.transaction(async (tx) => {
+        const t = tx as unknown as AppDb;
+        if (set.email !== undefined && set.email !== target.email) {
+          await audit(t, req.user.id, 'student.email_changed', target.id);
+        }
+        if (Object.keys(set).length > 0) {
+          await t.update(users).set(set as any).where(eq(users.id, target.id));
+        }
+        const before = (await studentClassMap(t, [target.id])).get(target.id);
+        if (b.class_id !== undefined) {
+          // Chuyển sang lớp khác: ngày vào lớp mới là hôm nay. Giữ nguyên lớp: cho phép sửa ngày vào lớp.
+          const sameClass = (b.class_id || null) === (before?.id ?? null);
+          await setStudentClass(t, target.id, b.class_id || null, sameClass ? joinDate ?? undefined : undefined);
+        } else if (joinDate && before) {
+          await t
+            .update(enrollments)
+            .set({ joinDate })
+            .where(and(eq(enrollments.studentId, target.id), eq(enrollments.classId, before.id), eq(enrollments.status, 'active')));
+        }
 
-      const [u] = await db.select().from(users).where(eq(users.id, target.id)).limit(1);
-      const current = (await studentClassMap(db, [target.id])).get(target.id);
+        const [updated] = await t.select().from(users).where(eq(users.id, target.id)).limit(1);
+        const cls = (await studentClassMap(t, [target.id])).get(target.id);
+        return { u: updated, current: cls };
+      });
       return res.json(studentDto(u, current));
     })
   );

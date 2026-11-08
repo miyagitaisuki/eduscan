@@ -72,6 +72,8 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   onTabChange: setActiveTab,
 }) => {
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  // Học viên có thể học nhiều lớp: cho phép chọn lớp đang xem (mặc định lớp có buổi gần nhất)
+  const [selectedClassId, setSelectedClassId] = useState('');
 
   // Selected assignment for viewing details or submitting
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
@@ -98,15 +100,26 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const myNotifs = notifications.filter((n) => !n.user_id || n.user_id === currentUser.id);
   const unreadNotifsCount = myNotifs.filter((n) => !n.is_read).length;
 
-  // Lớp đang học (server chỉ trả các lớp học viên đã ghi danh); null nếu chưa được xếp lớp
-  const myClass = classes[0] ?? null;
+  // Lớp đang học (server chỉ trả các lớp học viên đã ghi danh); null nếu chưa được xếp lớp.
+  // Ưu tiên lớp người dùng chọn, sau đó lớp có buổi học gần nhất, cuối cùng mới đến lớp đầu tiên.
+  const today = todayLocal();
+  const defaultClass =
+    classes.find((c) =>
+      lessons.some((l) => l.class_id === c.id && l.status !== 'cancelled' && l.lesson_date >= today)
+    ) ??
+    classes[0] ??
+    null;
+  const myClass = classes.find((c) => c.id === selectedClassId) ?? defaultClass;
 
   // Calculations
-  // Tỷ lệ = (tổng buổi trong lịch lớp − số buổi vắng) / tổng buổi trong lịch.
+  // Tỷ lệ = (tổng buổi đã diễn ra trong lịch lớp − số buổi vắng) / tổng buổi đã diễn ra.
   // Buổi chưa điểm danh không bị tính vắng; buổi đã hủy không nằm trong lịch.
   const scheduledLessons = myClass ? lessons.filter((l) => l.class_id === myClass.id && l.status !== 'cancelled') : [];
-  const totalLessons = scheduledLessons.length;
-  const absentCount = myAttendance.filter((r) => r.status === 'absent').length;
+  const pastLessons = scheduledLessons.filter((l) => l.lesson_date <= today);
+  const totalLessons = pastLessons.length;
+  const absentCount = myClass
+    ? myAttendance.filter((r) => r.class_id === myClass.id && r.status === 'absent' && r.date <= today).length
+    : 0;
   const attendanceRate =
     totalLessons > 0 ? Math.max(0, Math.round(((totalLessons - absentCount) / totalLessons) * 100)) : 100;
 
@@ -348,7 +361,6 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
 
             {/* Hôm nay học gì: buổi học của lớp mình trong ngày */}
             {myClass && (() => {
-              const today = todayLocal();
               const todayLesson = lessons.find((l) => l.class_id === myClass.id && l.lesson_date === today);
               const cancelled = todayLesson?.status === 'cancelled';
               return (
@@ -382,7 +394,22 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               </div>
               {myClass ? (
                 <>
-                  <p className="text-xs text-slate-900 font-semibold">{myClass.name}</p>
+                  {classes.length > 1 ? (
+                    <select
+                      value={myClass.id}
+                      onChange={(e) => setSelectedClassId(e.target.value)}
+                      aria-label="Chọn lớp đang học"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:ring-1 focus:ring-primary-500"
+                    >
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs text-slate-900 font-semibold">{myClass.name}</p>
+                  )}
                   <p className="text-xs text-primary-600 font-medium">{myClass.schedule || 'Chưa có lịch học'}</p>
                   {(() => {
                     const upcoming = lessons.filter((l) => l.class_id === myClass.id && l.state === 'upcoming').slice(0, 3);

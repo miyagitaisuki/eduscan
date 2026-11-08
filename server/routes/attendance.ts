@@ -13,7 +13,22 @@ import { newId, newSessionCode } from '../lib/security';
 import { canManageClass, manageableClassIds } from '../lib/access';
 import { createQrSigner, QR_PREFIX, QR_WINDOW_SECONDS } from '../lib/qr';
 import { parseDateOnly } from '../lib/validation';
+import type { AppDb } from '../db/client';
 import type { Deps } from './deps';
+
+// Sinh mã phiên chưa được phiên đang mở nào dùng. Unique index vẫn là chốt chặn cuối.
+async function freshSessionCode(db: AppDb): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const code = newSessionCode();
+    const [dup] = await db
+      .select({ id: attendanceSessions.id })
+      .from(attendanceSessions)
+      .where(and(eq(attendanceSessions.isActive, true), eq(attendanceSessions.sessionCode, code)))
+      .limit(1);
+    if (!dup) return code;
+  }
+  return newSessionCode();
+}
 
 export function attendanceRoutes({ db, auth, config }: Deps) {
   const r = Router();
@@ -48,7 +63,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
             classId,
             // Chỉ là nhãn; mã QR thật được server ký lại mỗi chu kỳ qua GET /session/:id/qr
             qrCode: `${QR_PREFIX}:${id}`,
-            sessionCode: newSessionCode(),
+            sessionCode: await freshSessionCode(tx as unknown as AppDb),
             sessionDate: todayStr(),
             startTime: now,
             isActive: true,
@@ -128,7 +143,7 @@ export function attendanceRoutes({ db, auth, config }: Deps) {
     })
   );
 
-  // Học viên điểm danh: QR động, hoặc mã phiên nhập tay (ES-xxxx)
+  // Học viên điểm danh: QR động, hoặc mã phiên nhập tay (ES-xxxxxx)
   r.post(
     '/checkin',
     auth.requireAuth,

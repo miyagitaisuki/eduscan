@@ -124,4 +124,18 @@ describe('mật khẩu và JWT', () => {
     expect(cfg.jwtSecret).toBe('x'.repeat(40));
     expect(cfg.seedPasswordGenerated).toBe(true);
   });
+
+  it('đọc chính sách đăng ký công khai', () => {
+    expect(loadConfig({} as NodeJS.ProcessEnv).registrationMode).toBe('open');
+    expect(loadConfig({ REGISTRATION_MODE: 'closed' } as NodeJS.ProcessEnv).registrationMode).toBe('closed');
+    expect(() => loadConfig({ REGISTRATION_MODE: 'invite' } as NodeJS.ProcessEnv)).toThrow(/REGISTRATION_INVITE_CODE/);
+    expect(() => loadConfig({ REGISTRATION_MODE: 'khac' } as NodeJS.ProcessEnv)).toThrow(/REGISTRATION_MODE/);
+
+    const invite = loadConfig({
+      REGISTRATION_MODE: 'invite',
+      REGISTRATION_INVITE_CODE: ' moi-2026 ',
+    } as NodeJS.ProcessEnv);
+    expect(invite.registrationMode).toBe('invite');
+    expect(invite.registrationInviteCode).toBe('moi-2026');
+  });
 });

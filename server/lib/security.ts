@@ -71,5 +71,7 @@ export function hashToken(token: string): string {
 }
 
 export function newSessionCode(): string {
-  return `ES-${crypto.randomInt(1000, 10000)}`;
+  // 6 chữ số: đủ dễ đọc/đánh máy nhưng không gian mã lớn (900.000) để hiếm khi trùng
+  // giữa các phiên đang mở; unique index là chốt chặn cuối.
+  return `ES-${crypto.randomInt(100000, 1000000)}`;
 }

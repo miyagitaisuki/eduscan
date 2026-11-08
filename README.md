@@ -20,7 +20,7 @@ Tài khoản demo (chỉ dev): `teacher@eduscan.edu.vn`, `student@qnu.edu.vn`, `
 
 - Bắt buộc: `DATABASE_URL` (transaction pooler, cổng 6543), `JWT_SECRET` (ít nhất 32 ký tự, tạo bằng `openssl rand -hex 32`), `APP_URL` (địa chỉ frontend, bắt buộc khi `NODE_ENV=production` để tạo liên kết đặt lại mật khẩu).
 - Khuyến nghị: `DIRECT_URL` (session pooler, cổng 5432, dùng cho migration), `DATABASE_CA_CERT` (nội dung PEM hoặc đường dẫn file .crt), `SEED_PASSWORD`, `SEED_TEACHER_NAME`, `CORS_ORIGIN`, `APP_TZ` (mặc định nên là `Asia/Ho_Chi_Minh`).
-- Tùy chọn: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (tệp đính kèm bài làm), `GEMINI_API_KEY`, `GEMINI_MODEL` (AI), `AUTO_MIGRATE`, `DATABASE_SSL` (`false` chỉ khi Postgres cục bộ không có SSL), `PORT`, `NODE_ENV`, `TRUST_PROXY`, `LEADS_NOTIFY_EMAIL`, `RESEND_API_KEY`, `MAIL_FROM`.
+- Tùy chọn: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (tệp đính kèm bài làm), `GEMINI_API_KEY`, `GEMINI_MODEL` (AI), `AUTO_MIGRATE`, `DATABASE_SSL` (`false` chỉ khi Postgres cục bộ không có SSL), `PORT`, `NODE_ENV`, `TRUST_PROXY`, `LEADS_NOTIFY_EMAIL`, `RESEND_API_KEY`, `MAIL_FROM`, `REGISTRATION_MODE` (`open` mặc định, `invite` hoặc `closed`), `REGISTRATION_INVITE_CODE` (bắt buộc khi `REGISTRATION_MODE=invite`).
 
 ## Kiểm thử
 
@@ -28,6 +28,16 @@ Tài khoản demo (chỉ dev): `teacher@eduscan.edu.vn`, `student@qnu.edu.vn`, `
 npm run lint    # kiểm tra kiểu
 npm test        # kiểm thử API với Postgres trong bộ nhớ (PGlite), không cần DATABASE_URL
 ```
+
+PGlite chỉ có một kết nối nên không tái hiện được race condition thật. Để chạy thêm bài kiểm thử đồng thời trên Postgres thật (tự tạo và xóa một database con), đặt `EDUSCAN_TEST_DATABASE_URL` trỏ tới database có tên chứa `test`:
+
+```bash
+# Postgres cục bộ không bật SSL thì thêm DATABASE_SSL=false
+EDUSCAN_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/eduscan_test \
+  npm test -- tests/integration/postgres-concurrency.test.ts
+```
+
+Bài kiểm thử này bị bỏ qua khi biến môi trường không được đặt.
 
 ## Cơ sở dữ liệu
 
@@ -120,6 +130,7 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 - Mọi API cần token JWT; quyền được kiểm tra lại trong cơ sở dữ liệu ở mỗi request, nên tài khoản bị khóa mất quyền ngay.
 - Học viên chỉ truy cập dữ liệu của chính mình; route ghi chỉ dành cho giáo viên/admin.
 - Production bắt buộc `JWT_SECRET` và `APP_URL`; không có mật khẩu mặc định trong môi trường production.
+- Đăng ký công khai bị giới hạn 10 lần/giờ/IP và mật khẩu tối thiểu 8 ký tự. Đặt `REGISTRATION_MODE=invite` (kèm `REGISTRATION_INVITE_CODE`) hoặc `REGISTRATION_MODE=closed` để chỉ người có mã mời mới tạo được tài khoản, hoặc đóng hoàn toàn.
 - AI không bao giờ trả điểm hay nhận xét giả khi lỗi; giáo viên luôn duyệt kết quả trước khi lưu.
 
 ## Giới hạn đã biết

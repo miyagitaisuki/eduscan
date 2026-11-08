@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { passwordResets, users } from '../db/schema';
@@ -39,6 +40,14 @@ function issueToken(
   secret: string
 ) {
   return signJwt({ id: u.id, email: u.email, role: u.role, full_name: u.fullName, tv: u.tokenVersion }, secret);
+}
+
+// So sánh mã mời theo thời gian hằng định để không lộ độ dài/tiền tố qua thời gian phản hồi
+function inviteCodeMatches(input: unknown, expected: string): boolean {
+  if (typeof input !== 'string') return false;
+  const a = Buffer.from(input);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 export function authRoutes({ db, auth, config }: Deps) {
@@ -100,7 +109,14 @@ export function authRoutes({ db, auth, config }: Deps) {
     '/register',
     registerLimiter,
     ah(async (req, res) => {
-      const { password, full_name, phone, student_code } = req.body ?? {};
+      const { password, full_name, phone, student_code, invite_code } = req.body ?? {};
+      // Chính sách đăng ký do quản trị đặt: mở, cần mã mời, hoặc đóng hoàn toàn
+      if (config.registrationMode === 'closed') {
+        return res.status(403).json({ error: 'Đăng ký công khai đang tạm đóng. Vui lòng liên hệ trung tâm.' });
+      }
+      if (config.registrationMode === 'invite' && !inviteCodeMatches(invite_code, config.registrationInviteCode ?? '')) {
+        return res.status(403).json({ error: 'Mã mời không hợp lệ hoặc đã hết hiệu lực.' });
+      }
       const email = String(req.body?.email ?? '').trim().toLowerCase();
       if (!email || !password || !full_name) {
         return res.status(400).json({ error: 'Vui lòng điền đầy đủ email, mật khẩu và họ tên.' });

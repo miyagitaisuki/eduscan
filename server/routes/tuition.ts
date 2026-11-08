@@ -62,6 +62,12 @@ export function tuitionRoutes({ db, auth }: Deps) {
     ah(async (req: AuthedRequest, res) => {
       const b = req.body ?? {};
       if (!b.student_id) return res.status(400).json({ error: 'Thiếu student_id' });
+      const [student] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, String(b.student_id)), eq(users.role, 'student')))
+        .limit(1);
+      if (!student) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
       if (!(await canManageStudent(db, req.user, String(b.student_id)))) {
         return res.status(403).json({ error: 'Bạn chỉ được ghi học phí cho học viên của lớp mình phụ trách.' });
       }
@@ -79,21 +85,36 @@ export function tuitionRoutes({ db, auth }: Deps) {
       if (!month) return res.status(400).json({ error: 'Tháng học phí không hợp lệ.' });
       const status = TUITION_STATUSES.has(b.status) ? b.status : 'unpaid';
       const paid = status === 'paid';
-      const [row] = await db
-        .insert(tuitionRecords)
-        .values({
-          id: newId('tui'),
-          studentId: b.student_id,
-          classId: b.class_id || null,
-          month,
-          amount,
-          paidAmount: paidAmountInput ?? (paid ? amount : 0),
-          dueDate: currentDueDate(),
-          paidDate: paid ? todayStr() : null,
-          status,
-          notes: b.notes || '',
-        })
-        .returning();
+      // Khóa hàng học viên rồi kiểm tra trùng: unique(student_id, month) là chốt chặn cuối,
+      // nhưng khóa giúp trả 409 rõ ràng thay vì lỗi 500 khi hai yêu cầu đến cùng lúc.
+      const row = await db.transaction(async (tx) => {
+        await tx.execute(sql`select id from users where id = ${b.student_id} for update`);
+        const [existing] = await tx
+          .select({ id: tuitionRecords.id })
+          .from(tuitionRecords)
+          .where(and(eq(tuitionRecords.studentId, b.student_id), eq(tuitionRecords.month, month)))
+          .limit(1);
+        if (existing) return null;
+        const [inserted] = await tx
+          .insert(tuitionRecords)
+          .values({
+            id: newId('tui'),
+            studentId: b.student_id,
+            classId: b.class_id || null,
+            month,
+            amount,
+            paidAmount: paidAmountInput ?? (paid ? amount : 0),
+            dueDate: currentDueDate(),
+            paidDate: paid ? todayStr() : null,
+            status,
+            notes: b.notes || '',
+          })
+          .returning();
+        return inserted;
+      });
+      if (!row) {
+        return res.status(409).json({ error: `Học viên đã có hồ sơ học phí tháng ${month}.` });
+      }
       return res.status(201).json(tuitionDto(row));
     })
   );
@@ -157,6 +178,12 @@ export function tuitionRoutes({ db, auth }: Deps) {
     ah(async (req: AuthedRequest, res) => {
       const { student_id, month, amount } = req.body ?? {};
       if (!student_id) return res.status(400).json({ error: 'Thiếu student_id' });
+      const [student] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, String(student_id)), eq(users.role, 'student')))
+        .limit(1);
+      if (!student) return res.status(404).json({ error: 'Không tìm thấy học viên.' });
       if (!(await canManageStudent(db, req.user, String(student_id)))) {
         return res.status(403).json({ error: 'Bạn chỉ được thu học phí của học viên lớp mình phụ trách.' });
       }
