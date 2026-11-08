@@ -4,7 +4,7 @@ import { assignments, classes, enrollments, notifications, submissions, users } 
 import { assignmentDto, submissionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
-import { createAttachmentSignedUrl, StorageError, uploadHomeworkAttachment } from '../lib/storage';
+import { createAttachmentSignedUrl, isSafeHomeworkPath, StorageError, uploadHomeworkAttachment } from '../lib/storage';
 import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
@@ -44,10 +44,11 @@ export function homeworkRoutes({ db, auth }: Deps) {
         .from(assignments)
         .innerJoin(classes, eq(classes.id, assignments.classId))
         .where(conds.length ? and(...conds) : undefined);
+      // Đã chấm vẫn là "đã nộp": nếu chỉ đếm 'submitted' thì con số tụt sau khi chấm điểm
       const counts = await db
         .select({ assignmentId: submissions.assignmentId, n: sql<number>`count(*)::int` })
         .from(submissions)
-        .where(eq(submissions.status, 'submitted'))
+        .where(inArray(submissions.status, ['submitted', 'graded']))
         .groupBy(submissions.assignmentId);
       const countMap = new Map(counts.map((c) => [c.assignmentId, c.n]));
       return res.json(
@@ -280,6 +281,11 @@ export function homeworkRoutes({ db, auth }: Deps) {
           throw err;
         }
       }
+      // Chỉ nhận tệp vừa upload (homework/...) hoặc đường dẫn cũ hợp lệ; không lưu chuỗi tùy ý
+      // hay đường dẫn có `..` để tránh ký/xóa nhầm đối tượng ngoài bucket.
+      if (attachmentPath && !isSafeHomeworkPath(String(attachmentPath))) {
+        return res.status(400).json({ error: 'Đường dẫn tệp đính kèm không hợp lệ.' });
+      }
 
       const [row] = await db
         .insert(submissions)
@@ -324,6 +330,19 @@ export function homeworkRoutes({ db, auth }: Deps) {
       if (!(await canManageClass(db, req.user, target.classId))) {
         return res.status(403).json({ error: 'Bạn chỉ được ghi nhận bài nộp của lớp mình phụ trách.' });
       }
+      // Học viên phải đang học đúng lớp của bài tập; tránh tạo bài nộp "ma" cho lớp khác
+      const [enrolled] = await db
+        .select({ id: enrollments.id })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.studentId, student_id),
+            eq(enrollments.classId, target.classId),
+            eq(enrollments.status, 'active')
+          )
+        )
+        .limit(1);
+      if (!enrolled) return res.status(400).json({ error: 'Học viên không thuộc lớp của bài tập này.' });
       const scoreNum = score === null || score === undefined || score === '' ? null : Number(score);
       if (scoreNum !== null && (Number.isNaN(scoreNum) || scoreNum < 0 || scoreNum > 10)) {
         return res.status(400).json({ error: 'Điểm phải nằm trong khoảng 0 đến 10.' });

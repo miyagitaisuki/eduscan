@@ -18,9 +18,9 @@ Tài khoản demo (chỉ dev): `teacher@eduscan.edu.vn`, `student@qnu.edu.vn`, `
 
 Đặt trong file `.env` (không commit, đã có trong `.gitignore`) hoặc trên máy chủ. Không ghi giá trị thật vào bất kỳ file nào trong repo.
 
-- Bắt buộc: `DATABASE_URL` (transaction pooler, cổng 6543), `JWT_SECRET` (ít nhất 32 ký tự, tạo bằng `openssl rand -hex 32`).
+- Bắt buộc: `DATABASE_URL` (transaction pooler, cổng 6543), `JWT_SECRET` (ít nhất 32 ký tự, tạo bằng `openssl rand -hex 32`), `APP_URL` (địa chỉ frontend, bắt buộc khi `NODE_ENV=production` để tạo liên kết đặt lại mật khẩu).
 - Khuyến nghị: `DIRECT_URL` (session pooler, cổng 5432, dùng cho migration), `DATABASE_CA_CERT` (nội dung PEM hoặc đường dẫn file .crt), `SEED_PASSWORD`, `SEED_TEACHER_NAME`, `CORS_ORIGIN`, `APP_TZ` (mặc định nên là `Asia/Ho_Chi_Minh`).
-- Tùy chọn: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (tệp đính kèm bài làm), `GEMINI_API_KEY`, `GEMINI_MODEL` (AI), `AUTO_MIGRATE`, `DATABASE_SSL` (`false` chỉ khi Postgres cục bộ không có SSL), `PORT`, `NODE_ENV`, `TRUST_PROXY`, `LEADS_NOTIFY_EMAIL`, `RESEND_API_KEY`, `MAIL_FROM`, `APP_URL` (địa chỉ eduscan để tạo liên kết trong email).
+- Tùy chọn: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (tệp đính kèm bài làm), `GEMINI_API_KEY`, `GEMINI_MODEL` (AI), `AUTO_MIGRATE`, `DATABASE_SSL` (`false` chỉ khi Postgres cục bộ không có SSL), `PORT`, `NODE_ENV`, `TRUST_PROXY`, `LEADS_NOTIFY_EMAIL`, `RESEND_API_KEY`, `MAIL_FROM`.
 
 ## Kiểm thử
 
@@ -119,7 +119,7 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 - Mật khẩu băm bằng scrypt; đăng nhập bị giới hạn theo IP và theo tài khoản (10 lần sai / 15 phút).
 - Mọi API cần token JWT; quyền được kiểm tra lại trong cơ sở dữ liệu ở mỗi request, nên tài khoản bị khóa mất quyền ngay.
 - Học viên chỉ truy cập dữ liệu của chính mình; route ghi chỉ dành cho giáo viên/admin.
-- Production bắt buộc `JWT_SECRET`; không có mật khẩu mặc định trong môi trường production.
+- Production bắt buộc `JWT_SECRET` và `APP_URL`; không có mật khẩu mặc định trong môi trường production.
 - AI không bao giờ trả điểm hay nhận xét giả khi lỗi; giáo viên luôn duyệt kết quả trước khi lưu.
 
 ## Giới hạn đã biết

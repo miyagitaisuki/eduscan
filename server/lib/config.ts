@@ -21,6 +21,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
     throw new Error('JWT_SECRET là bắt buộc khi NODE_ENV=production và phải dài ít nhất 32 ký tự.');
   }
+  // Link đặt lại mật khẩu phải trỏ về đúng frontend; không suy ra từ CORS_ORIGIN
+  if (isProd && !env.APP_URL) {
+    throw new Error('APP_URL là bắt buộc khi NODE_ENV=production để tạo link đặt lại mật khẩu.');
+  }
 
   const seedGenerated = !env.SEED_PASSWORD && isProd;
   const seedPassword = env.SEED_PASSWORD || (isProd ? crypto.randomBytes(9).toString('base64url') : '123456');

@@ -33,6 +33,8 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const [isLoading, setIsLoading] = useState(true);
   // Có ít nhất một yêu cầu tải dữ liệu thất bại (dữ liệu cũ vẫn được giữ nguyên)
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Thế hệ tải dữ liệu: phản hồi của thế hệ cũ (tài khoản trước) bị bỏ qua
+  const loadGenRef = useRef(0);
 
   // Học viên thêm/sửa làm thay đổi lớp, học phí... nên cần tải lại tất cả; ref để tránh phụ thuộc vòng
   const refreshRef = useRef<() => Promise<boolean>>(async () => true);
@@ -57,8 +59,33 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   const loadNotifications = notifications.load;
   const loadLessons = lessons.load;
 
+  // Đổi tài khoản: xóa toàn bộ dữ liệu của tài khoản trước và vô hiệu yêu cầu đang bay
+  const resetAll = useCallback(() => {
+    loadGenRef.current++;
+    classes.reset();
+    students.reset();
+    attendance.reset();
+    homework.reset();
+    tuition.reset();
+    teachers.reset();
+    leads.reset();
+    notifications.reset();
+    lessons.reset();
+  }, [
+    classes.reset,
+    students.reset,
+    attendance.reset,
+    homework.reset,
+    tuition.reset,
+    teachers.reset,
+    leads.reset,
+    notifications.reset,
+    lessons.reset,
+  ]);
+
   // Tải lại toàn bộ dữ liệu. Yêu cầu lỗi giữ nguyên dữ liệu cũ và hiện banner "Thử lại".
   const refreshData = useCallback(async () => {
+    const generation = ++loadGenRef.current;
     const results = await Promise.all([
       loadClasses(),
       loadStudents(),
@@ -70,6 +97,8 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
       loadNotifications(),
       loadLessons(),
     ]);
+    // Đã đổi tài khoản trong lúc tải: không ghi đè trạng thái của phiên mới
+    if (generation !== loadGenRef.current) return false;
     const ok = results.every(Boolean);
     setLoadError(ok ? null : 'Không tải được một phần dữ liệu. Có thể máy chủ đang khởi động hoặc mạng không ổn định.');
     setIsLoading(false);
@@ -77,12 +106,14 @@ export function useEcosystemData(options?: UseEcosystemDataOptions) {
   }, [loadClasses, loadStudents, loadAttendance, loadHomework, loadTuition, loadTeachers, loadLeads, loadNotifications, loadLessons]);
   refreshRef.current = refreshData;
 
-  // Chỉ tải khi đã đăng nhập; mỗi lần đổi tài khoản thì hiện lại màn hình đang tải
+  // Chỉ tải khi đã đăng nhập; mỗi lần đổi tài khoản thì xóa dữ liệu cũ rồi tải lại
   useEffect(() => {
+    resetAll();
+    setLoadError(null);
     setIsLoading(true);
     if (!currentUserId) return;
     refreshData();
-  }, [currentUserId, refreshData]);
+  }, [currentUserId, resetAll, refreshData]);
 
   // Xóa học viên: xóa luôn dữ liệu liên quan đang giữ trên máy
   const handleDeleteStudent = async (studentId: string) => {

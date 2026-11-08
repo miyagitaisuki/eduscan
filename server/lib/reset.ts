@@ -7,10 +7,11 @@ import { sendMail } from './mailer';
 
 export const RESET_TTL_MS = 30 * 60 * 1000;
 
-// Địa chỉ gốc của frontend để tạo link đặt lại mật khẩu
+// Địa chỉ gốc của frontend để tạo link đặt lại mật khẩu.
+// Production bắt buộc APP_URL (kiểm tra trong loadConfig); không lấy CORS_ORIGIN vì đó là
+// danh sách nguồn được phép gọi API, không phải địa chỉ tin cậy để gửi trong email.
 export function appBaseUrl(): string {
-  const fromCors = (process.env.CORS_ORIGIN || '').split(',')[0].trim();
-  return (process.env.APP_URL || fromCors || 'http://localhost:3000').replace(/\/$/, '');
+  return (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
 
 const escapeHtml = (s: string) =>

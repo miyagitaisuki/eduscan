@@ -9,11 +9,20 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  if (!stored || !stored.startsWith(HASH_PREFIX)) return false;
-  const [, salt, hash] = stored.split('$');
-  const expected = Buffer.from(hash, 'hex');
-  const actual = crypto.scryptSync(password, salt, expected.length);
-  return crypto.timingSafeEqual(actual, expected);
+  if (typeof stored !== 'string' || !stored.startsWith(HASH_PREFIX)) return false;
+  const parts = stored.split('$');
+  if (parts.length !== 3) return false;
+  const [, salt, hash] = parts;
+  // Hash hỏng/rỗng không được làm route đăng nhập ném lỗi 500
+  if (!salt || !hash || hash.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hash)) return false;
+  try {
+    const expected = Buffer.from(hash, 'hex');
+    if (expected.length === 0) return false;
+    const actual = crypto.scryptSync(password, salt, expected.length);
+    return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
 }
 
 export function signJwt(payload: Record<string, unknown>, secret: string, ttlSeconds = 7 * 24 * 3600): string {

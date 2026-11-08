@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Student, StudentInput } from '../../shared/types';
 import { studentService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
@@ -13,11 +13,20 @@ interface Options {
 
 export function useStudentsData({ notify, onChanged }: Options) {
   const [students, setStudents] = useState<Student[]>([]);
+  const requestRef = useRef(0);
   const showIssuedPassword = useIssuedPassword();
 
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setStudents([]);
+  }, []);
+
   const load = useCallback<Loader>(async () => {
+    const request = ++requestRef.current;
     try {
-      setStudents(await studentService.getStudents());
+      const data = await studentService.getStudents();
+      if (request !== requestRef.current) return false;
+      setStudents(data);
       return true;
     } catch {
       return false;
@@ -66,5 +75,5 @@ export function useStudentsData({ notify, onChanged }: Options) {
     }
   };
 
-  return { students, load, create, update, remove };
+  return { students, load, create, update, remove, reset };
 }

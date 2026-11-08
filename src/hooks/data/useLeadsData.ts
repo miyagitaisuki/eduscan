@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { leadService } from '../../services';
 import type { Lead } from '../../shared/types';
 import { useIssuedPassword } from '../../shared/components/ui';
@@ -15,12 +15,21 @@ interface Options {
 
 export function useLeadsData({ notify, enabled, onConverted }: Options) {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const requestRef = useRef(0);
   const showIssuedPassword = useIssuedPassword();
+
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setLeads([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
     if (!enabled) return true;
+    const request = ++requestRef.current;
     try {
-      setLeads(await leadService.getLeads());
+      const data = await leadService.getLeads();
+      if (request !== requestRef.current) return false;
+      setLeads(data);
       return true;
     } catch {
       return false;
@@ -56,5 +65,5 @@ export function useLeadsData({ notify, enabled, onConverted }: Options) {
     }
   };
 
-  return { leads, load, update, convert };
+  return { leads, load, update, convert, reset };
 }

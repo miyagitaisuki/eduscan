@@ -1,5 +1,5 @@
 import { clickable } from '../../../shared/utils/a11y';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   FileText, 
   Plus, 
@@ -145,15 +145,39 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
     }
   };
 
-  // Update Comment
-  const handleCommentChange = (studentId: string, commentVal: string) => {
+  // Update Comment: gõ phím không gọi API mỗi lần — lưu sau 600ms hoặc khi rời ô.
+  // Học viên chưa có bản ghi thì chỉ tạo khi có nội dung, và không tự đánh dấu "đã nộp".
+  const commentTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingComments = useRef<Record<string, string>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+
+  const saveComment = (studentId: string, commentVal: string) => {
     if (!activeAssignment) return;
     const existing = submissions.find((s) => s.assignment_id === activeAssignment.id && s.student_id === studentId);
     if (existing) {
       onUpdateSubmission(existing.id, { feedback: commentVal });
-    } else {
-      onCreateSubmissionRecord(activeAssignment.id, studentId, 'submitted', null, commentVal);
+    } else if (commentVal.trim()) {
+      onCreateSubmissionRecord(activeAssignment.id, studentId, 'unsubmitted', null, commentVal);
     }
+  };
+
+  const handleCommentChange = (studentId: string, commentVal: string) => {
+    if (!activeAssignment) return;
+    const key = `${activeAssignment.id}:${studentId}`;
+    setCommentDrafts((prev) => ({ ...prev, [key]: commentVal }));
+    pendingComments.current[studentId] = commentVal;
+    clearTimeout(commentTimers.current[studentId]);
+    commentTimers.current[studentId] = setTimeout(() => {
+      delete commentTimers.current[studentId];
+      saveComment(studentId, pendingComments.current[studentId] ?? '');
+    }, 600);
+  };
+
+  const flushComment = (studentId: string) => {
+    if (!commentTimers.current[studentId]) return;
+    clearTimeout(commentTimers.current[studentId]);
+    delete commentTimers.current[studentId];
+    saveComment(studentId, pendingComments.current[studentId] ?? '');
   };
 
   // Generate Japanese AI Pedagogical Feedback
@@ -468,8 +492,9 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                         <input
                           type="text"
                           placeholder="Nhập nhận xét (VD: Dùng ngữ pháp tốt, cần chú ý phân biệt trợ từ に và で...)"
-                          value={currentComment}
+                          value={commentDrafts[`${activeAssignment.id}:${st.id}`] ?? currentComment}
                           onChange={(e) => handleCommentChange(st.id, e.target.value)}
+                          onBlur={() => flushComment(st.id)}
                           className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-1 focus:ring-primary-500 transition-colors"
                         />
                       </div>

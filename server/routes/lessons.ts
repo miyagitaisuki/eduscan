@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { Type } from '@google/genai';
-import { and, asc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import { attendanceSessions, classes, enrollments, holidays, lessons } from '../db/schema';
 import type { AppDb } from '../db/client';
 import { holidayDto, lessonDto } from '../lib/dto';
@@ -162,7 +162,9 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
 
       const today = todayStr();
       const dryRun = b.dry_run === true;
-      const apply = async (tx: AppDb) => {
+      const apply = async (tx: AppDb, lock = false) => {
+        // Khóa lớp khi ghi: hai lần áp lịch đồng thời sẽ nối tiếp nhau, tránh cùng insert một ngày
+        if (lock) await tx.execute(sql`select id from classes where id = ${cls.id} for update`);
         const plan = await planLessonSync(tx, cls, rule, today);
         const blocked = plan.conflicts.length > 0 && b.allow_conflicts !== true;
         const willWrite = !dryRun && !blocked;
@@ -174,7 +176,7 @@ export function lessonRoutes({ db, auth, ai, config }: Deps) {
       };
       const { plan, blocked, willWrite } = dryRun
         ? await apply(db)
-        : await db.transaction((tx) => apply(tx as unknown as AppDb));
+        : await db.transaction((tx) => apply(tx as unknown as AppDb, true));
 
       if (!dryRun && blocked) {
         return res.status(409).json({

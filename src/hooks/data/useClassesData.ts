@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ClassInput, ClassItem } from '../../shared/types';
 import { classService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
@@ -6,10 +6,20 @@ import type { Loader, Notify } from './types';
 
 export function useClassesData(notify?: Notify) {
   const [classes, setClasses] = useState<ClassItem[]>([]);
+  const requestRef = useRef(0);
+
+  // Đổi tài khoản: bỏ dữ liệu cũ và vô hiệu phản hồi đang bay của tài khoản trước
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setClasses([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
+    const request = ++requestRef.current;
     try {
-      setClasses(await classService.getClasses());
+      const data = await classService.getClasses();
+      if (request !== requestRef.current) return false;
+      setClasses(data);
       return true;
     } catch {
       return false;
@@ -47,5 +57,5 @@ export function useClassesData(notify?: Notify) {
     }
   };
 
-  return { classes, load, create, update, remove };
+  return { classes, load, create, update, remove, reset };
 }

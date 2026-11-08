@@ -136,6 +136,8 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     if (existing) {
       setSubmissionContent(existing.content || '');
       setAttachmentName(existing.attachment_url ? 'Tệp tin đã tải lên' : '');
+      // Giữ đường dẫn thật để nộp lại không ghi đè bằng chuỗi hiển thị
+      setAttachmentBase64(existing.attachment_url || '');
     } else {
       setSubmissionContent('');
       setAttachmentName('');

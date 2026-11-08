@@ -3,9 +3,12 @@ import * as s from '../db/schema';
 import { ah } from '../lib/http';
 import type { Deps } from './deps';
 
-// Thứ tự bảng theo phụ thuộc khóa ngoại: xóa ngược, nạp xuôi
+// Thứ tự bảng theo phụ thuộc khóa ngoại: xóa ngược, nạp xuôi.
+// Cố ý không sao lưu password_resets (token đang sống) và audit_logs (nhật ký chỉ ghi thêm);
+// leads được sao lưu vì là dữ liệu CRM không thể tái tạo.
 const TABLES = [
   ['users', s.users],
+  ['leads', s.leads],
   ['classes', s.classes],
   ['enrollments', s.enrollments],
   ['lessons', s.lessons],
@@ -18,14 +21,30 @@ const TABLES = [
   ['notifications', s.notifications],
 ] as const;
 
-const TIMESTAMP_FIELDS = new Set(['createdAt', 'checkInTime', 'startTime', 'endTime', 'deadline', 'submittedAt', 'gradedAt', 'aiDraftAt']);
+// Cột timestamp khác nhau theo bảng: lessons.start_time/end_time là kiểu `time` (chuỗi HH:MM),
+// không được revive thành Date; attendance_sessions cùng tên cột lại là timestamp.
+const TIMESTAMP_FIELDS: Record<string, Set<string>> = {
+  users: new Set(['createdAt']),
+  leads: new Set(['createdAt', 'consentAt']),
+  classes: new Set(['createdAt']),
+  enrollments: new Set(['createdAt']),
+  lessons: new Set(['createdAt']),
+  holidays: new Set(['createdAt']),
+  assignments: new Set(['createdAt', 'deadline']),
+  submissions: new Set(['createdAt', 'submittedAt', 'gradedAt', 'aiDraftAt']),
+  attendance_sessions: new Set(['createdAt', 'startTime', 'endTime']),
+  attendance_records: new Set(['createdAt', 'checkInTime']),
+  tuition_records: new Set(['createdAt']),
+  notifications: new Set(['createdAt']),
+};
 const DATE_FIELDS = new Set(['joinDate', 'sessionDate']);
 
-// JSON không có Date: nạp lại chuỗi thành Date cho các cột timestamp
-function revive(row: Record<string, any>) {
+// JSON không có Date: nạp lại chuỗi thành Date cho các cột timestamp của đúng bảng
+function revive(table: string, row: Record<string, any>) {
+  const timestamps = TIMESTAMP_FIELDS[table] ?? new Set(['createdAt']);
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(row)) {
-    out[k] = TIMESTAMP_FIELDS.has(k) && typeof v === 'string' ? new Date(v) : v;
+    out[k] = timestamps.has(k) && typeof v === 'string' ? new Date(v) : v;
     if (DATE_FIELDS.has(k) && v) out[k] = String(v).slice(0, 10);
   }
   return out;
@@ -68,7 +87,7 @@ export function adminRoutes({ db, auth }: Deps) {
         for (const [name, table] of TABLES) {
           const rows: Record<string, any>[] = data.tables[name] ?? [];
           for (let i = 0; i < rows.length; i += 500) {
-            await tx.insert(table as any).values(rows.slice(i, i + 500).map(revive));
+            await tx.insert(table as any).values(rows.slice(i, i + 500).map((row) => revive(name, row)));
           }
         }
       });

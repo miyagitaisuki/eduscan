@@ -1,14 +1,23 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { NotificationItem } from '../../shared/types';
 import { notificationService } from '../../services';
 import type { Loader } from './types';
 
 export function useNotificationsData(currentUserId?: string) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const requestRef = useRef(0);
+
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setNotifications([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
+    const request = ++requestRef.current;
     try {
-      setNotifications(await notificationService.getNotifications(currentUserId));
+      const data = await notificationService.getNotifications(currentUserId);
+      if (request !== requestRef.current) return false;
+      setNotifications(data);
       return true;
     } catch {
       return false;
@@ -24,5 +33,5 @@ export function useNotificationsData(currentUserId?: string) {
     }
   };
 
-  return { notifications, load, markRead };
+  return { notifications, load, markRead, reset };
 }

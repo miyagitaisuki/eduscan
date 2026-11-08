@@ -61,6 +61,14 @@ export function authRoutes({ db, auth, config }: Deps) {
     legacyHeaders: false,
     message: { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.' },
   });
+  // Đăng ký công khai: chặt hơn đăng nhập để chặn tạo hàng loạt tài khoản ảo
+  const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Quá nhiều lượt đăng ký từ địa chỉ này. Vui lòng thử lại sau 1 giờ.' },
+  });
 
   r.post(
     '/login',
@@ -90,15 +98,16 @@ export function authRoutes({ db, auth, config }: Deps) {
   // Đăng ký công khai chỉ tạo tài khoản học viên
   r.post(
     '/register',
-    loginLimiter,
+    registerLimiter,
     ah(async (req, res) => {
       const { password, full_name, phone, student_code } = req.body ?? {};
       const email = String(req.body?.email ?? '').trim().toLowerCase();
       if (!email || !password || !full_name) {
         return res.status(400).json({ error: 'Vui lòng điền đầy đủ email, mật khẩu và họ tên.' });
       }
-      if (String(password).length < 6) {
-        return res.status(400).json({ error: 'Mật khẩu phải có ít nhất 6 ký tự.' });
+      // Dùng chung chính sách với đổi/đặt lại mật khẩu thay vì hard-code 6 ký tự
+      if (String(password).length < MIN_PASSWORD_LENGTH) {
+        return res.status(400).json({ error: `Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` });
       }
       const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
       if (existing) return res.status(409).json({ error: 'Email này đã được đăng ký trong hệ thống.' });
@@ -274,6 +283,15 @@ export function authRoutes({ db, auth, config }: Deps) {
 
       const [u] = await db.select().from(users).where(eq(users.id, row.userId)).limit(1);
       if (!u || u.status !== 'active') return res.status(400).json({ error: invalid });
+
+      // Đánh dấu token đã dùng bằng một UPDATE có điều kiện: hai request đồng thời
+      // cùng token sẽ chỉ có một request thắng, tránh đặt lại mật khẩu hai lần.
+      const [claimed] = await db
+        .update(passwordResets)
+        .set({ usedAt: new Date() })
+        .where(and(eq(passwordResets.id, row.id), isNull(passwordResets.usedAt)))
+        .returning({ id: passwordResets.id });
+      if (!claimed) return res.status(400).json({ error: invalid });
 
       await db
         .update(users)

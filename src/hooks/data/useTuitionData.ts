@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { TuitionRecord } from '../../shared/types';
 import { tuitionService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
@@ -12,11 +12,20 @@ interface Options {
 
 export function useTuitionData({ notify, enabled }: Options) {
   const [tuitionRecords, setTuitionRecords] = useState<TuitionRecord[]>([]);
+  const requestRef = useRef(0);
+
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setTuitionRecords([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
     if (!enabled) return true;
+    const request = ++requestRef.current;
     try {
-      setTuitionRecords(await tuitionService.getTuitionRecords());
+      const data = await tuitionService.getTuitionRecords();
+      if (request !== requestRef.current) return false;
+      setTuitionRecords(data);
       return true;
     } catch {
       return false;
@@ -66,5 +75,5 @@ export function useTuitionData({ notify, enabled }: Options) {
   const removeForStudent = (studentId: string) =>
     setTuitionRecords((prev) => prev.filter((t) => t.student_id !== studentId));
 
-  return { tuitionRecords, load, update, setAmount, recordPayment, removeForStudent };
+  return { tuitionRecords, load, update, setAmount, recordPayment, removeForStudent, reset };
 }

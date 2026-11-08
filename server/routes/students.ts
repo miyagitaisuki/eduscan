@@ -42,14 +42,14 @@ export async function setStudentClass(db: AppDb, studentId: string, classId: str
   }
 }
 
-// Học phí tháng hiện tại, dạng MM/YYYY như giao diện đang dùng
+// Học phí tháng hiện tại, dạng MM/YYYY như giao diện đang dùng.
+// Dùng cùng múi giờ với todayStr (Asia/Ho_Chi_Minh) để không lệch tháng vào đầu tháng âm lịch/UTC.
 export function currentMonthLabel() {
-  const d = new Date();
-  return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+  const [year, month] = todayStr().split('-');
+  return `${month}/${year}`;
 }
 export function currentDueDate() {
-  const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-15`;
+  return `${todayStr().slice(0, 7)}-15`;
 }
 
 type ClassRow = typeof classes.$inferSelect;
@@ -226,6 +226,9 @@ export function studentRoutes({ db, auth }: Deps) {
       const owned = await manageableClassIds(db, req.user);
       const canUseClass = (id: string) => owned === null || owned.includes(id);
       const classRows = await db.select().from(classes);
+      if (defaultClassId && !classRows.some((c) => c.id === defaultClassId)) {
+        return res.status(400).json({ error: 'Lớp học không tồn tại.' });
+      }
       const existing = new Set((await db.select({ email: users.email }).from(users)).map((u) => u.email));
       const fileEmails = new Set<string>();
 
@@ -389,31 +392,39 @@ export function studentRoutes({ db, auth }: Deps) {
       const [dup] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
       if (dup) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
 
+      // Kiểm tra lớp trước khi tạo user: nếu không, admin gửi class_id không tồn tại sẽ
+      // để lại một tài khoản học viên mồ côi sau khi insert thất bại ở bước sau.
+      let cls: ClassRow | null = null;
+      if (b.class_id) {
+        const [row] = await db.select().from(classes).where(eq(classes.id, b.class_id)).limit(1);
+        if (!row) return res.status(400).json({ error: 'Lớp học không tồn tại.' });
+        cls = row;
+      }
+
       const tmp = newTempPassword();
       const id = newId('usr');
-      const [u] = await db
-        .insert(users)
-        .values({
-          id,
-          email,
-          passwordHash: tmp.hash,
-          fullName: String(b.full_name).trim(),
-          role: 'student',
-          studentCode: b.student_code || `STU${Math.floor(1000 + Math.random() * 9000)}`,
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
-          phone: b.phone || '',
-          gender: parseGender(b.gender) ?? null,
-          status: 'active',
-          // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
-          mustChangePassword: true,
-        })
-        .returning();
-
-      if (b.class_id) {
-        const [cls] = await db.select().from(classes).where(eq(classes.id, b.class_id)).limit(1);
-        if (!cls) return res.status(400).json({ error: 'Lớp học không tồn tại.' });
-        await enrollNewStudent(db, id, cls, joinDate ?? undefined);
-      }
+      // Tạo user, ghi danh và học phí trong cùng một transaction để không có dữ liệu dở dang
+      const u = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(users)
+          .values({
+            id,
+            email,
+            passwordHash: tmp.hash,
+            fullName: String(b.full_name).trim(),
+            role: 'student',
+            studentCode: b.student_code || `STU${Math.floor(1000 + Math.random() * 9000)}`,
+            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
+            phone: b.phone || '',
+            gender: parseGender(b.gender) ?? null,
+            status: 'active',
+            // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
+            mustChangePassword: true,
+          })
+          .returning();
+        if (cls) await enrollNewStudent(tx as unknown as AppDb, id, cls, joinDate ?? undefined);
+        return created;
+      });
 
       // Mật khẩu tạm chỉ trả về một lần trong phản hồi tạo học viên
       const current = (await studentClassMap(db, [id])).get(id);

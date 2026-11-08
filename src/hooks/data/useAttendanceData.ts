@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { AttendanceRecord } from '../../shared/types';
 import { attendanceService } from '../../services';
 import { errorDetail } from '../../shared/utils/errorMessage';
@@ -6,10 +6,19 @@ import type { Loader, Notify } from './types';
 
 export function useAttendanceData(notify?: Notify) {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const requestRef = useRef(0);
+
+  const reset = useCallback(() => {
+    requestRef.current++;
+    setAttendanceRecords([]);
+  }, []);
 
   const load = useCallback<Loader>(async () => {
+    const request = ++requestRef.current;
     try {
-      setAttendanceRecords(await attendanceService.getHistory());
+      const data = await attendanceService.getHistory();
+      if (request !== requestRef.current) return false;
+      setAttendanceRecords(data);
       return true;
     } catch {
       return false;
@@ -56,8 +65,10 @@ export function useAttendanceData(notify?: Notify) {
         `${presentIds.length} học viên có mặt.`
       );
       await load();
+      return true;
     } catch (err: any) {
       notify?.('warning', 'Lỗi lưu điểm danh', errorDetail(err));
+      return false;
     }
   };
 
@@ -65,5 +76,5 @@ export function useAttendanceData(notify?: Notify) {
   const removeForStudent = (studentId: string) =>
     setAttendanceRecords((prev) => prev.filter((a) => a.student_id !== studentId));
 
-  return { attendanceRecords, load, createSession, checkIn, saveBatch, removeForStudent };
+  return { attendanceRecords, load, createSession, checkIn, saveBatch, removeForStudent, reset };
 }
