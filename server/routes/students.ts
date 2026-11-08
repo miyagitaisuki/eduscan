@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { and, asc, eq, inArray, ne } from 'drizzle-orm';
-import { classes, enrollments, notifications, tuitionRecords, users } from '../db/schema';
+import { and, asc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
+import { classes, enrollments, notifications, submissions, tuitionRecords, users } from '../db/schema';
 import { classDto, parseGender, userDto } from '../lib/dto';
 import { parseDateOnly } from '../lib/validation';
 import type { Student } from '../../src/shared/types';
@@ -15,6 +15,8 @@ import type { AppDb } from '../db/client';
 import { toCsv, foldVi } from '../lib/csv';
 import { randomBytes } from 'crypto';
 import { newStudentCode } from '../lib/studentCode';
+import { isUniqueViolation } from '../lib/dbErrors';
+import { deleteHomeworkObjects, HOMEWORK_BUCKET_PREFIX } from '../lib/storage';
 
 // Chuyển lớp: hủy ghi danh đang hoạt động ở lớp khác (giữ lịch sử), bật ghi danh vào lớp mới.
 export async function setStudentClass(db: AppDb, studentId: string, classId: string | null, joinDate?: string) {
@@ -404,7 +406,7 @@ export function studentRoutes({ db, auth }: Deps) {
       const joinDate = parseDateOnly(b.join_date);
       if (joinDate === undefined) return res.status(400).json({ error: 'Ngày vào lớp không hợp lệ (định dạng YYYY-MM-DD).' });
 
-      const email = String(b.email || `student.${Date.now()}@eduscan.edu.vn`).trim().toLowerCase();
+      const email = String(b.email || `student.${randomBytes(5).toString('hex')}@eduscan.edu.vn`).trim().toLowerCase();
       const [dup] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
       if (dup) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
 
@@ -420,27 +422,33 @@ export function studentRoutes({ db, auth }: Deps) {
       const tmp = newTempPassword();
       const id = newId('usr');
       // Tạo user, ghi danh và học phí trong cùng một transaction để không có dữ liệu dở dang
-      const u = await db.transaction(async (tx) => {
-        const [created] = await tx
-          .insert(users)
-          .values({
-            id,
-            email,
-            passwordHash: tmp.hash,
-            fullName: String(b.full_name).trim(),
-            role: 'student',
-            studentCode: b.student_code || (await newStudentCode(tx as unknown as AppDb)),
-            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
-            phone: b.phone || '',
-            gender: parseGender(b.gender) ?? null,
-            status: 'active',
-            // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
-            mustChangePassword: true,
-          })
-          .returning();
-        if (cls) await enrollNewStudent(tx as unknown as AppDb, id, cls, joinDate ?? undefined);
-        return created;
-      });
+      let u: typeof users.$inferSelect;
+      try {
+        u = await db.transaction(async (tx) => {
+          const [created] = await tx
+            .insert(users)
+            .values({
+              id,
+              email,
+              passwordHash: tmp.hash,
+              fullName: String(b.full_name).trim(),
+              role: 'student',
+              studentCode: b.student_code || (await newStudentCode(tx as unknown as AppDb)),
+              avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(String(b.full_name))}`,
+              phone: b.phone || '',
+              gender: parseGender(b.gender) ?? null,
+              status: 'active',
+              // Mật khẩu tạm được hiện cho giáo viên: học viên phải tự đổi ở lần đăng nhập đầu
+              mustChangePassword: true,
+            })
+            .returning();
+          if (cls) await enrollNewStudent(tx as unknown as AppDb, id, cls, joinDate ?? undefined);
+          return created;
+        });
+      } catch (err) {
+        if (isUniqueViolation(err)) return res.status(409).json({ error: 'Email này đã được sử dụng.' });
+        throw err;
+      }
 
       // Mật khẩu tạm chỉ trả về một lần trong phản hồi tạo học viên
       const current = (await studentClassMap(db, [id])).get(id);
@@ -599,6 +607,19 @@ export function studentRoutes({ db, auth }: Deps) {
       if (!(await canManageStudent(db, req.user, req.params.id))) {
         return res.status(403).json({ error: 'Bạn chỉ được xóa học viên của lớp mình phụ trách.' });
       }
+      // Xóa file nộp bài trên Supabase Storage trước khi CASCADE xóa DB
+      const files = await db
+        .select({ url: submissions.attachmentUrl })
+        .from(submissions)
+        .where(and(eq(submissions.studentId, req.params.id), isNotNull(submissions.attachmentUrl)));
+      const paths = files
+        .map((f) => f.url)
+        .filter((u): u is string => typeof u === 'string' && u.startsWith(HOMEWORK_BUCKET_PREFIX))
+        .map((u) => u.slice(HOMEWORK_BUCKET_PREFIX.length));
+      if (paths.length > 0) {
+        await deleteHomeworkObjects(paths).catch(() => {});
+      }
+
       const deleted = await db
         .delete(users)
         .where(and(eq(users.id, req.params.id), eq(users.role, 'student')))

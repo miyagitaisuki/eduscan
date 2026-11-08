@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { and, eq, sql } from 'drizzle-orm';
-import { classes, enrollments, users } from '../db/schema';
+import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
+import { assignments, classes, enrollments, submissions, users } from '../db/schema';
 import { classDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent } from '../lib/http';
 import { newId } from '../lib/security';
 import { canManageClass, isAdmin } from '../lib/access';
 import { JLPT_LEVELS, parseDateOnly } from '../lib/validation';
+import { deleteHomeworkObjects, HOMEWORK_BUCKET_PREFIX } from '../lib/storage';
 import type { Deps } from './deps';
 
 const MAX_ROOM_LENGTH = 100;
@@ -245,6 +246,32 @@ export function classRoutes({ db, auth }: Deps) {
     auth.requireTeacher,
     requireClassOwner,
     ah(async (req, res) => {
+      // Xóa các tệp đính kèm của các bài tập trong lớp trước khi DB cascade delete
+      const classAssignments = await db
+        .select({ id: assignments.id })
+        .from(assignments)
+        .where(eq(assignments.classId, req.params.id));
+      if (classAssignments.length > 0) {
+        const asgIds = classAssignments.map((a) => a.id);
+        const subs = await db
+          .select({ attachmentUrl: submissions.attachmentUrl })
+          .from(submissions)
+          .where(
+            and(
+              inArray(submissions.assignmentId, asgIds),
+              isNotNull(submissions.attachmentUrl),
+              ne(submissions.attachmentUrl, '')
+            )
+          );
+        const paths = subs
+          .map((s) => s.attachmentUrl as string)
+          .filter((p) => p && p.startsWith(HOMEWORK_BUCKET_PREFIX));
+        if (paths.length > 0) {
+          void deleteHomeworkObjects(paths.map((p) => p.slice(HOMEWORK_BUCKET_PREFIX.length))).catch((err) =>
+            console.error('[classes] Lỗi xóa tệp khi xóa lớp:', err?.message || err)
+          );
+        }
+      }
       // Xóa lớp kéo theo ghi danh, bài tập, phiên điểm danh (ON DELETE CASCADE trong DB)
       const deleted = await db.delete(classes).where(eq(classes.id, req.params.id)).returning({ id: classes.id });
       if (deleted.length === 0) return res.status(404).json({ error: 'Không tìm thấy lớp học.' });

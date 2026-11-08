@@ -234,6 +234,9 @@ export function tuitionRoutes({ db, auth }: Deps) {
           .innerJoin(classes, eq(classes.id, enrollments.classId))
           .where(and(eq(enrollments.studentId, student_id), eq(enrollments.status, 'active')))
           .limit(1);
+        const totalAmount = enr?.fee ?? amt ?? 0;
+        const paidAmount = amt ?? totalAmount;
+        const status = paidAmount >= totalAmount ? 'paid' : 'partial';
         const [inserted] = await tx
           .insert(tuitionRecords)
           .values({
@@ -241,10 +244,10 @@ export function tuitionRoutes({ db, auth }: Deps) {
             studentId: student_id,
             classId: enr?.classId ?? null,
             month: monthLabel,
-            amount: amt ?? enr?.fee ?? 0,
-            paidAmount: amt ?? enr?.fee ?? 0,
+            amount: totalAmount,
+            paidAmount,
             paidDate: todayStr(),
-            status: 'paid',
+            status,
             notes: 'Đã thu tại lớp',
           })
           .returning();

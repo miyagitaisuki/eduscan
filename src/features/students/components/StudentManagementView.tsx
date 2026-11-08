@@ -26,6 +26,7 @@ import {
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { averageScore as averageScoreOf, formatScore } from '../../../shared/utils/score';
 import { todayLocal } from '../../../shared/utils/date';
+import { dedupeAttendanceByDay } from '../../../shared/utils/attendance';
 import { Modal, useConfirm } from '../../../shared/components/ui';
 import { StudentAccountPanel } from './StudentAccountPanel';
 import { ImportStudentsModal } from './ImportStudentsModal';
@@ -189,7 +190,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
 
   // Calculate profile metrics for a given student
   const getStudentMetrics = (st: Student) => {
-    const studentAtt = attendance.filter((a) => a.student_id === st.id);
+    const studentAtt = dedupeAttendanceByDay(attendance.filter((a) => a.student_id === st.id));
     const totalSessions = studentAtt.length;
     const presentSessions = studentAtt.filter((a) => a.status === 'present').length;
     const absentSessions = totalSessions - presentSessions;
@@ -450,7 +451,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
       {activeProfileStudent && (() => {
         const metrics = getStudentMetrics(activeProfileStudent);
         const cls = classes.find((c) => c.id === activeProfileStudent.class_id);
-        const studentAtt = attendance.filter((a) => a.student_id === activeProfileStudent.id);
+        const studentAtt = dedupeAttendanceByDay(attendance.filter((a) => a.student_id === activeProfileStudent.id));
 
         return (
           <Modal title={activeProfileStudent.full_name} onClose={() => setActiveProfileStudent(null)} size="lg">

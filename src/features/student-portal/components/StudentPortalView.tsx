@@ -39,6 +39,7 @@ import { formatScore, scoreGrade } from '../../../shared/utils/score';
 import { studentGreeting } from '../../../shared/utils/greeting';
 import { currentTuitionMonth } from '../../../shared/utils/tuitionMonth';
 import { todayLocal } from '../../../shared/utils/date';
+import { dedupeAttendanceByDay } from '../../../shared/utils/attendance';
 
 interface StudentPortalViewProps {
   currentUser: User;
@@ -81,6 +82,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const [submissionContent, setSubmissionContent] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
   const [attachmentBase64, setAttachmentBase64] = useState('');
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -95,7 +97,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     ...freshSubs,
     ...submissions.filter((s) => s.student_id === currentUser.id && !freshSubs.some((f) => f.assignment_id === s.assignment_id)),
   ];
-  const myAttendance = attendanceRecords.filter((r) => r.student_id === currentUser.id);
+  const myAttendance = dedupeAttendanceByDay(attendanceRecords.filter((r) => r.student_id === currentUser.id));
   const myTuition = tuitionRecords.filter((t) => t.student_id === currentUser.id);
   const myNotifs = notifications.filter((n) => !n.user_id || n.user_id === currentUser.id);
   const unreadNotifsCount = myNotifs.filter((n) => !n.is_read).length;
@@ -134,13 +136,25 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     if (!file) return;
     setAttachmentName(file.name);
     setAttachmentBase64('');
-    // Nén ảnh trước khi đọc thành base64 để tránh gửi ảnh chụp gốc vài MB
-    const toSend = await compressImage(file);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAttachmentBase64(reader.result as string);
-    };
-    reader.readAsDataURL(toSend);
+    setIsReadingFile(true);
+    setSubmitError('');
+    try {
+      // Nén ảnh trước khi đọc thành base64 để tránh gửi ảnh chụp gốc vài MB
+      const toSend = await compressImage(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachmentBase64(reader.result as string);
+        setIsReadingFile(false);
+      };
+      reader.onerror = () => {
+        setIsReadingFile(false);
+        setSubmitError('Không thể đọc tệp đã chọn. Vui lòng thử lại.');
+      };
+      reader.readAsDataURL(toSend);
+    } catch {
+      setIsReadingFile(false);
+      setSubmitError('Lỗi xử lý tệp tin. Vui lòng thử lại.');
+    }
   };
 
   const handleOpenSubmit = (asg: Assignment) => {
@@ -163,6 +177,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAssignment) return;
+    if (isReadingFile) return;
     if (!submissionContent.trim() && !attachmentBase64) {
       setSubmitError('Vui lòng nhập nội dung bài làm hoặc đính kèm ảnh/tệp tin.');
       return;
@@ -171,7 +186,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmitHomework(selectedAssignment.id, submissionContent, attachmentBase64 || attachmentName);
+      await onSubmitHomework(selectedAssignment.id, submissionContent, attachmentBase64 || undefined);
       setIsSubmitModalOpen(false);
       setSubmissionContent('');
       setAttachmentBase64('');
@@ -794,11 +809,11 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isReadingFile}
                   className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-primary-500/20 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  {isSubmitting ? 'Đang gửi...' : 'Nộp bài ngay'}
+                  {isReadingFile ? 'Đang nén tệp...' : isSubmitting ? 'Đang gửi...' : 'Nộp bài ngay'}
                 </button>
               </div>
             </form>

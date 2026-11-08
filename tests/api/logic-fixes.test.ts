@@ -44,6 +44,12 @@ describe('sửa lỗi logic', () => {
     const again = await ctx.api.post('/api/tuition/payment').set('Authorization', `Bearer ${A}`).send({ student_id: id, month: '01/2030' });
     expect(again.body.notes).toBe('ghi chú cũ');
     expect(again.body.paid_date).toBe('2030-01-05');
+
+    // Thu thiếu cho tháng chưa từng có hồ sơ: amount là học phí của lớp (800k), paid_amount là 300k, status là partial
+    const newMonthPart = await ctx.api.post('/api/tuition/payment').set('Authorization', `Bearer ${A}`).send({ student_id: id, month: '02/2030', amount: 300000 });
+    expect(newMonthPart.body.amount).toBe(800000);
+    expect(newMonthPart.body.paid_amount).toBe(300000);
+    expect(newMonthPart.body.status).toBe('partial');
   });
 
   it('nộp lại bài xóa bản nháp AI và kết quả chấm cũ', async () => {
@@ -140,5 +146,67 @@ describe('giáo viên xem và chấm bài mọi lớp; thông báo khi xếp l�
     await ctx.api.put(`/api/students/${created.body.id}`).set('Authorization', `Bearer ${A}`).send({ class_id: 'cls-n5-01' });
     const rows = await ctx.db.select().from(notifications).where(eq(notifications.userId, created.body.id));
     expect(rows.some((n) => n.type === 'class')).toBe(true);
+  });
+
+  it('tạo giáo viên trùng email trả 409 thay vì lỗi 500', async () => {
+    const res = await ctx.api.post('/api/teachers').set('Authorization', `Bearer ${A}`).send({
+      full_name: 'Giáo viên trùng',
+      email: TEACHER,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain('đã được sử dụng');
+  });
+
+  it('chấm bài manual gửi thông báo điểm và lưu graded_at', async () => {
+    const asgList = await ctx.api.get('/api/assignments').set('Authorization', `Bearer ${A}`);
+    const asg = asgList.body.find((a: any) => a.class_id === 'cls-n5-01');
+    const stuList = await ctx.api.get('/api/classes/cls-n5-01/roster').set('Authorization', `Bearer ${A}`);
+    const stuId = stuList.body[0].id;
+
+    const res = await ctx.api.post('/api/submissions/manual').set('Authorization', `Bearer ${A}`).send({
+      assignment_id: asg.id,
+      student_id: stuId,
+      status: 'graded',
+      score: 9.5,
+      feedback: 'Làm bài rất tốt!',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe('graded');
+    expect(res.body.score).toBe(9.5);
+    expect(res.body.graded_at).toBeTruthy();
+
+    const notifs = await ctx.db.select().from(notifications).where(eq(notifications.userId, stuId));
+    expect(notifs.some((n) => n.type === 'grade' && n.message.includes('9.5'))).toBe(true);
+  });
+
+  it('khôi phục admin: dữ liệu không hợp lệ trả về 400 và không làm mất dữ liệu', async () => {
+    // Không có confirm="RESTORE"
+    const noConfirm = await ctx.api.post('/api/admin/restore').set('Authorization', `Bearer ${A}`).send({ confirm: 'NO', data: { version: 2, tables: {} } });
+    expect(noConfirm.status).toBe(400);
+
+    // Dữ liệu users rỗng không có admin
+    const noAdmin = await ctx.api.post('/api/admin/restore').set('Authorization', `Bearer ${A}`).send({
+      confirm: 'RESTORE',
+      data: { version: 2, tables: { users: [] } },
+    });
+    expect(noAdmin.status).toBe(400);
+    expect(noAdmin.body.error).toContain('admin');
+
+    // Cột dữ liệu không hợp lệ
+    const invalidCol = await ctx.api.post('/api/admin/restore').set('Authorization', `Bearer ${A}`).send({
+      confirm: 'RESTORE',
+      data: {
+        version: 2,
+        tables: {
+          users: [{ id: 'u1', email: 'a@e.com', role: 'admin', passwordHash: 'x', malicious_col: 1 }],
+        },
+      },
+    });
+    expect(invalidCol.status).toBe(400);
+    expect(invalidCol.body.error).toContain('malicious_col');
+
+    // Dữ liệu hệ thống vẫn nguyên vẹn
+    const checkUsers = await ctx.db.select().from(users);
+    expect(checkUsers.length).toBeGreaterThan(0);
   });
 });

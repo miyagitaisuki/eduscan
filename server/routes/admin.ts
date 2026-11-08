@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getTableColumns } from 'drizzle-orm';
 import * as s from '../db/schema';
 import { ah } from '../lib/http';
 import type { Deps } from './deps';
@@ -76,8 +77,37 @@ export function adminRoutes({ db, auth }: Deps) {
       if (confirm !== 'RESTORE') {
         return res.status(400).json({ error: 'Cần xác nhận bằng chuỗi "RESTORE" để khôi phục dữ liệu.' });
       }
-      if (!data || data.version !== 2 || !data.tables || typeof data.tables !== 'object') {
+      if (!data || data.version !== 2 || !data.tables || typeof data.tables !== 'object' || Array.isArray(data.tables)) {
         return res.status(400).json({ error: 'File sao lưu không đúng định dạng (version 2).' });
+      }
+
+      // Xác thực: bảng users phải có ít nhất một tài khoản admin hợp lệ
+      const usersRows = data.tables['users'];
+      if (!Array.isArray(usersRows) || !usersRows.some((u: any) => u && u.role === 'admin' && u.email && u.passwordHash)) {
+        return res.status(400).json({ error: 'Dữ liệu sao lưu không hợp lệ: phải có ít nhất một tài khoản admin.' });
+      }
+
+      // Xác thực cấu trúc của từng bảng trước khi xóa DB
+      const tableMap = new Map<string, any>(TABLES);
+      for (const [key, val] of Object.entries(data.tables)) {
+        if (!tableMap.has(key)) {
+          return res.status(400).json({ error: `Bảng "${key}" không tồn tại trong hệ thống sao lưu.` });
+        }
+        if (!Array.isArray(val)) {
+          return res.status(400).json({ error: `Dữ liệu bảng "${key}" phải là mảng.` });
+        }
+        const table = tableMap.get(key)!;
+        const validCols = new Set(Object.keys(getTableColumns(table)));
+        for (const row of val) {
+          if (!row || typeof row !== 'object' || Array.isArray(row)) {
+            return res.status(400).json({ error: `Hàng dữ liệu trong bảng "${key}" không hợp lệ.` });
+          }
+          for (const col of Object.keys(row)) {
+            if (!validCols.has(col)) {
+              return res.status(400).json({ error: `Cột "${col}" không hợp lệ trong bảng "${key}".` });
+            }
+          }
+        }
       }
 
       await db.transaction(async (tx) => {
