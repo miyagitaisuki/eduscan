@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { Assignment, AssignmentInput, GradeInput, Submission } from '../shared/types';
+import { Assignment, AssignmentInput, GradeInput, Submission, TextbookLessonSummary } from '../shared/types';
 
 export const homeworkService = {
   async getAssignments(classId?: string): Promise<Assignment[]> {
@@ -56,6 +56,20 @@ export const homeworkService = {
     data: { lesson_no: number; game?: number; total: number; correct: number }
   ): Promise<Submission> {
     return apiClient.post<Submission>(`/assignments/${assignmentId}/minna-result`, data);
+  },
+
+  // Nộp bài giáo trình; server tự chấm theo đáp án mẫu
+  async submitTextbook(assignmentId: string, answers: Record<string, string>): Promise<Submission> {
+    return apiClient.post<Submission>(`/assignments/${assignmentId}/textbook-submit`, { answers });
+  },
+
+  // Thư viện giáo trình (giáo viên)
+  async getTextbookLessons(): Promise<TextbookLessonSummary[]> {
+    return apiClient.get<TextbookLessonSummary[]>('/textbook/lessons');
+  },
+
+  async importTextbook(book: string, data: unknown): Promise<{ book: string; lessons: number; gradable_exercises: number }> {
+    return apiClient.post('/textbook/import', { book, data });
   },
 
   // Giáo viên ghi nhận thủ công bài nộp/điểm của một học viên

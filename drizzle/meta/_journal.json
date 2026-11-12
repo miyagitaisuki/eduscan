@@ -78,6 +78,13 @@
       "when": 1794107148457,
       "tag": "0010_tough_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794472376940,
+      "tag": "0011_textbook_lessons",
+      "breakpoints": true
     }
   ]
 }

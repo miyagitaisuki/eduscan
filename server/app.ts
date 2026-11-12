@@ -18,6 +18,7 @@ import { teacherRoutes } from './routes/teachers';
 import { lessonRoutes } from './routes/lessons';
 import { leadRoutes } from './routes/leads';
 import { publicInfoRoutes } from './routes/publicInfo';
+import { textbookRoutes } from './routes/textbook';
 
 export const PUBLIC_API_PATHS = new Set([
   '/api/health',
@@ -101,6 +102,7 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   app.use('/api/teachers', teacherRoutes(deps));
   app.use('/api', lessonRoutes(deps));
   app.use('/api/leads', leadRoutes(deps));
+  app.use('/api/textbook', textbookRoutes(deps));
   app.use('/api/public', publicInfoRoutes(deps));
 
   app.use('/api', (_req: Request, res: Response) => {

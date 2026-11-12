@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { and, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
-import { assignments, classes, enrollments, notifications, submissions, users } from '../db/schema';
+import { assignments, classes, enrollments, notifications, submissions, textbookLessons, users } from '../db/schema';
 import { assignmentDto, submissionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
@@ -13,8 +13,18 @@ import {
   uploadHomeworkAttachment,
 } from '../lib/storage';
 import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
+import { gradableExercises, gradeTextbook, publicPayload, TextbookPayload } from '../lib/textbook';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
+
+// Học viên không nhận đáp án mẫu của bài giáo trình cho đến khi qua hạn nộp
+function assignmentFor(req: AuthedRequest, a: typeof assignments.$inferSelect, extra: Parameters<typeof assignmentDto>[1] = {}) {
+  const dto = assignmentDto(a, extra);
+  if (isStudent(req) && a.kind === 'textbook') {
+    dto.payload = publicPayload(a.payload as TextbookPayload | null, a.deadline.getTime() <= Date.now());
+  }
+  return dto;
+}
 
 async function enrolledClassIds(db: AppDb, studentId: string) {
   const rows = await db
@@ -55,7 +65,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
       const countMap = new Map(counts.map((c) => [c.assignmentId, c.n]));
       return res.json(
         rows.map((row) =>
-          assignmentDto(row.a, { class_name: row.className, submitted_count: countMap.get(row.a.id) ?? 0 })
+          assignmentFor(req, row.a, { class_name: row.className, submitted_count: countMap.get(row.a.id) ?? 0 })
         )
       );
     })
@@ -76,7 +86,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
         const ids = await enrolledClassIds(db, req.user.id);
         if (!ids.includes(row.a.classId)) return res.status(403).json({ error: 'Bạn không thuộc lớp của bài tập này.' });
       }
-      return res.json(assignmentDto(row.a, { class_name: row.className }));
+      return res.json(assignmentFor(req, row.a, { class_name: row.className }));
     })
   );
 
@@ -97,6 +107,24 @@ export function homeworkRoutes({ db, auth }: Deps) {
       const deadline = b.deadline ? new Date(b.deadline) : new Date(Date.now() + 7 * 86400000);
       if (Number.isNaN(deadline.getTime())) return res.status(400).json({ error: 'Hạn nộp không hợp lệ.' });
 
+      // Bài giáo trình: chụp lại các bài tập được chọn kèm đáp án để server tự chấm
+      const isTextbook = b.kind === 'textbook';
+      let payload: TextbookPayload | null = null;
+      if (isTextbook) {
+        const [lesson] = b.textbook_lesson_id
+          ? await db.select().from(textbookLessons).where(eq(textbookLessons.id, String(b.textbook_lesson_id))).limit(1)
+          : [];
+        if (!lesson) return res.status(400).json({ error: 'Chưa chọn bài giáo trình hoặc bài không tồn tại.' });
+        const wanted: unknown = b.exercise_ids;
+        const all = gradableExercises(lesson.data);
+        const exercises = Array.isArray(wanted) && wanted.length > 0 ? all.filter((e) => wanted.includes(e.id)) : all;
+        if (exercises.length === 0) return res.status(400).json({ error: 'Bài này không có bài tập tự chấm được.' });
+        payload = {
+          source: { book: lesson.book, lesson_no: lesson.lessonNo, lesson_id: lesson.id, title_ja: lesson.titleJa, title_vi: lesson.titleVi },
+          exercises,
+        };
+      }
+
       const [row] = await db
         .insert(assignments)
         .values({
@@ -106,8 +134,9 @@ export function homeworkRoutes({ db, auth }: Deps) {
           description: b.description || '',
           sampleSolution: b.sample_solution || '',
           rubric: b.rubric || 'Thang điểm 10',
-          kind: isMinna ? 'minna' : 'homework',
+          kind: isMinna ? 'minna' : isTextbook ? 'textbook' : 'homework',
           minnaLesson: isMinna ? lessonNo : null,
+          payload,
           deadline,
           createdBy: req.user.id,
         })
@@ -181,6 +210,75 @@ export function homeworkRoutes({ db, auth }: Deps) {
           gradedByAi: false,
           gradedAt: now,
           submittedAt: now,
+        };
+        const [r] = await tx
+          .insert(submissions)
+          .values({ id: newId('sub'), assignmentId: asg.id, studentId: req.user.id, ...values })
+          .onConflictDoUpdate({ target: [submissions.assignmentId, submissions.studentId], set: values })
+          .returning();
+        return r;
+      });
+      return res.json(submissionDto(row));
+    })
+  );
+
+  // Học viên nộp bài giáo trình; server chấm theo đáp án mẫu. Nộp lại thì thay lần trước.
+  // Câu không khớp đáp án mẫu ghi là "review" để giáo viên xem lại (có thể sửa điểm bằng ô Điểm như bài thường).
+  r.post(
+    '/assignments/:id/textbook-submit',
+    auth.requireAuth,
+    ah(async (req: AuthedRequest, res) => {
+      if (!isStudent(req)) return res.status(403).json({ error: 'Chỉ học viên mới được nộp bài.' });
+      const [asg] = await db.select().from(assignments).where(eq(assignments.id, req.params.id)).limit(1);
+      if (!asg || asg.kind !== 'textbook' || !asg.payload) return res.status(404).json({ error: 'Không tìm thấy bài giáo trình.' });
+      const ids = await enrolledClassIds(db, req.user.id);
+      if (!ids.includes(asg.classId)) return res.status(403).json({ error: 'Bạn không thuộc lớp của bài tập này.' });
+
+      const raw = req.body?.answers;
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return res.status(400).json({ error: 'Thiếu câu trả lời.' });
+      const payload = asg.payload as TextbookPayload;
+      const answers: Record<string, string> = {};
+      for (const ex of payload.exercises) {
+        for (const item of ex.items) {
+          const v = raw[item.key];
+          answers[item.key] = typeof v === 'string' ? v.slice(0, 500) : '';
+        }
+      }
+      const { results, correct, total, score } = gradeTextbook(payload, answers);
+      const review = total - correct;
+
+      const row = await db.transaction(async (tx) => {
+        const [prev] = await tx
+          .select()
+          .from(submissions)
+          .where(and(eq(submissions.assignmentId, asg.id), eq(submissions.studentId, req.user.id)))
+          .limit(1);
+        let attempts = 1;
+        if (prev) {
+          try {
+            attempts = (JSON.parse(prev.content || '{}').attempts ?? 0) + 1;
+          } catch {
+            attempts = 1;
+          }
+        }
+        const now = new Date();
+        const values = {
+          content: JSON.stringify({ kind: 'textbook', attempts, answers, results, correct, total }),
+          status: 'graded' as const,
+          score: String(score),
+          feedback:
+            `Tự chấm: đúng ${correct}/${total} câu.` +
+            (review ? ` ${review} câu chưa khớp đáp án mẫu, giáo viên sẽ xem lại.` : ''),
+          gradedByAi: false,
+          gradedAt: now,
+          submittedAt: now,
+          attachmentUrl: null,
+          rubricBreakdown: null,
+          strengths: null,
+          weaknesses: null,
+          suggestions: null,
+          aiDraft: null,
+          aiDraftAt: null,
         };
         const [r] = await tx
           .insert(submissions)
