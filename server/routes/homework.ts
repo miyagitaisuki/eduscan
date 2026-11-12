@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { and, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
-import { assignments, classes, enrollments, notifications, submissions, textbookLessons, users } from '../db/schema';
+import { assignments, classes, enrollments, notifications, submissions, textbookAudio, textbookLessons, users } from '../db/schema';
 import { assignmentDto, submissionDto } from '../lib/dto';
 import { ah, AuthedRequest, isStudent, todayStr } from '../lib/http';
 import { newId } from '../lib/security';
@@ -13,17 +13,44 @@ import {
   uploadHomeworkAttachment,
 } from '../lib/storage';
 import { canGradeSubmissions, canManageClass, manageableClassIds } from '../lib/access';
-import { gradableExercises, gradeTextbook, publicPayload, TextbookPayload } from '../lib/textbook';
+import {
+  attachAudioUrls,
+  audioCodes,
+  gradableExercises,
+  gradeTextbook,
+  lessonDialogues,
+  publicPayload,
+  TextbookPayload,
+} from '../lib/textbook';
+import { signTextbookAudio } from '../lib/textbookAudio';
 import type { Deps } from './deps';
 import type { AppDb } from '../db/client';
 
-// Học viên không nhận đáp án mẫu của bài giáo trình cho đến khi qua hạn nộp
-function assignmentFor(req: AuthedRequest, a: typeof assignments.$inferSelect, extra: Parameters<typeof assignmentDto>[1] = {}) {
+// Học viên không nhận đáp án mẫu của bài giáo trình cho đến khi qua hạn nộp; kèm link nghe đã ký cho mã ♪ có file
+async function assignmentFor(
+  db: AppDb,
+  req: AuthedRequest,
+  a: typeof assignments.$inferSelect,
+  extra: Parameters<typeof assignmentDto>[1] = {}
+) {
   const dto = assignmentDto(a, extra);
-  if (isStudent(req) && a.kind === 'textbook') {
-    dto.payload = publicPayload(a.payload as TextbookPayload | null, a.deadline.getTime() <= Date.now());
+  if (isStudent(req) && a.kind === 'textbook' && a.payload) {
+    const payload = publicPayload(a.payload as TextbookPayload, a.deadline.getTime() <= Date.now());
+    if (payload) dto.payload = await withAudio(db, payload);
   }
   return dto;
+}
+
+async function withAudio(db: AppDb, payload: TextbookPayload): Promise<TextbookPayload> {
+  const codes = audioCodes(payload);
+  if (codes.length === 0) return attachAudioUrls(payload, new Map());
+  const rows = await db
+    .select({ code: textbookAudio.code, mp3Path: textbookAudio.mp3Path })
+    .from(textbookAudio)
+    .where(and(eq(textbookAudio.book, payload.source.book), inArray(textbookAudio.code, codes)));
+  const urls = new Map<string, string>();
+  for (const r of rows) urls.set(r.code, await signTextbookAudio(r.mp3Path));
+  return attachAudioUrls(payload, urls);
 }
 
 async function enrolledClassIds(db: AppDb, studentId: string) {
@@ -64,8 +91,10 @@ export function homeworkRoutes({ db, auth }: Deps) {
         .groupBy(submissions.assignmentId);
       const countMap = new Map(counts.map((c) => [c.assignmentId, c.n]));
       return res.json(
-        rows.map((row) =>
-          assignmentFor(req, row.a, { class_name: row.className, submitted_count: countMap.get(row.a.id) ?? 0 })
+        await Promise.all(
+          rows.map((row) =>
+            assignmentFor(db, req, row.a, { class_name: row.className, submitted_count: countMap.get(row.a.id) ?? 0 })
+          )
         )
       );
     })
@@ -86,7 +115,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
         const ids = await enrolledClassIds(db, req.user.id);
         if (!ids.includes(row.a.classId)) return res.status(403).json({ error: 'Bạn không thuộc lớp của bài tập này.' });
       }
-      return res.json(assignmentFor(req, row.a, { class_name: row.className }));
+      return res.json(await assignmentFor(db, req, row.a, { class_name: row.className }));
     })
   );
 
@@ -122,6 +151,7 @@ export function homeworkRoutes({ db, auth }: Deps) {
         payload = {
           source: { book: lesson.book, lesson_no: lesson.lessonNo, lesson_id: lesson.id, title_ja: lesson.titleJa, title_vi: lesson.titleVi },
           exercises,
+          dialogues: lessonDialogues(lesson.data),
         };
       }
 

@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { asc, sql } from 'drizzle-orm';
-import { textbookLessons } from '../db/schema';
+import { asc, eq, sql } from 'drizzle-orm';
+import { textbookAudio, textbookLessons } from '../db/schema';
 import { ah, AuthedRequest } from '../lib/http';
 import { newId } from '../lib/security';
 import { gradableExercises, validateLessonFile } from '../lib/textbook';
+import { AUDIO_CODE, uploadTextbookAudio } from '../lib/textbookAudio';
+import { StorageError } from '../lib/storage';
 import type { Deps } from './deps';
 
 // Thư viện giáo trình riêng: giáo viên nhập lesson.json một lần, sau đó giao bài từ đây.
@@ -69,6 +71,52 @@ export function textbookRoutes({ db, auth }: Deps) {
         });
       const exercises = checked.lessons.reduce((n, l) => n + gradableExercises(l).length, 0);
       return res.json({ book, lessons: rows.length, gradable_exercises: exercises });
+    })
+  );
+
+  // Danh sách mã ♪ đã có file của một giáo trình (để giáo viên biết còn thiếu gì)
+  r.get(
+    '/audio',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const book = String(req.query.book ?? '').trim();
+      if (!book) return res.status(400).json({ error: 'Cần tên giáo trình.' });
+      const rows = await db
+        .select({ code: textbookAudio.code, hasSrt: textbookAudio.srtPath, updatedAt: textbookAudio.updatedAt })
+        .from(textbookAudio)
+        .where(eq(textbookAudio.book, book))
+        .orderBy(asc(textbookAudio.code));
+      return res.json(rows.map((x) => ({ code: x.code, has_srt: !!x.hasSrt, updated_at: x.updatedAt.toISOString() })));
+    })
+  );
+
+  // Tải lên một đoạn âm thanh: mp3 (base64) + phụ đề .srt (tùy chọn). Trùng mã thì thay file cũ.
+  r.post(
+    '/audio',
+    auth.requireTeacher,
+    ah(async (req: AuthedRequest, res) => {
+      const book = String(req.body?.book ?? '').trim();
+      const code = String(req.body?.code ?? '').trim();
+      if (!book || book.length > 100) return res.status(400).json({ error: 'Cần tên giáo trình.' });
+      if (!AUDIO_CODE.test(code)) return res.status(400).json({ error: 'Mã âm thanh không hợp lệ (ví dụ 1-01).' });
+      const mp3 = req.body?.mp3_base64;
+      if (typeof mp3 !== 'string' || !mp3) return res.status(400).json({ error: 'Thiếu tệp mp3.' });
+      const srt = typeof req.body?.srt_text === 'string' ? req.body.srt_text : null;
+      try {
+        const { mp3Path, srtPath } = await uploadTextbookAudio(book, code, mp3, srt);
+        const now = new Date();
+        await db
+          .insert(textbookAudio)
+          .values({ id: newId('tba'), book, code, mp3Path, srtPath, updatedBy: req.user.id, updatedAt: now })
+          .onConflictDoUpdate({
+            target: [textbookAudio.book, textbookAudio.code],
+            set: { mp3Path, srtPath, updatedBy: req.user.id, updatedAt: now },
+          });
+        return res.json({ book, code, has_srt: !!srtPath });
+      } catch (err) {
+        if (err instanceof StorageError) return res.status(err.status).json({ error: err.message });
+        throw err;
+      }
     })
   );
 

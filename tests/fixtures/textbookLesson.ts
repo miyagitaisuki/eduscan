@@ -15,6 +15,7 @@ export const LESSON_FILE = {
           part: 'Ⅰ',
           part_title: '〜そうです',
           label: 'A',
+          audio: '1-04',
           instruction: 'Chuyển sang 〜そうです.',
           example: ['{例|れい}）雨です → 雨だそうです。'],
           passage: null,
@@ -28,9 +29,21 @@ export const LESSON_FILE = {
       ],
       reading: {
         title: '読みもの　Bài đọc',
+        audio: '1-05',
         text: '今日は　雨です。',
         questions: [{ n: 1, prompt: '今日は　どんな　天気ですか。', answer: '雨です（{一日中|いちにちじゅう}）。' }],
       },
+      dialogues: [
+        {
+          part: 'Ⅰ',
+          audio: '1-01',
+          situation: '{雨|あめ}の　{話|はなし}',
+          lines: [
+            { n: 1, speaker: 'ミン', text: '明日は{雨|あめ}ですか。' },
+            { n: 2, speaker: 'ゆい', text: 'はい、雨だそうです。' },
+          ],
+        },
+      ],
     },
     { no: 2, title_ja: '第二課', title_vi: 'Bài 2', exercises: [] },
   ],

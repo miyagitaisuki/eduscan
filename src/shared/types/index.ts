@@ -191,12 +191,25 @@ export interface TextbookExercise {
   instruction: string;
   example: string[];
   passage: string | null;
+  /** Mã ♪ của phần nghe / bài đọc */
+  audio?: string | null;
+  /** Link nghe tạm (chỉ học viên nhận, khi đã có file) */
+  audio_url?: string | null;
   items: TextbookItem[];
+}
+
+export interface TextbookDialogue {
+  audio: string | null;
+  part: string | null;
+  situation: string;
+  lines: { n: number | null; speaker: string; text: string }[];
+  audio_url?: string | null;
 }
 
 export interface TextbookPayload {
   source: { book: string; lesson_no: number; lesson_id: string; title_ja: string; title_vi: string };
   exercises: TextbookExercise[];
+  dialogues?: TextbookDialogue[];
   answers_visible?: boolean;
 }
 

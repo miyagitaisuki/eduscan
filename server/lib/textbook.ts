@@ -5,6 +5,15 @@
 export const LESSON_SCHEMA = 'imeji-lesson/1';
 export const READING_ID = 'yomikaki.reading';
 
+export interface TextbookDialogue {
+  audio: string | null;
+  part: string | null;
+  situation: string;
+  lines: { n: number | null; speaker: string; text: string }[];
+  /** Có khi trả cho học viên và đã có file âm thanh */
+  audio_url?: string | null;
+}
+
 export interface TextbookItem {
   key: string; // "<mã bài tập>#<số câu>", duy nhất trong một bài giao
   n: number;
@@ -18,12 +27,17 @@ export interface TextbookExercise {
   instruction: string;
   example: string[];
   passage: string | null;
+  /** Mã ♪ của phần nghe / bài đọc (vd "1-04") */
+  audio?: string | null;
+  audio_url?: string | null;
   items: TextbookItem[];
 }
 
 export interface TextbookPayload {
   source: { book: string; lesson_no: number; lesson_id: string; title_ja: string; title_vi: string };
   exercises: TextbookExercise[];
+  /** Hội thoại của bài (hiện cho học viên kèm nút nghe và lời thoại làm phụ đề) */
+  dialogues?: TextbookDialogue[];
   /** Có trong bản gửi học viên: true khi đáp án mẫu được hiện (đã qua hạn nộp) */
   answers_visible?: boolean;
 }
@@ -52,6 +66,24 @@ export function validateLessonFile(data: any): { lessons: any[] } | { error: str
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
+const codeOrNull = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+/** Hội thoại của bài, đúng thứ tự trong sách; không có đáp án nên học viên xem được. */
+export function lessonDialogues(lesson: any): TextbookDialogue[] {
+  const out: TextbookDialogue[] = [];
+  for (const d of Array.isArray(lesson?.dialogues) ? lesson.dialogues : []) {
+    if (!d || !Array.isArray(d.lines)) continue;
+    out.push({
+      audio: codeOrNull(d.audio),
+      part: codeOrNull(d.part),
+      situation: str(d.situation),
+      lines: d.lines
+        .filter((l: any) => l && typeof l.text === 'string')
+        .map((l: any) => ({ n: Number.isInteger(l.n) ? l.n : null, speaker: str(l.speaker), text: l.text })),
+    });
+  }
+  return out;
+}
 
 function exerciseTitle(ex: any): string {
   const label = str(ex.label);
@@ -73,6 +105,7 @@ export function gradableExercises(lesson: any): TextbookExercise[] {
       instruction: str(src?.instruction),
       example: Array.isArray(src?.example) ? src.example.filter((x: unknown) => typeof x === 'string') : [],
       passage,
+      audio: codeOrNull(src?.audio),
       items: items.map((i, idx) => ({
         key: `${id}#${Number.isInteger(i.n) ? i.n : idx + 1}`,
         n: Number.isInteger(i.n) ? i.n : idx + 1,
@@ -88,7 +121,7 @@ export function gradableExercises(lesson: any): TextbookExercise[] {
   const rd = lesson?.reading;
   if (rd && Array.isArray(rd.questions)) {
     pack(READING_ID, `読みもの　${str(rd.title).replace(/^読みもの[　\s]*/, '') || 'Bài đọc'}`,
-      { instruction: 'Đọc bài và trả lời câu hỏi.' }, rd.questions, str(rd.text) || null);
+      { instruction: 'Đọc bài và trả lời câu hỏi.', audio: rd.audio }, rd.questions, str(rd.text) || null);
   }
   return out;
 }
@@ -103,6 +136,24 @@ export function publicPayload(payload: TextbookPayload | null, revealAnswers: bo
       ...ex,
       items: ex.items.map(({ answer, ...rest }) => (revealAnswers ? { ...rest, answer } : rest)),
     })),
+  };
+}
+
+/** Mọi mã ♪ mà bài cần (hội thoại, phần nghe, bài đọc). */
+export function audioCodes(payload: TextbookPayload): string[] {
+  const codes = [
+    ...(payload.dialogues ?? []).map((d) => d.audio),
+    ...payload.exercises.map((e) => e.audio),
+  ];
+  return [...new Set(codes.filter((c): c is string => !!c))];
+}
+
+/** Gắn link nghe đã ký vào hội thoại và bài tập có mã ♪ (chỉ những mã đã có file). */
+export function attachAudioUrls(payload: TextbookPayload, urls: Map<string, string>): TextbookPayload {
+  return {
+    ...payload,
+    dialogues: (payload.dialogues ?? []).map((d) => ({ ...d, audio_url: d.audio ? urls.get(d.audio) ?? null : null })),
+    exercises: payload.exercises.map((e) => ({ ...e, audio_url: e.audio ? urls.get(e.audio) ?? null : null })),
   };
 }
 

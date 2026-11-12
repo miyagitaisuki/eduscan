@@ -203,6 +203,22 @@ export const textbookLessons = pgTable(
   (t) => [uniqueIndex('unique_textbook_book_lesson').on(t.book, t.lessonNo)]
 );
 
+// Audio bài giáo trình (mp3 + srt) lưu trên Storage bucket riêng; code là mã ♪ trong sách (vd "1-01").
+export const textbookAudio = pgTable(
+  'textbook_audio',
+  {
+    id: text('id').primaryKey(),
+    book: varchar('book', { length: 100 }).notNull(),
+    code: varchar('code', { length: 20 }).notNull(),
+    mp3Path: varchar('mp3_path', { length: 500 }).notNull(),
+    srtPath: varchar('srt_path', { length: 500 }),
+    updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('unique_textbook_audio_book_code').on(t.book, t.code)]
+);
+
 // ---- Attendance ----
 export const attendanceSessions = pgTable(
   'attendance_sessions',

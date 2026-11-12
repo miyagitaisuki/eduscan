@@ -81,12 +81,42 @@ export const TextbookPracticeModal: React.FC<Props> = ({ assignment, submission,
             Đáp án mẫu hiện sau hạn nộp. Câu "chưa khớp" có thể vẫn đúng ý, giáo viên sẽ xem lại.
           </p>
         )}
+        {(payload.dialogues ?? []).length > 0 && (
+          <section className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-900">Hội thoại</h3>
+            {payload.dialogues!.map((d, i) => (
+              <div key={`${d.audio ?? 'dlg'}-${i}`} className="border border-slate-200 rounded-xl p-3 space-y-2">
+                <div className="text-xs font-bold text-slate-700 flex flex-wrap items-center gap-2">
+                  {d.part && <span>{d.part}</span>}
+                  <JaText text={d.situation} />
+                </div>
+                {d.audio_url ? (
+                  <audio controls preload="none" src={d.audio_url} className="w-full" aria-label={`Nghe hội thoại ${d.audio}`} />
+                ) : (
+                  d.audio && <p className="text-xs text-slate-500">Chưa có âm thanh cho đoạn này.</p>
+                )}
+                <div className="text-sm text-slate-800 space-y-1 leading-loose">
+                  {d.lines.map((l, j) => (
+                    <div key={j}>
+                      <span className="text-xs font-bold text-slate-500 mr-1.5">{l.speaker}</span>
+                      <JaText text={l.text} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
         {payload.exercises.map((ex) => (
           <section key={ex.id} className="space-y-2">
             <h3 className="text-sm font-bold text-slate-900">
               <JaText text={ex.title} />
             </h3>
             {ex.instruction && <p className="text-xs text-slate-700">{ex.instruction}</p>}
+            {ex.audio_url && (
+              <audio controls preload="none" src={ex.audio_url} className="w-full" aria-label={`Nghe ${ex.title}`} />
+            )}
             {ex.example.length > 0 && (
               <div className="text-sm text-slate-600 bg-slate-50 rounded-xl p-2.5 space-y-0.5">
                 {ex.example.map((line, i) => (

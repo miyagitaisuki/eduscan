@@ -72,6 +72,20 @@ export const homeworkService = {
     return apiClient.post('/textbook/import', { book, data });
   },
 
+  // Âm thanh bài giáo trình: danh sách mã ♪ đã có file, tải lên từng đoạn
+  async getTextbookAudio(book: string): Promise<{ code: string; has_srt: boolean; updated_at: string }[]> {
+    return apiClient.get(`/textbook/audio?book=${encodeURIComponent(book)}`);
+  },
+
+  async uploadTextbookAudio(
+    book: string,
+    code: string,
+    mp3Base64: string,
+    srtText: string | null
+  ): Promise<{ code: string; has_srt: boolean }> {
+    return apiClient.post('/textbook/audio', { book, code, mp3_base64: mp3Base64, srt_text: srtText });
+  },
+
   // Giáo viên ghi nhận thủ công bài nộp/điểm của một học viên
   async recordSubmission(data: {
     assignment_id: string;
