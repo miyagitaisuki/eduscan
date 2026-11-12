@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { Assignment, AssignmentInput, GradeInput, Submission } from '../shared/types';
+import { Assignment, AssignmentInput, GradeInput, Submission, TextbookLessonSummary } from '../shared/types';
 
 export const homeworkService = {
   async getAssignments(classId?: string): Promise<Assignment[]> {
@@ -56,6 +56,34 @@ export const homeworkService = {
     data: { lesson_no: number; game?: number; total: number; correct: number }
   ): Promise<Submission> {
     return apiClient.post<Submission>(`/assignments/${assignmentId}/minna-result`, data);
+  },
+
+  // Nộp bài giáo trình; server tự chấm theo đáp án mẫu
+  async submitTextbook(assignmentId: string, answers: Record<string, string>): Promise<Submission> {
+    return apiClient.post<Submission>(`/assignments/${assignmentId}/textbook-submit`, { answers });
+  },
+
+  // Thư viện giáo trình (giáo viên)
+  async getTextbookLessons(): Promise<TextbookLessonSummary[]> {
+    return apiClient.get<TextbookLessonSummary[]>('/textbook/lessons');
+  },
+
+  async importTextbook(book: string, data: unknown): Promise<{ book: string; lessons: number; gradable_exercises: number }> {
+    return apiClient.post('/textbook/import', { book, data });
+  },
+
+  // Âm thanh bài giáo trình: danh sách mã ♪ đã có file, tải lên từng đoạn
+  async getTextbookAudio(book: string): Promise<{ code: string; has_srt: boolean; updated_at: string }[]> {
+    return apiClient.get(`/textbook/audio?book=${encodeURIComponent(book)}`);
+  },
+
+  async uploadTextbookAudio(
+    book: string,
+    code: string,
+    mp3Base64: string,
+    srtText: string | null
+  ): Promise<{ code: string; has_srt: boolean }> {
+    return apiClient.post('/textbook/audio', { book, code, mp3_base64: mp3Base64, srt_text: srtText });
   },
 
   // Giáo viên ghi nhận thủ công bài nộp/điểm của một học viên

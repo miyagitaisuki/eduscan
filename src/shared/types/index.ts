@@ -167,9 +167,71 @@ export interface AssignmentInput {
   description: string;
   /** YYYY-MM-DD */
   deadline: string;
-  /** 'minna' = bài luyện tập Minna no Nihongo (cần minna_lesson 1-50) */
-  kind?: 'homework' | 'minna';
+  /** 'minna' = bài luyện tập Minna no Nihongo (cần minna_lesson 1-50); 'textbook' = bài giáo trình tự chấm */
+  kind?: AssignmentKind;
   minna_lesson?: number;
+  /** kind 'textbook': bài trong thư viện giáo trình và các bài tập được chọn (bỏ trống = mọi bài tự chấm được) */
+  textbook_lesson_id?: string;
+  exercise_ids?: string[];
+}
+
+export type AssignmentKind = 'homework' | 'minna' | 'textbook';
+
+/** Một câu của bài giáo trình; furigana viết {漢字|かな}. answer chỉ có với giáo viên hoặc sau hạn nộp. */
+export interface TextbookItem {
+  key: string;
+  n: number;
+  prompt: string;
+  answer?: string | null;
+}
+
+export interface TextbookExercise {
+  id: string;
+  title: string;
+  instruction: string;
+  example: string[];
+  passage: string | null;
+  /** Mã ♪ của phần nghe / bài đọc */
+  audio?: string | null;
+  /** Link nghe tạm (chỉ học viên nhận, khi đã có file) */
+  audio_url?: string | null;
+  items: TextbookItem[];
+}
+
+export interface TextbookDialogue {
+  audio: string | null;
+  part: string | null;
+  situation: string;
+  lines: { n: number | null; speaker: string; text: string }[];
+  audio_url?: string | null;
+}
+
+export interface TextbookPayload {
+  source: { book: string; lesson_no: number; lesson_id: string; title_ja: string; title_vi: string };
+  exercises: TextbookExercise[];
+  dialogues?: TextbookDialogue[];
+  answers_visible?: boolean;
+}
+
+/** Bài trong thư viện giáo trình (GET /api/textbook/lessons) */
+export interface TextbookLessonSummary {
+  id: string;
+  book: string;
+  lesson_no: number;
+  title_ja: string;
+  title_vi: string;
+  updated_at: string;
+  exercises: { id: string; title: string; count: number }[];
+}
+
+/** submissions.content của bài giáo trình */
+export interface TextbookSubmissionContent {
+  kind: 'textbook';
+  attempts: number;
+  answers: Record<string, string>;
+  results: Record<string, 'correct' | 'review'>;
+  correct: number;
+  total: number;
 }
 
 /** Chấm điểm / nhận xét một bài nộp; không có score thì chỉ lưu nhận xét */
@@ -191,8 +253,9 @@ export interface Assignment {
   description: string;
   sample_solution?: string;
   rubric?: string;
-  kind?: 'homework' | 'minna';
+  kind?: AssignmentKind;
   minna_lesson?: number | null;
+  payload?: TextbookPayload | null;
   deadline: string;
   created_by?: string;
   created_at: string;

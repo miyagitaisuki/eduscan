@@ -30,6 +30,7 @@ import {
   Lesson,
 } from '../../../shared/types';
 import { MinnaPracticeModal } from './MinnaPracticeModal';
+import { TextbookPracticeModal } from './TextbookPracticeModal';
 import { LessonScheduleModal } from '../../schedule';
 import { shortLessonDate } from '../../../shared/utils/lessonDates';
 import { Modal } from '../../../shared/components/ui';
@@ -91,6 +92,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
 
   // Student specific records
   const [minnaAssignment, setMinnaAssignment] = useState<Assignment | null>(null);
+  const [textbookAssignment, setTextbookAssignment] = useState<Assignment | null>(null);
   // Điểm vừa ghi trong phiên này, hiển thị ngay trước khi danh sách được tải lại
   const [freshSubs, setFreshSubs] = useState<Submission[]>([]);
   const mySubmissions = [
@@ -342,7 +344,14 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                       <h5 className="text-xs font-bold text-slate-900 truncate">{asg.title}</h5>
                     </div>
 
-                    {asg.kind === 'minna' ? (
+                    {asg.kind === 'textbook' ? (
+                      <button
+                        onClick={() => setTextbookAssignment(asg)}
+                        className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold cursor-pointer shrink-0"
+                      >
+                        {isGraded ? `${sub?.score}đ • Làm lại` : 'Làm bài'}
+                      </button>
+                    ) : asg.kind === 'minna' ? (
                       <button
                         onClick={() => setMinnaAssignment(asg)}
                         className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-xs font-bold cursor-pointer shrink-0"
@@ -515,7 +524,14 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                       <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200/50">
                         <span>Hạn nộp: <strong className="text-slate-800">{asg.deadline.split('T')[0]}</strong></span>
                         
-                        {asg.kind === 'minna' ? (
+                        {asg.kind === 'textbook' ? (
+                          <button
+                            onClick={() => setTextbookAssignment(asg)}
+                            className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-bold shadow-md cursor-pointer transition-all"
+                          >
+                            {isGraded ? `Điểm: ${sub?.score}/10 • Xem / làm lại` : 'Làm bài giáo trình'}
+                          </button>
+                        ) : asg.kind === 'minna' ? (
                           <button
                             onClick={() => setMinnaAssignment(asg)}
                             className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-bold shadow-md cursor-pointer transition-all"
@@ -551,6 +567,15 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
           <MinnaPracticeModal
             assignment={minnaAssignment}
             onClose={() => setMinnaAssignment(null)}
+            onResult={(sub) => setFreshSubs((prev) => [sub, ...prev.filter((p) => p.assignment_id !== sub.assignment_id)])}
+          />
+        )}
+
+        {textbookAssignment && (
+          <TextbookPracticeModal
+            assignment={textbookAssignment}
+            submission={mySubmissions.find((s) => s.assignment_id === textbookAssignment.id) ?? null}
+            onClose={() => setTextbookAssignment(null)}
             onResult={(sub) => setFreshSubs((prev) => [sub, ...prev.filter((p) => p.assignment_id !== sub.assignment_id)])}
           />
         )}

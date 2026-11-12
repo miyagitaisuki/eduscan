@@ -12,13 +12,15 @@ import {
   Loader2,
   Paperclip
 } from 'lucide-react';
-import { Student, ClassItem, AiDraft, Assignment, AssignmentInput, GradeInput, Submission } from '../../../shared/types';
+import { Student, ClassItem, AiDraft, Assignment, AssignmentInput, AssignmentKind, GradeInput, Submission } from '../../../shared/types';
 import { isSubmitted as hasSubmitted } from '../../../shared/utils/submission';
 import { addDaysLocal, localDateOf } from '../../../shared/utils/date';
 import { Modal, useConfirm } from '../../../shared/components/ui';
 import { aiService } from '../../../services/aiService';
 import { classService } from '../../../services/classService';
 import { SubmissionAttachmentsModal } from './SubmissionAttachmentsModal';
+import { TextbookAssignFields, TextbookPick } from './TextbookAssignFields';
+import { TextbookSubmissionDetail } from './TextbookSubmissionDetail';
 
 interface HomeworkManagementViewProps {
   assignments: Assignment[];
@@ -61,7 +63,8 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newClassId, setNewClassId] = useState(classes[0]?.id || '');
-  const [newKind, setNewKind] = useState<'homework' | 'minna'>('homework');
+  const [newKind, setNewKind] = useState<AssignmentKind>('homework');
+  const [textbookPick, setTextbookPick] = useState<TextbookPick | null>(null);
   const [newLesson, setNewLesson] = useState(1);
   const [newDeadline, setNewDeadline] = useState(addDaysLocal(7));
 
@@ -103,13 +106,19 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const isMinna = newKind === 'minna';
-    const title = newTitle.trim() || (isMinna ? `Luyện tập Minna bài ${newLesson}` : '');
+    const isTextbook = newKind === 'textbook';
+    if (isTextbook && !textbookPick?.exerciseIds.length) return;
+    const title =
+      newTitle.trim() ||
+      (isMinna ? `Luyện tập Minna bài ${newLesson}` : isTextbook && textbookPick ? textbookPick.defaultTitle : '');
     if (!title) return;
     onCreateAssignment({
       class_id: newClassId,
       title,
       kind: newKind,
       minna_lesson: isMinna ? newLesson : undefined,
+      textbook_lesson_id: isTextbook ? textbookPick?.lessonId : undefined,
+      exercise_ids: isTextbook ? textbookPick?.exerciseIds : undefined,
       description: newDesc.trim(),
       deadline: newDeadline,
     });
@@ -516,6 +525,10 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
                         />
                       </div>
 
+                      {activeAssignment.kind === 'textbook' && sub && (
+                        <TextbookSubmissionDetail assignment={activeAssignment} submission={sub} />
+                      )}
+
                       {/* Bản nháp AI: chỉ thành điểm khi giáo viên bấm duyệt */}
                       {sub?.ai_draft && (
                         <div className="mt-3 p-3 rounded-xl border border-accent-200 bg-accent-50/60 space-y-2">
@@ -599,12 +612,14 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="homework-kind">Loại bài</label>
               <select id="homework-kind"
                 value={newKind}
-                onChange={(e) => setNewKind(e.target.value as 'homework' | 'minna')}
+                onChange={(e) => setNewKind(e.target.value as AssignmentKind)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold bg-white"
               >
                 <option value="homework">Bài tập thường (học viên nộp bài)</option>
                 <option value="minna">Luyện tập Minna (tự ghi điểm)</option>
+                <option value="textbook">Bài giáo trình (tự chấm)</option>
               </select>
+              {newKind === 'textbook' && <TextbookAssignFields onChange={setTextbookPick} />}
               {newKind === 'minna' && (
                 <select aria-label="Bài Minna"
                   value={newLesson}
@@ -661,7 +676,8 @@ export const HomeworkManagementView: React.FC<HomeworkManagementViewProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md shadow-primary-500/20 cursor-pointer"
+                disabled={newKind === 'textbook' && !textbookPick?.exerciseIds.length}
+                className="disabled:opacity-50 px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md shadow-primary-500/20 cursor-pointer"
               >
                 Tạo & Giao bài
               </button>

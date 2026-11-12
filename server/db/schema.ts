@@ -138,9 +138,12 @@ export const assignments = pgTable(
     description: text('description'),
     sampleSolution: text('sample_solution'),
     rubric: text('rubric'),
-    // 'homework' = bài tập thường; 'minna' = luyện tập Minna no Nihongo (dominion), tự ghi điểm
+    // 'homework' = bài tập thường; 'minna' = luyện tập Minna no Nihongo (dominion), tự ghi điểm;
+    // 'textbook' = bài tập giáo trình riêng, server tự chấm theo đáp án trong payload
     kind: varchar('kind', { length: 20 }).notNull().default('homework'),
     minnaLesson: integer('minna_lesson'),
+    // Bản chụp các bài tập giáo trình lúc giao (kind 'textbook'); nhập lại giáo trình không đổi bài đã giao
+    payload: jsonb('payload'),
     deadline: timestamp('deadline', { withTimezone: true }).notNull(),
     createdBy: text('created_by')
       .notNull()
@@ -180,6 +183,40 @@ export const submissions = pgTable(
     uniqueIndex('unique_submission_student_assignment').on(t.assignmentId, t.studentId),
     index('idx_submissions_student').on(t.studentId),
   ]
+);
+
+// Giáo trình riêng nhập từ lesson.json (demix/giaotrinh, schema imeji-lesson/1); mỗi dòng là một bài.
+// Nhập lại cùng (book, lesson_no) thì ghi đè nội dung.
+export const textbookLessons = pgTable(
+  'textbook_lessons',
+  {
+    id: text('id').primaryKey(),
+    book: varchar('book', { length: 100 }).notNull(),
+    lessonNo: integer('lesson_no').notNull(),
+    titleJa: text('title_ja').notNull().default(''),
+    titleVi: text('title_vi').notNull().default(''),
+    data: jsonb('data').notNull(),
+    updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('unique_textbook_book_lesson').on(t.book, t.lessonNo)]
+);
+
+// Audio bài giáo trình (mp3 + srt) lưu trên Storage bucket riêng; code là mã ♪ trong sách (vd "1-01").
+export const textbookAudio = pgTable(
+  'textbook_audio',
+  {
+    id: text('id').primaryKey(),
+    book: varchar('book', { length: 100 }).notNull(),
+    code: varchar('code', { length: 20 }).notNull(),
+    mp3Path: varchar('mp3_path', { length: 500 }).notNull(),
+    srtPath: varchar('srt_path', { length: 500 }),
+    updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('unique_textbook_audio_book_code').on(t.book, t.code)]
 );
 
 // ---- Attendance ----

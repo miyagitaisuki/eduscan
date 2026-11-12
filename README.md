@@ -118,9 +118,21 @@ Header có **thanh chuyển 3 app** dùng chung với website và trang luyện 
 - Chỉ lấy lớp có **Ngày bắt đầu** từ hôm nay trở đi. Không có tên lớp, giáo viên, phòng, học phí hay học viên. Muốn website hiện ngày khai giảng mới, chỉ cần đặt ngày bắt đầu và lịch lặp cho lớp (nút **Lịch** trên thẻ lớp).
 - Website (imejiquynhon.com) đọc endpoint này lúc người xem mở trang; khi eduscan chậm hoặc chưa có lớp sắp khai giảng thì dùng giá trị mặc định trong `siteInfo.ts`.
 
+## Bài tập giáo trình riêng (tự chấm)
+
+Giáo trình riêng soạn bằng Word được chuyển thành `lesson.json` bằng công cụ ở repo demix (`giaotrinh/`, `python -m gtlesson GIAOTRINH.docx -o out`). eduscan chỉ **nhận** file này; muốn sửa nội dung bài thì sửa bản Word rồi nhập lại.
+
+- **Thư viện giáo trình** (bảng `textbook_lessons`, mỗi dòng một bài, khóa `book + lesson_no`): giáo viên nhập trong form "Giao bài tập mới" → Loại bài "Bài giáo trình (tự chấm)" → "Nhập hoặc cập nhật giáo trình". Nhập lại cùng tên giáo trình thì ghi đè nội dung bài. API: `POST /api/textbook/import` `{ book, data }`, `GET /api/textbook/lessons` (chỉ giáo viên/admin).
+- **Giao bài:** `POST /api/assignments` với `kind: 'textbook'`, `textbook_lesson_id`, `exercise_ids` (bỏ trống = mọi bài tập tự chấm được). Chỉ bài tập có câu hỏi và đủ đáp án (phụ lục đáp án của sách) mới chọn được; khảo sát, viết đoạn văn thì giao như bài thường. Các câu và đáp án được **chụp vào `assignments.payload`** lúc giao, nên nhập lại giáo trình không làm đổi bài đã giao.
+- **Học viên** làm bài ngay trong cổng (furigana hiện bằng ruby). Đáp án mẫu không gửi cho học viên trước hạn nộp. Nộp lại được nhiều lần, lần sau thay lần trước và đếm số lượt.
+- **Chấm** ở server (`server/lib/textbook.ts`): bỏ khoảng trắng, dấu câu, khác biệt chữ toàn/nửa độ rộng; chữ có furigana trong đáp án viết bằng chữ Hán hoặc kana đều được; phần giải thích trong ngoặc （…） của đáp án là tùy chọn. Sách thường chỉ ghi phần biến đổi (`物産展が　あるそうです`), nên câu đầy đủ cũng được tính đúng khi phần đứng trước chép đúng phần đầu của đề và dừng đúng chỗ đáp án bắt đầu. Câu không khớp ghi "cần xem lại" (không phải "sai"): điểm tự động = số câu khớp / tổng × 10, giáo viên xem từng câu trong mục "Bài làm" và sửa điểm bằng ô Điểm như bài thường.
+- **Âm thanh (♪):** file mp3 đặt tên theo mã ♪ trong sách (`1-01.mp3` hội thoại, `1-04.mp3` phần nghe, `1-05.mp3` bài đọc), có thể kèm `1-01.srt`. Giáo viên tải lên ở form giao bài (mục "Âm thanh"); bảng `textbook_audio` giữ đường dẫn, file nằm trong bucket Storage **`textbook-audio` (private, phải tạo trước trên Supabase)**. Học viên nhận link nghe ký tạm 1 giờ trong `payload.dialogues[].audio_url` và `payload.exercises[].audio_url`. Hội thoại luôn kèm bài giao và hiện lời thoại làm phụ đề dưới trình phát. API: `POST /api/textbook/audio` `{book, code, mp3_base64, srt_text}`, `GET /api/textbook/audio?book=`.
+- Giới hạn: câu trả lời tự do (đọc hiểu) diễn đạt khác đáp án mẫu sẽ rơi vào "cần xem lại"; chưa có ruby trong ô nhập.
+
 ## Sao lưu
 
 - **Lớp chính:** sao lưu tự động của Supabase (gói có sao lưu hằng ngày/PITR). Kiểm tra gói đang dùng có bật tính năng này.
+- Sao lưu JSON có cả thư viện giáo trình (`textbook_lessons`).
 - **Lớp bổ sung:** workflow `.github/workflows/backup.yml` chạy `pg_dump` hằng ngày, cần secret `SUPABASE_DB_URL`.
 - **Sao lưu thủ công:** admin bấm "Sao lưu" trên thanh công cụ để tải file JSON. File này chứa băm mật khẩu, cần cất giữ như dữ liệu nhạy cảm. "Phục hồi" thay thế toàn bộ dữ liệu và yêu cầu xác nhận.
 

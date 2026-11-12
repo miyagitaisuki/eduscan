@@ -10,6 +10,8 @@ import type { Deps } from './deps';
 const TABLES = [
   ['users', s.users],
   ['leads', s.leads],
+  ['textbook_lessons', s.textbookLessons],
+  ['textbook_audio', s.textbookAudio],
   ['classes', s.classes],
   ['enrollments', s.enrollments],
   ['lessons', s.lessons],
@@ -27,6 +29,8 @@ const TABLES = [
 const TIMESTAMP_FIELDS: Record<string, Set<string>> = {
   users: new Set(['createdAt']),
   leads: new Set(['createdAt', 'consentAt']),
+  textbook_lessons: new Set(['createdAt', 'updatedAt']),
+  textbook_audio: new Set(['createdAt', 'updatedAt']),
   classes: new Set(['createdAt']),
   enrollments: new Set(['createdAt']),
   lessons: new Set(['createdAt']),
