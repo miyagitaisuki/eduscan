@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { gradableExercises, gradeTextbook, isCorrect, publicPayload, validateLessonFile } from '../../server/lib/textbook';
+import {
+  gradableExercises,
+  gradeTextbook,
+  isCorrect,
+  isFreeTextAnswer,
+  isFreeTextCorrect,
+  keywordCoverage,
+  publicPayload,
+  validateLessonFile,
+} from '../../server/lib/textbook';
 import { LESSON_FILE } from '../fixtures/textbookLesson';
 
 describe('chấm bài giáo trình', () => {
@@ -61,5 +70,32 @@ describe('chấm bài giáo trình', () => {
     expect(validateLessonFile({ schema: 'x', lessons: [] })).toHaveProperty('error');
     expect(validateLessonFile({ ...LESSON_FILE, lessons: [{ no: 1 }, { no: 1 }] })).toHaveProperty('error');
     expect(validateLessonFile(LESSON_FILE)).toHaveProperty('lessons');
+  });
+});
+
+describe('câu trả lời tự do (đọc hiểu)', () => {
+  const answer = '北海道の{物産展|ぶっさんてん}です。';
+  it('nhận biết câu tự do và câu điền từ ngắn', () => {
+    expect(isFreeTextAnswer(answer)).toBe(true);
+    expect(isFreeTextAnswer('雨です')).toBe(false);
+  });
+  it('đúng khi chứa phần lớn từ khóa, dù viết bằng kana hay thêm từ', () => {
+    expect(keywordCoverage('物産展です', answer)).toBe(0.5);
+    expect(keywordCoverage('北海道の物産展です', answer)).toBe(1);
+    expect(keywordCoverage('北海道のぶっさんてんです', answer)).toBe(1);
+    expect(gradeTextbook({ source: {} as any, exercises: [{ id: 'x', title: '', instruction: '', example: [], passage: null, items: [{ key: 'x#1', n: 1, prompt: '何が開かれますか', answer }] }] } as any, { 'x#1': '北海道のぶっさんてんです' }).correct).toBe(1);
+  });
+  it('phải có mẫu ngữ pháp kana của đáp án (そうです)', () => {
+    const a2 = 'ジョンくんは{忙|いそが}しいそうです。';
+    expect(isFreeTextCorrect('ジョンくんは忙しいです', a2)).toBe(false);
+    expect(isFreeTextCorrect('ジョンくんは忙しいそうです', a2)).toBe(true);
+    expect(isFreeTextCorrect('ジョンくんはいそがしいそうです', a2)).toBe(true);
+  });
+  it('sai khi thiếu từ khóa hoặc trả lời lạc đề', () => {
+    expect(keywordCoverage('東京のデパートです', answer)).toBe(0);
+    expect(keywordCoverage('', answer)).toBe(0);
+  });
+  it('câu điền từ ngắn vẫn chấm chặt', () => {
+    expect(isCorrect('雨が', '雨です')).toBe(false);
   });
 });
