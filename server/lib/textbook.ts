@@ -232,6 +232,53 @@ export function isCorrect(given: string, answer: string, prompt = ''): boolean {
   return false;
 }
 
+// Câu trả lời tự do (đọc hiểu, câu hỏi dài). Đáp án được chấm theo hai phần:
+// - từ khóa: chữ Hán, katakana, số, chữ Latin; chữ có furigana nhận thêm cách đọc. Cần đủ ≥ 60%.
+// - mẫu ngữ pháp: cụm kana dài ≥ 2 (vd "そう", "しいそう") sau khi bỏ đuôi です/ます. Cần có đủ.
+// Đây là heuristic: giáo viên vẫn xem lại các câu được đánh dấu.
+export const FREE_TEXT_MIN_TOKENS = 2;
+export const FREE_TEXT_COVERAGE = 0.6;
+const TOKEN = /[\p{Script=Han}々〆ヶ]+|[\p{Script=Katakana}ー]+|[0-9]+|[A-Za-z]+/gu;
+const KANA_RUN = /[\p{Script=Hiragana}]+/gu;
+const POLITE_SUFFIX = /(でした|ました|です|ます|だ)$/u;
+
+function contentTokens(answer: string): { tokens: string[]; grammar: string[]; readings: Map<string, string> } {
+  const readings = new Map<string, string>();
+  for (const m of answer.matchAll(RUBY)) readings.set(normalizeAnswer(m[1]), normalizeAnswer(m[2]));
+  const plain = answer.replace(RUBY, '$1').normalize('NFKC');
+  const tokens = [...new Set([...plain.matchAll(TOKEN)].map((m) => normalizeAnswer(m[0])).filter(Boolean))];
+  const grammar: string[] = [];
+  for (const m of plain.matchAll(KANA_RUN)) {
+    let g = m[0];
+    while (POLITE_SUFFIX.test(g)) g = g.replace(POLITE_SUFFIX, '');
+    if (g.length >= 2) grammar.push(g);
+  }
+  return { tokens, grammar: [...new Set(grammar)], readings };
+}
+
+/** Đáp án có đủ nhiều từ khóa để coi là câu tự do (không chấm từng chữ). */
+export function isFreeTextAnswer(answer: string): boolean {
+  return contentTokens(answer).tokens.length >= FREE_TEXT_MIN_TOKENS;
+}
+
+/** Tỷ lệ từ khóa của đáp án mẫu có mặt trong câu trả lời (0..1). */
+export function keywordCoverage(given: string, answer: string): number {
+  const g = normalizeAnswer(given);
+  const { tokens, readings } = contentTokens(answer);
+  if (!g || tokens.length === 0) return 0;
+  const hit = tokens.filter((t) => g.includes(t) || (readings.has(t) && g.includes(readings.get(t)!))).length;
+  return hit / tokens.length;
+}
+
+/** Câu tự do đúng khi đủ từ khóa VÀ có đủ mẫu ngữ pháp kana của đáp án mẫu. */
+export function isFreeTextCorrect(given: string, answer: string): boolean {
+  const g = normalizeAnswer(given);
+  if (!g) return false;
+  const { grammar } = contentTokens(answer);
+  if (grammar.some((p) => !g.includes(normalizeAnswer(p)))) return false;
+  return keywordCoverage(given, answer) >= FREE_TEXT_COVERAGE;
+}
+
 export function gradeTextbook(payload: TextbookPayload, answers: Record<string, string>) {
   const results: Record<string, ItemResult> = {};
   let correct = 0;
@@ -239,7 +286,11 @@ export function gradeTextbook(payload: TextbookPayload, answers: Record<string, 
   for (const ex of payload.exercises) {
     for (const item of ex.items) {
       total += 1;
-      const ok = isCorrect(answers[item.key] ?? '', item.answer ?? '', item.prompt);
+      const given = answers[item.key] ?? '';
+      const answer = item.answer ?? '';
+      const ok =
+        isCorrect(given, answer, item.prompt) ||
+        (isFreeTextAnswer(answer) && isFreeTextCorrect(given, answer));
       results[item.key] = ok ? 'correct' : 'review';
       if (ok) correct += 1;
     }
