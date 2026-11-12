@@ -75,6 +75,8 @@ export function createApp({ db, config, ai = null }: CreateAppOptions) {
   for (const publicPath of ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password']) {
     app.use(publicPath, express.json({ limit: '8kb' }));
   }
+  // BUG-01 fix: cap restore payload at 5 MB to prevent memory exhaustion via large uploads.
+  app.use('/api/admin/restore', express.json({ limit: '5mb' }));
   app.use(express.json({ limit: '25mb' }));
 
   app.get('/api/health', (_req, res) => {

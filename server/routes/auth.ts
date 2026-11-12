@@ -25,6 +25,8 @@ const MAX_FAILURES = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 const failures = new Map<string, { count: number; resetAt: number }>();
 
+// BUG-06 fix: Dọn dẹp bộ đếm đăng nhập thất bại định kỳ để tránh rò rỉ bộ nhớ.
+// LƯU Ý: Map trong bộ nhớ này reset khi restart và không chia sẻ giữa các process replica (PM2/Cloud Run).
 function cleanupFailures() {
   const now = Date.now();
   for (const [k, v] of failures) if (v.resetAt <= now) failures.delete(k);

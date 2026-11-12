@@ -91,7 +91,7 @@ export function adminRoutes({ db, auth }: Deps) {
         return res.status(400).json({ error: 'Dữ liệu sao lưu không hợp lệ: phải có ít nhất một tài khoản admin.' });
       }
 
-      // Xác thực cấu trúc của từng bảng trước khi xóa DB
+      // Xác thực cấu trúc của từng bảng trước khi xóa DB (BUG-01 whitelist validation)
       const tableMap = new Map<string, any>(TABLES);
       for (const [key, val] of Object.entries(data.tables)) {
         if (!tableMap.has(key)) {

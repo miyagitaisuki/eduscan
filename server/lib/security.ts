@@ -10,9 +10,13 @@ export function hashPassword(password: string): string {
 
 export function verifyPassword(password: string, stored: string): boolean {
   if (typeof stored !== 'string' || !stored.startsWith(HASH_PREFIX)) return false;
-  const parts = stored.split('$');
-  if (parts.length !== 3) return false;
-  const [, salt, hash] = parts;
+  // BUG-05 fix: avoid split('$') which may produce unexpected parts if future formats contain '$'.
+  // Use indexOf on the payload after prefix to safely extract salt and hash.
+  const withoutPrefix = stored.slice(HASH_PREFIX.length);
+  const dollarIdx = withoutPrefix.indexOf('$');
+  if (dollarIdx === -1) return false;
+  const salt = withoutPrefix.slice(0, dollarIdx);
+  const hash = withoutPrefix.slice(dollarIdx + 1);
   // Hash hỏng/rỗng không được làm route đăng nhập ném lỗi 500
   if (!salt || !hash || hash.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hash)) return false;
   try {
